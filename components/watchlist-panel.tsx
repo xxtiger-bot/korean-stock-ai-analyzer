@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { EmptyState } from "@/components/ui-states";
+import { WatchlistDangerWarnings } from "@/components/watchlist-danger-warnings";
 import { WatchlistPriority } from "@/components/watchlist-priority";
 import { useWatchlist } from "@/components/watchlist-provider";
 import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
@@ -120,6 +121,7 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
           ))
         )}
       </div>
+      <WatchlistDangerWarnings stocks={selected} />
       <WatchlistPriority stocks={safeStocks} />
     </aside>
   );

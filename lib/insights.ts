@@ -19,7 +19,7 @@ export type SignalSeverity = "low" | "medium" | "high" | "extreme";
 export type OpportunityCategory =
   | "거래량 이상"
   | "추세 돌파"
-  | "과매도 반등"
+  | "침체 반등"
   | "고위험 추격"
   | "수급 관심";
 
@@ -87,6 +87,34 @@ export type TradingPlan = {
   periodLabel: string;
 };
 
+export type PotentialLevel =
+  | "강한 잠재 후보"
+  | "관찰 가치 있음"
+  | "중립 관찰"
+  | "잠재 신호 약함";
+
+export type PotentialRadarItem = {
+  stock: Stock;
+  score: number;
+  level: PotentialLevel;
+  reasons: string[];
+  observationPoints: string[];
+  riskLevel: RiskLevel;
+  dataSource: string;
+  updatedAt: string;
+};
+
+export type DangerWarningItem = {
+  stock: Stock;
+  score: number;
+  level: RiskLevel;
+  signals: string[];
+  cautionReason: string;
+  recheckCriteria: string;
+  dataSource: string;
+  updatedAt: string;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -112,6 +140,13 @@ function translateMacdSignal(signal: Stock["macdSignal"]) {
   if (signal === "bullish") return "강세";
   if (signal === "dead_cross") return "데드크로스";
   return "약세";
+}
+
+function getDailyCloseSource(stock: Stock) {
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  return tags.some((tag) => tag.toLowerCase() === "data.go.kr")
+    ? "data.go.kr 일별 종가"
+    : "일별 종가 데이터";
 }
 
 function maGap(stock: Stock, period: "ma5" | "ma20" | "ma60") {
@@ -217,11 +252,11 @@ export function getOpportunitySignals(stock: Stock): OpportunitySignal[] {
   if (rsi <= 42 && recentChangeRate > -1) {
     signals.push({
       id: "rsi_rebound",
-      label: "RSI 과매도 반등",
-      category: "과매도 반등",
+      label: "RSI 침체 반등",
+      category: "침체 반등",
       severity: "medium",
       reason: `RSI ${rsi.toFixed(1)}에서 반등 가능 구간`,
-      aiComment: "낙폭 이후 매도 압력이 둔화되는지 볼 수 있는 위치입니다.",
+      aiComment: "낙폭 이후 하락 압력이 둔화되는지 볼 수 있는 위치입니다.",
       observationFocus: "RSI 45 회복과 거래량 동반 여부 확인"
     });
   }
@@ -436,7 +471,7 @@ export function getOpportunityCategoryCounts(items: OpportunityRadarItem[]) {
   const categories: OpportunityCategory[] = [
     "거래량 이상",
     "추세 돌파",
-    "과매도 반등",
+    "침체 반등",
     "고위험 추격",
     "수급 관심"
   ];
@@ -467,7 +502,7 @@ export function getIndicatorTranslations(stock: Stock, latest?: TechnicalPoint):
         rsi >= 70
           ? `RSI ${rsi.toFixed(0)}: 단기 과열권에 가까워 추격 관찰 위험이 높아집니다.`
           : rsi <= 35
-            ? `RSI ${rsi.toFixed(0)}: 매도 압력이 컸던 구간으로 반등 확인이 필요합니다.`
+            ? `RSI ${rsi.toFixed(0)}: 하락 압력이 컸던 구간으로 반등 확인이 필요합니다.`
             : `RSI ${rsi.toFixed(0)}: 과열과 침체 사이의 중립 구간입니다.`,
       riskMeaning:
         rsi >= 70
@@ -574,6 +609,198 @@ export function createTradingPlan(
       "ko-KR"
     )}원, 참고 관찰 저항위 ${resistancePrice.toLocaleString("ko-KR")}원을 기준으로 흔들림 범위를 확인합니다.`
   };
+}
+
+export function getPotentialLevel(score: number): PotentialLevel {
+  if (score >= 80) return "강한 잠재 후보";
+  if (score >= 60) return "관찰 가치 있음";
+  if (score >= 40) return "중립 관찰";
+  return "잠재 신호 약함";
+}
+
+export function getDangerRiskLevel(score: number): RiskLevel {
+  if (score >= 81) return "매우 높음";
+  if (score >= 61) return "높음";
+  if (score >= 31) return "보통";
+  return "낮음";
+}
+
+export function calculatePotentialRadarItem(stock: Stock): PotentialRadarItem {
+  const price = n(stock.price);
+  const ma5 = n(stock.ma5, price);
+  const ma20 = n(stock.ma20, price);
+  const ma60 = n(stock.ma60, ma20);
+  const rsi = n(stock.rsi, 50);
+  const volumeChange = n(stock.volumeChange);
+  const ma20Gap = maGap(stock, "ma20");
+  const distanceToHigh = stock.resistancePrice
+    ? ((n(stock.resistancePrice, price) - price) / n(stock.resistancePrice, price)) * 100
+    : 99;
+  const reasons: string[] = [];
+  const observationPoints: string[] = [];
+  let score = 0;
+
+  if (price > ma20) {
+    score += 20;
+    reasons.push("최근 종가가 MA20 위에서 마감");
+  } else {
+    observationPoints.push("MA20 회복 여부 확인 필요");
+  }
+
+  if (ma5 > ma20) {
+    score += 15;
+    reasons.push("MA5가 MA20 위에 위치");
+  }
+
+  if (ma20 >= ma60 * 0.995 || ma20Gap >= -1) {
+    score += 15;
+    reasons.push("MA20 흐름이 완만하거나 개선 구간");
+  }
+
+  if (rsi >= 45 && rsi <= 68) {
+    score += 15;
+    reasons.push(`RSI ${rsi.toFixed(1)} 건강 구간`);
+  } else if (rsi > 68) {
+    observationPoints.push("RSI 과열 접근 여부 신중 확인");
+  } else {
+    observationPoints.push("RSI 45 회복 여부 관찰");
+  }
+
+  if (stock.macdSignal === "golden_cross" || stock.macdSignal === "bullish") {
+    score += 15;
+    reasons.push(`MACD ${translateMacdSignal(stock.macdSignal)} 상태`);
+  }
+
+  if (volumeChange > 0) {
+    score += 10;
+    reasons.push(`거래량 20일 평균 대비 ${pct(volumeChange)}`);
+  }
+
+  if (distanceToHigh >= 0 && distanceToHigh < 8) {
+    score += 10;
+    reasons.push(`20일 고점까지 ${Math.max(distanceToHigh, 0).toFixed(1)}% 거리`);
+  }
+
+  if (rsi > 75) {
+    score -= 15;
+    observationPoints.push("RSI 75 초과로 단기 과열 부담 확인 필요");
+  }
+
+  if (ma20Gap > 12) {
+    score -= 15;
+    observationPoints.push(`MA20 대비 ${pct(ma20Gap)} 이격으로 되돌림 리스크 관리 필요`);
+  }
+
+  if (n(stock.recentChangeRate) > 10) {
+    score -= 8;
+    observationPoints.push("최근 5거래일 상승 속도 과도 여부 신중 확인");
+  }
+
+  const normalizedScore = clamp(Math.round(score), 0, 100);
+  const danger = calculateDangerWarningItem(stock);
+
+  return {
+    stock,
+    score: normalizedScore,
+    level: getPotentialLevel(normalizedScore),
+    reasons:
+      reasons.length > 0
+        ? reasons.slice(0, 4)
+        : ["잠재 신호가 아직 약해 MA20, 거래량, RSI 확인이 필요합니다."],
+    observationPoints:
+      observationPoints.length > 0
+        ? observationPoints.slice(0, 3)
+        : ["MA20 위 종가 유지", "거래량 확대 지속", "RSI 건강 구간 유지"],
+    riskLevel: danger.level,
+    dataSource: getDailyCloseSource(stock),
+    updatedAt: stock.date ? `${stock.date} 기준` : DATA_UPDATED_AT
+  };
+}
+
+export function calculateDangerWarningItem(stock: Stock): DangerWarningItem {
+  const price = n(stock.price);
+  const ma5 = n(stock.ma5, price);
+  const ma20 = n(stock.ma20, price);
+  const rsi = n(stock.rsi, 50);
+  const volumeChange = n(stock.volumeChange);
+  const ma20Gap = maGap(stock, "ma20");
+  const nearHigh = price >= n(stock.resistancePrice, price) * 0.95;
+  const signals: string[] = [];
+  let score = 0;
+
+  if (rsi > 75) {
+    score += 20;
+    signals.push(`RSI ${rsi.toFixed(1)} 과열 구간`);
+  }
+
+  if (ma20Gap > 8) {
+    score += 20;
+    signals.push(`MA20 대비 ${pct(ma20Gap)} 높은 위치`);
+  }
+
+  if (stock.changeRate < 0 && volumeChange > 25) {
+    score += 20;
+    signals.push(`거래량 확대 속 하락 마감 ${pct(stock.changeRate)}`);
+  }
+
+  if (price < ma20) {
+    score += 20;
+    signals.push("최근 종가가 MA20 아래에서 마감");
+  }
+
+  if (ma5 < ma20) {
+    score += 10;
+    signals.push("MA5가 MA20 아래에 위치");
+  }
+
+  if (stock.macdSignal === "bearish" || stock.macdSignal === "dead_cross") {
+    score += 10;
+    signals.push(`MACD ${translateMacdSignal(stock.macdSignal)} 전환`);
+  }
+
+  if (nearHigh && (stock.changeRate <= 0 || n(stock.recentChangeRate) < 1 || stock.macdSignal === "bearish")) {
+    score += 10;
+    signals.push("20일 고점권에서 상승 탄력 둔화");
+  }
+
+  const normalizedScore = clamp(Math.round(score), 0, 100);
+  const level = getDangerRiskLevel(normalizedScore);
+  const cautionReason =
+    signals.length > 0
+      ? `${signals.slice(0, 3).join(" · ")} 신호가 있어 신중한 참고 관찰이 필요합니다.`
+      : "강한 위험 신호는 제한적이지만 일별 종가 기준 추세 확인은 필요합니다.";
+  const recheckCriteria =
+    price < ma20
+      ? "MA20 회복과 거래량 안정 여부를 재확인합니다."
+      : rsi > 75
+        ? "RSI 과열 완화와 20일 고점권 반응을 재확인합니다."
+        : "MA5, MA20, 거래량 변화가 같은 방향으로 안정되는지 재확인합니다.";
+
+  return {
+    stock,
+    score: normalizedScore,
+    level,
+    signals: signals.length > 0 ? signals.slice(0, 5) : ["두드러진 고위험 신호 없음"],
+    cautionReason,
+    recheckCriteria,
+    dataSource: getDailyCloseSource(stock),
+    updatedAt: stock.date ? `${stock.date} 기준` : DATA_UPDATED_AT
+  };
+}
+
+export function getPotentialRadar(stocks: Stock[]) {
+  return (Array.isArray(stocks) ? stocks : [])
+    .map(calculatePotentialRadarItem)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 8);
+}
+
+export function getDangerWarnings(stocks: Stock[]) {
+  return (Array.isArray(stocks) ? stocks : [])
+    .map(calculateDangerWarningItem)
+    .filter((item) => item.score >= 31)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 8);
 }
 
 export function getWatchlistPriority(stocks: Stock[]) {

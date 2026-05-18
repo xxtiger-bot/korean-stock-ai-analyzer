@@ -4,11 +4,13 @@ import Link from "next/link";
 import { Activity, ArrowLeft, BarChart3, Gauge, Wallet } from "lucide-react";
 import { AiReportCard } from "@/components/ai-report-card";
 import { CandlestickChart } from "@/components/candlestick-chart";
+import { DangerWarningCard } from "@/components/danger-warning-card";
 import { EntryRiskScoreCard } from "@/components/entry-risk-score-card";
 import { IndicatorSummary } from "@/components/indicator-summary";
 import { IndicatorTranslator } from "@/components/indicator-translator";
 import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
 import { MetricCard } from "@/components/metric-card";
+import { PotentialScoreCard } from "@/components/potential-score-card";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { EmptyState } from "@/components/ui-states";
@@ -146,6 +148,8 @@ export function StockDetailClient({
         </div>
         <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-start-2 xl:row-span-3 xl:row-start-1">
           <AiReportCard stock={stock} />
+          <PotentialScoreCard stock={stock} />
+          <DangerWarningCard stock={stock} />
           <EntryRiskScoreCard stock={stock} />
           {latest && previous ? (
             <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />

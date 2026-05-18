@@ -1,12 +1,16 @@
+import { DangerWarningList } from "@/components/danger-warning-list";
 import { MarketBriefing } from "@/components/market-briefing";
 import { OpportunityRadar } from "@/components/opportunity-radar";
+import { PotentialRadar } from "@/components/potential-radar";
 import { StockCardGrid } from "@/components/stock-card-grid";
 import { StockSearch } from "@/components/stock-search";
 import { StockTable } from "@/components/stock-table";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import {
   getMarketOverview,
+  getDangerWarnings,
   getOpportunityRadar,
+  getPotentialRadar,
   getPopularStocks,
   searchStocks
 } from "@/lib/stock-provider";
@@ -15,15 +19,26 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function Home() {
-  const [allStocks, popularStocks, marketOverview, opportunityRadar] = await Promise.all([
+  const [
+    allStocks,
+    popularStocks,
+    marketOverview,
+    opportunityRadar,
+    potentialRadar,
+    dangerWarnings
+  ] = await Promise.all([
     searchStocks(""),
     getPopularStocks(),
     getMarketOverview(),
-    getOpportunityRadar()
+    getOpportunityRadar(),
+    getPotentialRadar(),
+    getDangerWarnings()
   ]);
   const safeAllStocks = Array.isArray(allStocks) ? allStocks : [];
   const safePopularStocks = Array.isArray(popularStocks) ? popularStocks : [];
   const safeOpportunityRadar = Array.isArray(opportunityRadar) ? opportunityRadar : [];
+  const safePotentialRadar = Array.isArray(potentialRadar) ? potentialRadar : [];
+  const safeDangerWarnings = Array.isArray(dangerWarnings) ? dangerWarnings : [];
   const signals = Array.isArray(marketOverview?.signals) ? marketOverview.signals : [];
   const kospiStocks = safeAllStocks.filter((stock) => stock.market === "KOSPI").slice(0, 6);
   const kosdaqStocks = safeAllStocks.filter((stock) => stock.market === "KOSDAQ").slice(0, 6);
@@ -77,6 +92,11 @@ export default async function Home() {
       <section className="mt-3 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <OpportunityRadar items={safeOpportunityRadar} />
         <StockCardGrid title="인기 종목" stocks={safePopularStocks} />
+      </section>
+
+      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2">
+        <PotentialRadar items={safePotentialRadar} />
+        <DangerWarningList items={safeDangerWarnings} />
       </section>
 
       <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">

@@ -94,7 +94,7 @@ export function getIndicatorBias(point: TechnicalPoint) {
           ? "침체"
           : "정상";
 
-  const macd = point.macd > point.macdSignal ? "매수 신호" : "매도 경계";
+  const macd = point.macd > point.macdSignal ? "상승 동력" : "하락 경계";
 
   return { trend, momentum, macd };
 }

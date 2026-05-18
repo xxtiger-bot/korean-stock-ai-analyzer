@@ -22,10 +22,12 @@ import {
 import { buildTechnicalSeries } from "@/lib/indicators";
 import {
   DATA_UPDATED_AT,
+  getDangerWarnings as buildDangerWarnings,
   getOpportunityRadar as buildOpportunityRadar,
+  getPotentialRadar as buildPotentialRadar,
   getWatchlistPriority as buildWatchlistPriority
 } from "@/lib/insights";
-import type { OpportunityRadarItem, RiskLevel } from "@/lib/insights";
+import type { DangerWarningItem, OpportunityRadarItem, PotentialRadarItem, RiskLevel } from "@/lib/insights";
 import type { Candle, MarketIndex, MarketSignal, Stock, TechnicalPoint } from "@/lib/types";
 
 export type StockDataProviderMode = "mock" | "real";
@@ -43,6 +45,8 @@ export type InvestorFlow = {
 };
 
 type OpportunityRadarItems = ReturnType<typeof buildOpportunityRadar>;
+type PotentialRadarItems = ReturnType<typeof buildPotentialRadar>;
+type DangerWarningItems = ReturnType<typeof buildDangerWarnings>;
 type WatchlistPriorityItems = ReturnType<typeof buildWatchlistPriority>;
 type MaybePromise<T> = T | Promise<T>;
 type RepresentativeStockResult = {
@@ -74,6 +78,8 @@ type RealStockAdapter = {
   getStockCandles: (code: string) => MaybePromise<Candle[] | null>;
   getTechnicalIndicators: (code: string) => MaybePromise<TechnicalPoint[] | null>;
   getOpportunityRadar: () => MaybePromise<OpportunityRadarItems | null>;
+  getPotentialRadar: () => MaybePromise<PotentialRadarItems | null>;
+  getDangerWarnings: () => MaybePromise<DangerWarningItems | null>;
   getWatchlistPriority: (watchlistCodes: string[]) => MaybePromise<WatchlistPriorityItems | null>;
   getPopularStocks: () => MaybePromise<Stock[] | null>;
   getNewsSentiment: (code: string) => MaybePromise<Stock["newsSentiment"] | null>;
@@ -397,6 +403,50 @@ async function getDataGoKrOpportunityRadar() {
   });
 }
 
+async function getDataGoKrPotentialRadar() {
+  const results = await Promise.all(
+    representativeStockCodes.map((code) => getRepresentativeStockWithFallback(code))
+  );
+  const available = results.filter(
+    (result): result is RepresentativeStockResult => Boolean(result)
+  );
+  const realCount = available.filter((result) => result.isReal).length;
+
+  if (realCount === 0) return null;
+
+  return buildPotentialRadar(available.map((result) => result.stock)).map(
+    (item): PotentialRadarItem => ({
+      ...item,
+      dataSource: item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr")
+        ? "data.go.kr 일별 종가"
+        : "일별 종가 데이터",
+      updatedAt: item.stock.date ? `${item.stock.date} 기준` : DATA_UPDATED_AT
+    })
+  );
+}
+
+async function getDataGoKrDangerWarnings() {
+  const results = await Promise.all(
+    representativeStockCodes.map((code) => getRepresentativeStockWithFallback(code))
+  );
+  const available = results.filter(
+    (result): result is RepresentativeStockResult => Boolean(result)
+  );
+  const realCount = available.filter((result) => result.isReal).length;
+
+  if (realCount === 0) return null;
+
+  return buildDangerWarnings(available.map((result) => result.stock)).map(
+    (item): DangerWarningItem => ({
+      ...item,
+      dataSource: item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr")
+        ? "data.go.kr 일별 종가"
+        : "일별 종가 데이터",
+      updatedAt: item.stock.date ? `${item.stock.date} 기준` : DATA_UPDATED_AT
+    })
+  );
+}
+
 function calculateRecentVolatility(candles: Candle[]) {
   const recent = candles.slice(-20);
   if (recent.length < 2) return 0;
@@ -447,7 +497,7 @@ function buildRealWatchlistPriorityItems(results: RepresentativeStockResult[]) {
       if (stock.rsi >= 70) {
         reasons.push(`RSI ${stock.rsi.toFixed(1)} 과열권`);
       } else if (stock.rsi <= 35) {
-        reasons.push(`RSI ${stock.rsi.toFixed(1)} 과매도권`);
+        reasons.push(`RSI ${stock.rsi.toFixed(1)} 침체권`);
       }
 
       if (nearHigh) reasons.push("20일 고점권 접근");
@@ -568,6 +618,12 @@ const mockProvider = {
   getOpportunityRadar() {
     return buildOpportunityRadar(stocks);
   },
+  getPotentialRadar() {
+    return buildPotentialRadar(stocks);
+  },
+  getDangerWarnings() {
+    return buildDangerWarnings(stocks);
+  },
   getWatchlistPriority(watchlistCodes: string[]) {
     const codeSet = new Set(watchlistCodes.map((code) => code.toUpperCase()));
     return buildWatchlistPriority(stocks.filter((stock) => codeSet.has(stock.symbol)));
@@ -614,6 +670,12 @@ const dataGoKrAdapter: RealStockAdapter = {
   getOpportunityRadar() {
     return getDataGoKrOpportunityRadar();
   },
+  getPotentialRadar() {
+    return getDataGoKrPotentialRadar();
+  },
+  getDangerWarnings() {
+    return getDataGoKrDangerWarnings();
+  },
   async getWatchlistPriority(watchlistCodes: string[]) {
     return getDataGoKrWatchlistPriority(watchlistCodes);
   },
@@ -652,6 +714,14 @@ const krxAdapter: RealStockAdapter = {
   },
   getOpportunityRadar() {
     // TODO: Build radar from real quotes, volume, investor flow, and sentiment.
+    return null;
+  },
+  getPotentialRadar() {
+    // TODO: Build potential radar from real KRX daily candles.
+    return null;
+  },
+  getDangerWarnings() {
+    // TODO: Build danger warnings from real KRX daily candles.
     return null;
   },
   getWatchlistPriority(watchlistCodes: string[]) {
@@ -723,6 +793,22 @@ const realProvider = {
       () => false
     );
   },
+  getPotentialRadar() {
+    return resolveRealData(
+      "getPotentialRadar",
+      (adapter) => adapter.getPotentialRadar(),
+      () => mockProvider.getPotentialRadar(),
+      () => false
+    );
+  },
+  getDangerWarnings() {
+    return resolveRealData(
+      "getDangerWarnings",
+      (adapter) => adapter.getDangerWarnings(),
+      () => mockProvider.getDangerWarnings(),
+      () => false
+    );
+  },
   getWatchlistPriority(watchlistCodes: string[]) {
     return resolveRealData(
       "getWatchlistPriority",
@@ -779,6 +865,14 @@ export function getTechnicalIndicators(code: string) {
 
 export function getOpportunityRadar() {
   return provider().getOpportunityRadar();
+}
+
+export function getPotentialRadar() {
+  return provider().getPotentialRadar();
+}
+
+export function getDangerWarnings() {
+  return provider().getDangerWarnings();
 }
 
 export function getWatchlistPriority(watchlistCodes: string[]) {

@@ -113,7 +113,7 @@ function getMacdLabel(point: TechnicalPoint) {
 function getRsiLabel(rsi: number | null) {
   if (rsi === null) return "확인 필요";
   if (rsi >= 70) return "단기 과열권";
-  if (rsi <= 30) return "과매도권";
+  if (rsi <= 30) return "침체권";
   if (rsi >= 55) return "상승 탄력 우위";
   if (rsi <= 45) return "회복 확인 필요";
   return "중립권";
@@ -318,7 +318,7 @@ export async function POST(request: Request) {
           {
             role: "system",
             content:
-              "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, risks, watchPoints, shortTermCheckPoints입니다. risks, watchPoints, shortTermCheckPoints는 반드시 문자열 배열입니다. trend, technical, risk는 반드시 문자열입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 시세가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. 매수, 매도, 추천, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
+              "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, risks, watchPoints, shortTermCheckPoints입니다. risks, watchPoints, shortTermCheckPoints는 반드시 문자열 배열입니다. trend, technical, risk는 반드시 문자열입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 시세가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. 거래 실행 유도, 단정적 판단, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
           },
           {
             role: "user",
