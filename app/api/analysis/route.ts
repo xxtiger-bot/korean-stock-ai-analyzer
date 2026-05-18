@@ -43,26 +43,65 @@ type ReportContext = {
 const DATA_BASIS_NOTICE =
   "본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeNumber(value: number | null | undefined, fallback = 0) {
+  return Number.isFinite(value) ? Number(value) : fallback;
+}
+
+function toText(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "확인됨" : "미확인";
+  if (Array.isArray(value)) {
+    const text = value.map((item) => toText(item, "")).filter(Boolean).join("\n");
+    return text || fallback;
+  }
+  if (isRecord(value)) {
+    const text = Object.values(value).map((item) => toText(item, "")).filter(Boolean).join("\n");
+    return text || fallback;
+  }
+  return fallback;
+}
+
+function toTextList(value: unknown, fallback: string[]) {
+  if (Array.isArray(value)) {
+    const list = value.map((item) => toText(item, "")).filter(Boolean).slice(0, 6);
+    return list.length > 0 ? list : fallback;
+  }
+  if (typeof value === "string") return [value];
+  if (isRecord(value)) {
+    const list = Object.values(value).map((item) => toText(item, "")).filter(Boolean).slice(0, 6);
+    return list.length > 0 ? list : fallback;
+  }
+  return fallback;
+}
+
 function formatKRW(value: number) {
-  return `${Math.round(value).toLocaleString("ko-KR")}원`;
+  return `${Math.round(safeNumber(value)).toLocaleString("ko-KR")}원`;
 }
 
 function formatPercent(value: number) {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}%`;
+  const safeValue = safeNumber(value);
+  const sign = safeValue > 0 ? "+" : "";
+  return `${sign}${safeValue.toFixed(2)}%`;
 }
 
 function formatNumber(value: number) {
-  return Math.round(value).toLocaleString("ko-KR");
+  return Math.round(safeNumber(value)).toLocaleString("ko-KR");
 }
 
 function percentGap(price: number, baseline: number | null) {
-  if (!baseline) return 0;
-  return ((price - baseline) / baseline) * 100;
+  const safeBaseline = safeNumber(baseline);
+  if (!safeBaseline) return 0;
+  return ((safeNumber(price) - safeBaseline) / safeBaseline) * 100;
 }
 
 function getDataSource(stock: Stock) {
-  return stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  return tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
 }
 
 function getMacdLabel(point: TechnicalPoint) {
@@ -87,8 +126,8 @@ function createReportContext(
 ): ReportContext {
   const latest = technicalSeries[technicalSeries.length - 1];
   const recent20 = technicalSeries.slice(-20);
-  const high20 = Math.max(...recent20.map((item) => item.high));
-  const low20 = Math.min(...recent20.map((item) => item.low));
+  const high20 = Math.max(...recent20.map((item) => item.high).filter(Number.isFinite), latest.close);
+  const low20 = Math.min(...recent20.map((item) => item.low).filter(Number.isFinite), latest.close);
   const supportPrice = stock.supportPrice || low20 || latest.close;
   const resistancePrice = stock.resistancePrice || high20 || latest.close;
 
@@ -97,10 +136,10 @@ function createReportContext(
       name: stock.koreanName,
       code: stock.symbol,
       market: stock.market,
-      price: stock.price,
-      changeRate: stock.changeRate,
-      volume: stock.volume,
-      marketCap: stock.marketCap,
+      price: safeNumber(stock.price),
+      changeRate: safeNumber(stock.changeRate),
+      volume: safeNumber(stock.volume),
+      marketCap: safeNumber(stock.marketCap),
       dataSource: getDataSource(stock),
       date: stock.date
     },
@@ -138,7 +177,8 @@ function createLocalReport(context: ReportContext): AiReport {
   const aboveMa60 = technical.ma60 ? stock.price >= technical.ma60 : false;
   const nearSupport = stock.price <= technical.supportPrice * 1.03;
   const nearResistance = stock.price >= technical.resistancePrice * 0.97;
-  const rsiText = technical.rsi === null ? "N/A" : technical.rsi.toFixed(1);
+  const rsiText =
+    technical.rsi === null || !Number.isFinite(technical.rsi) ? "N/A" : technical.rsi.toFixed(1);
   const macdLabel = getMacdLabel({
     ...latestCandle,
     ma5: technical.ma5,
@@ -180,9 +220,20 @@ function createLocalReport(context: ReportContext): AiReport {
     ],
     shortTermCheckPoints: [
       `최근 K선 종가가 MA5 ${technical.ma5 ? formatKRW(technical.ma5) : "확인 필요"} 위에서 유지되는지 확인`,
-      `MACD 히스토그램 ${technical.macdHistogram.toFixed(2)}의 방향성이 2~3거래일 이어지는지 관찰`,
+      `MACD 히스토그램 ${safeNumber(technical.macdHistogram).toFixed(2)}의 방향성이 2~3거래일 이어지는지 관찰`,
       `거래량 ${formatNumber(stock.volume)}주가 최근 흐름 대비 확대되는지 참고`,
       `20일 범위 ${formatKRW(technical.low20)}~${formatKRW(technical.high20)} 안에서 변동성이 커지는지 점검`
+    ],
+    risks: [
+      nearResistance
+        ? "최근 종가가 20일 고점권에 가까워 단기 변동성 확대를 신중하게 관찰해야 합니다."
+        : "20일 고점권 과열 신호는 제한적으로 관찰됩니다.",
+      nearSupport
+        ? "최근 종가가 20일 저점권에 가까워 지지 확인이 필요합니다."
+        : "20일 저점권 이탈 위험은 제한적으로 관찰됩니다.",
+      `가격이 ${aboveMa20 ? "MA20 위" : "MA20 아래"}에 있고 ${
+        aboveMa60 ? "MA60 위" : "MA60 아래"
+      }에 있어 추세 확인과 리스크 관리가 함께 필요합니다.`
     ]
   };
 }
@@ -196,101 +247,134 @@ function ensureDataBasisNotice(report: AiReport): AiReport {
   };
 }
 
-function normalizeList(value: unknown, fallback: string[]) {
-  return Array.isArray(value) && value.length > 0
-    ? value.filter((item): item is string => typeof item === "string").slice(0, 6)
-    : fallback;
-}
+function normalizeReport(report: unknown, fallback: AiReport): AiReport {
+  const source = isRecord(report) ? report : {};
+  const risks = toTextList(source.risks ?? source.risk, fallback.risks);
 
-function normalizeReport(report: Partial<AiReport>, fallback: AiReport): AiReport {
   return {
-    trend: report.trend || fallback.trend,
-    technical: report.technical || fallback.technical,
-    risk: report.risk || fallback.risk,
-    watchPoints: normalizeList(report.watchPoints, fallback.watchPoints),
-    shortTermCheckPoints: normalizeList(
-      report.shortTermCheckPoints,
+    trend: toText(source.trend, fallback.trend),
+    technical: toText(source.technical, fallback.technical),
+    risk: toText(source.risk ?? source.risks, risks.join("\n") || fallback.risk),
+    risks,
+    watchPoints: toTextList(source.watchPoints, fallback.watchPoints),
+    shortTermCheckPoints: toTextList(
+      source.shortTermCheckPoints,
       fallback.shortTermCheckPoints
     )
   };
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  const symbol = String(body?.symbol ?? "").trim().toUpperCase();
-
-  const [stock, candles, technicalSeries] = await Promise.all([
-    getStockDetail(symbol),
-    getStockCandles(symbol),
-    getTechnicalIndicators(symbol)
-  ]);
-
-  if (!stock) {
-    return NextResponse.json({ message: "Unknown symbol" }, { status: 404 });
-  }
-
-  if (!candles || candles.length === 0 || technicalSeries.length === 0) {
-    return NextResponse.json({ message: "No market data" }, { status: 404 });
-  }
-
-  const context = createReportContext(stock, candles, technicalSeries);
-  const fallback = ensureDataBasisNotice(createLocalReport(context));
-
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({
-      source: "local",
-      generatedAt: new Date().toISOString(),
-      report: fallback
-    });
-  }
-
   try {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.25,
-      response_format: { type: "json_object" },
-      messages: [
+    const body = await request.json().catch(() => null);
+    const symbol = String(isRecord(body) ? body.symbol ?? "" : "").trim().toUpperCase();
+
+    const [stock, candles, technicalSeries] = await Promise.all([
+      getStockDetail(symbol),
+      getStockCandles(symbol),
+      getTechnicalIndicators(symbol)
+    ]);
+
+    if (!stock) {
+      return NextResponse.json(
         {
-          role: "system",
-          content:
-            "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, watchPoints, shortTermCheckPoints입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 현재가가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. 매수, 매도, 추천, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
+          source: "local",
+          generatedAt: new Date().toISOString(),
+          report: normalizeReport(null, createEmptyReport("종목 정보를 찾을 수 없습니다."))
         },
+        { status: 200 }
+      );
+    }
+
+    if (!Array.isArray(candles) || candles.length === 0 || !Array.isArray(technicalSeries) || technicalSeries.length === 0) {
+      return NextResponse.json(
         {
-          role: "user",
-          content: JSON.stringify({
-            requiredSections: [
-              "추세 요약",
-              "기술적 근거",
-              "리스크",
-              "관찰 포인트",
-              "단기 체크 포인트",
-              "면책 문구"
-            ],
-            context,
-            dataBasisNotice: DATA_BASIS_NOTICE,
-            disclaimer: DISCLAIMER
-          })
-        }
-      ]
-    });
+          source: "local",
+          generatedAt: new Date().toISOString(),
+          report: normalizeReport(null, createEmptyReport("분석할 일별 종가 데이터가 부족합니다."))
+        },
+        { status: 200 }
+      );
+    }
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) throw new Error("Empty OpenAI response");
+    const context = createReportContext(stock, candles, technicalSeries);
+    const fallback = ensureDataBasisNotice(createLocalReport(context));
 
-    const parsed = JSON.parse(content) as Partial<AiReport>;
-    const report = ensureDataBasisNotice(normalizeReport(parsed, fallback));
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({
+        source: "local",
+        generatedAt: new Date().toISOString(),
+        report: fallback
+      });
+    }
 
-    return NextResponse.json({
-      source: "openai",
-      generatedAt: new Date().toISOString(),
-      report
-    });
+    try {
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const completion = await client.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        temperature: 0.25,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, risks, watchPoints, shortTermCheckPoints입니다. risks, watchPoints, shortTermCheckPoints는 반드시 문자열 배열입니다. trend, technical, risk는 반드시 문자열입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 현재가가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. 매수, 매도, 추천, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              requiredSections: [
+                "추세 요약",
+                "기술적 근거",
+                "리스크",
+                "관찰 포인트",
+                "단기 체크 포인트",
+                "면책 문구"
+              ],
+              context,
+              dataBasisNotice: DATA_BASIS_NOTICE,
+              disclaimer: DISCLAIMER
+            })
+          }
+        ]
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) throw new Error("Empty OpenAI response");
+
+      const parsed = JSON.parse(content) as unknown;
+      const report = ensureDataBasisNotice(normalizeReport(parsed, fallback));
+
+      return NextResponse.json({
+        source: "openai",
+        generatedAt: new Date().toISOString(),
+        report
+      });
+    } catch {
+      return NextResponse.json({
+        source: "local",
+        generatedAt: new Date().toISOString(),
+        report: fallback
+      });
+    }
   } catch {
+    const fallback = createEmptyReport("리포트 생성 중 오류가 발생했습니다.");
+
     return NextResponse.json({
       source: "local",
       generatedAt: new Date().toISOString(),
       report: fallback
     });
   }
+}
+
+function createEmptyReport(message: string): AiReport {
+  return {
+    trend: `${DATA_BASIS_NOTICE} ${message}`,
+    technical: "기술적 근거를 표시할 데이터가 부족합니다.",
+    risk: "리스크 정보를 표시할 데이터가 부족합니다.",
+    risks: ["리스크 정보를 표시할 데이터가 부족합니다."],
+    watchPoints: ["데이터 상태를 확인한 뒤 다시 시도해 주세요."],
+    shortTermCheckPoints: ["일별 종가 데이터가 정상적으로 수집되는지 확인해 주세요."]
+  };
 }

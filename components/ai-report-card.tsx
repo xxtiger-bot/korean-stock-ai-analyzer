@@ -12,22 +12,70 @@ type AnalysisResponse = {
   report: AiReport;
 };
 
-function normalizeReport(report?: Partial<AiReport> | null): AiReport {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toText(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "확인됨" : "미확인";
+  if (Array.isArray(value)) {
+    const text = value.map((item) => toText(item, "")).filter(Boolean).join("\n");
+    return text || fallback;
+  }
+  if (isRecord(value)) {
+    const text = Object.values(value).map((item) => toText(item, "")).filter(Boolean).join("\n");
+    return text || fallback;
+  }
+  return fallback;
+}
+
+function toTextList(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    const list = value.map((item) => toText(item, "")).filter(Boolean).slice(0, 6);
+    return list.length > 0 ? list : fallback;
+  }
+
+  if (typeof value === "string") return [value];
+  if (isRecord(value)) {
+    const list = Object.values(value).map((item) => toText(item, "")).filter(Boolean).slice(0, 6);
+    return list.length > 0 ? list : fallback;
+  }
+
+  return fallback;
+}
+
+function normalizeReport(report: unknown): AiReport {
+  const source = isRecord(report) ? report : {};
+  const fallbackRisks = ["리스크 정보를 표시할 데이터가 부족합니다."];
+  const risks = toTextList(source.risks ?? source.risk, fallbackRisks);
+
   return {
-    trend: typeof report?.trend === "string" ? report.trend : "분석 데이터가 부족합니다.",
-    technical:
-      typeof report?.technical === "string" ? report.technical : "기술적 근거를 표시할 데이터가 부족합니다.",
-    risk: typeof report?.risk === "string" ? report.risk : "리스크 정보를 표시할 데이터가 부족합니다.",
-    watchPoints: Array.isArray(report?.watchPoints)
-      ? report.watchPoints.filter((point): point is string => typeof point === "string")
-      : [],
-    shortTermCheckPoints: Array.isArray(report?.shortTermCheckPoints)
-      ? report.shortTermCheckPoints.filter((point): point is string => typeof point === "string")
-      : []
+    trend: toText(source.trend, "분석 데이터가 부족합니다."),
+    technical: toText(source.technical, "기술적 근거를 표시할 데이터가 부족합니다."),
+    risk: toText(source.risk ?? source.risks, risks.join("\n")),
+    risks,
+    watchPoints: toTextList(source.watchPoints, ["관찰 포인트를 표시할 데이터가 부족합니다."]),
+    shortTermCheckPoints: toTextList(source.shortTermCheckPoints, [
+      "단기 체크 포인트를 표시할 데이터가 부족합니다."
+    ])
   };
 }
 
-function formatGeneratedAt(value: string) {
+function normalizeAnalysisResponse(payload: unknown): AnalysisResponse {
+  const source = isRecord(payload) ? payload : {};
+
+  return {
+    source: source.source === "openai" ? "openai" : "local",
+    generatedAt:
+      typeof source.generatedAt === "string" ? source.generatedAt : new Date().toISOString(),
+    report: normalizeReport(source.report)
+  };
+}
+
+function formatGeneratedAt(value: unknown) {
+  if (typeof value !== "string") return "생성 시간 확인 필요";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "생성 시간 확인 필요" : date.toLocaleString("ko-KR");
 }
@@ -52,12 +100,8 @@ export function AiReportCard({ stock }: { stock: Stock }) {
         throw new Error("report failed");
       }
 
-      const payload = (await response.json()) as AnalysisResponse;
-      setData({
-        source: payload.source === "openai" ? "openai" : "local",
-        generatedAt: payload.generatedAt ?? new Date().toISOString(),
-        report: normalizeReport(payload.report)
-      });
+      const payload = await response.json().catch(() => null);
+      setData(normalizeAnalysisResponse(payload));
     } catch {
       setError("리포트 생성 실패");
     } finally {
@@ -155,7 +199,7 @@ export function AiReportCard({ stock }: { stock: Stock }) {
                   <div className="min-w-0">
                     <h3 className="text-sm font-bold text-ink dark:text-white">{title}</h3>
                     <p className="mt-2 break-words text-sm leading-6 text-slate-600 dark:text-slate-300">
-                      {content}
+                      {toText(content, "표시할 내용이 없습니다.")}
                     </p>
                   </div>
                 </div>
@@ -164,9 +208,9 @@ export function AiReportCard({ stock }: { stock: Stock }) {
             <article className="bg-white p-4 dark:bg-dark-panel">
               <h3 className="text-sm font-bold text-ink dark:text-white">관찰 포인트</h3>
               <div className="mt-3 grid gap-2">
-                {(Array.isArray(data.report.watchPoints) ? data.report.watchPoints : []).map((point, index) => (
+                {toTextList(data.report.watchPoints, []).map((point, index) => (
                   <p
-                    key={point}
+                    key={`${index}-${point}`}
                     className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
                   >
                     <span className="shrink-0 text-xs font-bold text-brand">
@@ -180,9 +224,9 @@ export function AiReportCard({ stock }: { stock: Stock }) {
             <article className="bg-white p-4 dark:bg-dark-panel">
               <h3 className="text-sm font-bold text-ink dark:text-white">단기 체크 포인트</h3>
               <div className="mt-3 grid gap-2">
-                {(Array.isArray(data.report.shortTermCheckPoints) ? data.report.shortTermCheckPoints : []).map((point, index) => (
+                {toTextList(data.report.shortTermCheckPoints, []).map((point, index) => (
                   <p
-                    key={point}
+                    key={`${index}-${point}`}
                     className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
                   >
                     <span className="shrink-0 text-xs font-bold text-brand">

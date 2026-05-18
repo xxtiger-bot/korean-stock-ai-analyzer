@@ -78,6 +78,7 @@ export type AiReport = {
   trend: string;
   technical: string;
   risk: string;
+  risks: string[];
   watchPoints: string[];
   shortTermCheckPoints: string[];
 };
