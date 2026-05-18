@@ -1,0 +1,130 @@
+import { Activity, Gauge, LineChart, WalletCards } from "lucide-react";
+import {
+  changeBgClass,
+  changeColorClass,
+  formatPercent
+} from "@/lib/format";
+import type { MarketSignal } from "@/lib/types";
+
+function Sparkline({ values, positive }: { values: number[]; positive: boolean }) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const width = 130;
+  const height = 42;
+  const range = max - min || 1;
+  const pointList = values.map((value, index) => {
+      const x = (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return { x, y };
+    });
+  const points = pointList.map((point) => `${point.x},${point.y}`).join(" ");
+  const areaPath = [
+    `M ${pointList[0]!.x} ${height}`,
+    ...pointList.map((point) => `L ${point.x} ${point.y}`),
+    `L ${pointList[pointList.length - 1]!.x} ${height}`,
+    "Z"
+  ].join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-10 w-28" aria-hidden>
+      <path
+        d={areaPath}
+        fill={positive ? "rgba(226, 59, 59, 0.08)" : "rgba(37, 99, 235, 0.08)"}
+      />
+      <polyline
+        fill="none"
+        points={points}
+        stroke={positive ? "#e23b3b" : "#2563eb"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="3"
+      />
+    </svg>
+  );
+}
+
+function formatSignalValue(signal: MarketSignal) {
+  if (signal.code === "KRW/USD") {
+    return `${signal.value.toLocaleString("ko-KR", {
+      maximumFractionDigits: 1,
+      minimumFractionDigits: 1
+    })} ${signal.unit}`;
+  }
+
+  if (signal.code === "심리 지수") {
+    return `${Math.round(signal.value)}${signal.unit}`;
+  }
+
+  return signal.value.toLocaleString("ko-KR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2
+  });
+}
+
+export function MarketBriefing({ signals }: { signals: MarketSignal[] }) {
+  const icons = [LineChart, Activity, WalletCards, Gauge];
+  const hasRealIndex = signals.some(
+    (signal) => (signal.code === "KOSPI" || signal.code === "KOSDAQ") && signal.date
+  );
+
+  return (
+    <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-normal text-brand">
+            시장 요약
+          </p>
+          <h2 className="mt-1 text-xl font-bold text-ink dark:text-white">
+            한국 시장 요약
+          </h2>
+        </div>
+        <p className="rounded-md bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500 dark:bg-slate-900/70 dark:text-slate-300">
+          {hasRealIndex ? "data.go.kr 지수 + 보조 지표 · KST" : "모의 시장 데이터 · KST"}
+        </p>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {signals.map((signal, index) => {
+          const Icon = icons[index] ?? Activity;
+          return (
+            <article
+              key={signal.code}
+              className="relative overflow-hidden rounded-lg border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-normal text-slate-400">
+                    <Icon className="h-3.5 w-3.5" />
+                    {signal.code}
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+                    {signal.koreanName}
+                  </p>
+                </div>
+                <Sparkline values={signal.trend} positive={signal.change >= 0} />
+              </div>
+              <div className="mt-4">
+                <p className="text-2xl font-bold text-ink dark:text-white">
+                  {formatSignalValue(signal)}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-md border px-2 py-1 text-xs font-bold ${changeBgClass(
+                      signal.change
+                    )}`}
+                  >
+                    {signal.change > 0 ? "+" : ""}
+                    {signal.change.toFixed(signal.code === "심리 지수" ? 0 : 2)} ·{" "}
+                    {formatPercent(signal.changeRate)}
+                  </span>
+                  <span className={`text-xs font-bold ${changeColorClass(signal.change)}`}>
+                    {signal.meta}
+                  </span>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}

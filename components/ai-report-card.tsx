@@ -1,0 +1,179 @@
+"use client";
+
+import { useState } from "react";
+import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
+import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
+import type { AiReport, Stock } from "@/lib/types";
+
+type AnalysisResponse = {
+  source: "openai" | "local";
+  generatedAt: string;
+  report: AiReport;
+};
+
+export function AiReportCard({ stock }: { stock: Stock }) {
+  const [data, setData] = useState<AnalysisResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function generateReport() {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: stock.symbol })
+      });
+
+      if (!response.ok) {
+        throw new Error("report failed");
+      }
+
+      setData(await response.json());
+    } catch {
+      setError("리포트 생성 실패");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <section className="max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-normal text-brand">
+            증권 분석
+          </p>
+          <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
+            AI 분석 리포트
+          </h2>
+          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            추세 · 기술적 근거 · 위험 · 관찰 포인트
+          </p>
+          <p className="mt-1 text-xs font-semibold text-slate-400">
+            데이터 업데이트 {DATA_UPDATED_AT}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={generateReport}
+          disabled={isLoading}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:hover:bg-blue-500"
+        >
+          {isLoading ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          리포트 생성
+        </button>
+      </div>
+      {error && (
+        <div className="mt-4">
+          <ErrorState
+            title={error}
+            description="네트워크 또는 분석 API 상태를 확인한 뒤 다시 시도해 주세요."
+          />
+        </div>
+      )}
+      {isLoading ? (
+        <div className="mt-5">
+          <LoadingState
+            title="리포트 작성 중"
+            description="가격, 이동평균, 모멘텀 지표를 종합하고 있습니다."
+          />
+        </div>
+      ) : data ? (
+        <div className="mt-5 max-w-full overflow-hidden rounded-lg border border-line dark:border-dark-line">
+          <div className="border-b border-line bg-slate-50 px-4 py-3 dark:border-dark-line dark:bg-slate-900/60">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-ink dark:text-white">
+                  {stock.koreanName} 기술 분석 메모
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {data.source === "openai" ? "OpenAI 생성" : "실데이터 자동 생성"} ·{" "}
+                  {new Date(data.generatedAt).toLocaleString("ko-KR")}
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+                <ShieldCheck className="h-3.5 w-3.5 text-mint" />
+                투자 유의
+              </span>
+            </div>
+          </div>
+          <div className="grid divide-y divide-line dark:divide-dark-line">
+            {[
+              ["01", "추세 요약", data.report.trend],
+              ["02", "기술적 근거", data.report.technical],
+              ["03", "리스크", data.report.risk]
+            ].map(([index, title, content]) => (
+              <article key={title} className="bg-white p-4 dark:bg-dark-panel">
+                <div className="flex gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-xs font-bold text-white dark:bg-white dark:text-ink">
+                    {index}
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-ink dark:text-white">{title}</h3>
+                    <p className="mt-2 break-words text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      {content}
+                    </p>
+                  </div>
+                </div>
+              </article>
+            ))}
+            <article className="bg-white p-4 dark:bg-dark-panel">
+              <h3 className="text-sm font-bold text-ink dark:text-white">관찰 포인트</h3>
+              <div className="mt-3 grid gap-2">
+                {data.report.watchPoints.map((point, index) => (
+                  <p
+                    key={point}
+                    className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
+                  >
+                    <span className="shrink-0 text-xs font-bold text-brand">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="min-w-0 break-words">{point}</span>
+                  </p>
+                ))}
+              </div>
+            </article>
+            <article className="bg-white p-4 dark:bg-dark-panel">
+              <h3 className="text-sm font-bold text-ink dark:text-white">단기 체크 포인트</h3>
+              <div className="mt-3 grid gap-2">
+                {data.report.shortTermCheckPoints.map((point, index) => (
+                  <p
+                    key={point}
+                    className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
+                  >
+                    <span className="shrink-0 text-xs font-bold text-brand">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="min-w-0 break-words">{point}</span>
+                  </p>
+                ))}
+              </div>
+            </article>
+            <article className="bg-slate-50 p-4 dark:bg-slate-900/60">
+              <h3 className="text-xs font-bold text-ink dark:text-white">면책 문구</h3>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                {DISCLAIMER}
+              </p>
+            </article>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5">
+          <EmptyState
+            title={`${stock.koreanName} 분석 대기`}
+            description="리포트 생성 버튼을 눌러 기술 지표 기반 요약을 확인하세요."
+            icon={FileText}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
