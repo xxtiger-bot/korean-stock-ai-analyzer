@@ -27,7 +27,7 @@ export function StockCardGrid({
   const safeStocks = Array.isArray(stocks) ? stocks : [];
 
   return (
-    <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+    <section className="rounded-lg border border-line bg-white p-3 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-normal text-slate-400">
@@ -35,7 +35,7 @@ export function StockCardGrid({
           </p>
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">{title}</h2>
         </div>
-        <span className="rounded-md bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500 dark:bg-slate-900/70 dark:text-slate-300">
+        <span className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-500 dark:bg-slate-900/70 dark:text-slate-300">
           거래량 기준
         </span>
       </div>
@@ -48,7 +48,7 @@ export function StockCardGrid({
           />
         </div>
       ) : (
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {safeStocks.map((stock) => {
           const positive = stock.change >= 0;
           const TrendIcon = positive ? TrendingUp : TrendingDown;
@@ -64,7 +64,7 @@ export function StockCardGrid({
           return (
             <article
               key={stock.symbol}
-              className="rounded-lg border border-line bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-brand hover:bg-white hover:shadow-soft dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
+              className="rounded-md border border-line bg-slate-50 p-3 transition hover:-translate-y-0.5 hover:border-brand hover:bg-white hover:shadow-soft dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -78,7 +78,7 @@ export function StockCardGrid({
                   </div>
                   <Link
                     href={`/stocks/${stock.symbol}`}
-                    className="mt-3 block truncate text-lg font-bold text-ink hover:text-brand dark:text-white"
+                    className="mt-2 block truncate text-base font-bold text-ink hover:text-brand dark:text-white"
                   >
                     {stock.koreanName}
                   </Link>
@@ -89,10 +89,10 @@ export function StockCardGrid({
                 <WatchlistButton symbol={stock.symbol} compact />
               </div>
 
-              <div className="mt-5 flex items-end justify-between gap-3">
+              <div className="mt-3 flex items-end justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-slate-400">최근 종가</p>
-                  <p className="text-2xl font-bold text-ink dark:text-white">
+                  <p className="text-lg font-bold text-ink dark:text-white">
                     {formatKRW(stock.price)}
                   </p>
                   <span
@@ -116,14 +116,14 @@ export function StockCardGrid({
                 </Link>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-2 text-xs font-bold">
-                <div className="rounded-md bg-white px-3 py-2 dark:bg-dark-panel">
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold">
+                <div className="rounded-md bg-white px-2.5 py-2 dark:bg-dark-panel">
                   <p className="text-slate-400">거래량</p>
                   <p className="mt-1 text-slate-700 dark:text-slate-200">
                     {formatNumber(stock.volume)}
                   </p>
                 </div>
-                <div className="rounded-md bg-white px-3 py-2 dark:bg-dark-panel">
+                <div className="rounded-md bg-white px-2.5 py-2 dark:bg-dark-panel">
                   <p className="text-slate-400">시가총액</p>
                   <p className="mt-1 text-slate-700 dark:text-slate-200">
                     {formatCompactKRW(stock.marketCap)}
@@ -131,7 +131,7 @@ export function StockCardGrid({
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 <span className="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
                   <Layers className="h-3 w-3" />
                   {sectorLabel}

@@ -199,7 +199,9 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
             오늘 우선 확인
           </h3>
           <p className="mt-1 text-xs font-semibold text-slate-400">
-            데이터 업데이트 {remoteUpdatedAt} · {remoteDataSource}
+            {symbols.length > 0
+              ? `데이터 업데이트 ${remoteUpdatedAt} · ${remoteDataSource}`
+              : "관심종목 추가 후 일별 종가 기준으로 정리됩니다."}
           </p>
         </div>
         {priorities.length > 0 && (

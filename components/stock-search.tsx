@@ -26,13 +26,16 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
   const [remoteResults, setRemoteResults] = useState<Stock[] | null>(null);
   const router = useRouter();
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
-  const localResults = useMemo(() => filterStocks(safeStocks, query).slice(0, 6), [query, safeStocks]);
+  const normalizedQuery = query.trim();
+  const resultLimit = normalizedQuery ? 6 : 3;
+  const localResults = useMemo(
+    () => filterStocks(safeStocks, query).slice(0, resultLimit),
+    [query, resultLimit, safeStocks]
+  );
   const results = remoteResults ?? localResults;
 
   useEffect(() => {
-    const normalized = query.trim();
-
-    if (!normalized) {
+    if (!normalizedQuery) {
       setRemoteResults(null);
       return;
     }
@@ -41,7 +44,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch(
-          `/api/stocks/search?keyword=${encodeURIComponent(normalized)}`,
+          `/api/stocks/search?keyword=${encodeURIComponent(normalizedQuery)}`,
           { signal: controller.signal }
         );
 
@@ -60,7 +63,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [normalizedQuery]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,33 +74,33 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
   }
 
   return (
-    <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-      <div className="flex items-center justify-between gap-4">
+    <section className="rounded-lg border border-brand/20 bg-white p-3 shadow-soft dark:border-brand/30 dark:bg-dark-panel sm:p-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-normal text-brand">종목 검색</p>
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">종목 검색</h2>
         </div>
       </div>
-      <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="h-11 w-full rounded-md border border-line bg-slate-50 pl-10 pr-3 text-sm font-semibold text-ink outline-none transition placeholder:text-slate-400 focus:border-brand focus:bg-white focus:ring-4 focus:ring-blue-50 dark:border-dark-line dark:bg-slate-900/70 dark:text-white dark:focus:bg-slate-900 dark:focus:ring-blue-950"
+            className="h-10 w-full rounded-md border border-line bg-slate-50 pl-10 pr-3 text-sm font-semibold text-ink outline-none transition placeholder:text-slate-400 focus:border-brand focus:bg-white focus:ring-4 focus:ring-blue-50 dark:border-dark-line dark:bg-slate-900/70 dark:text-white dark:focus:bg-slate-900 dark:focus:ring-blue-950"
             placeholder="005930, 삼성전자, NAVER"
           />
         </div>
         <button
           type="submit"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500 sm:px-4"
         >
           <Search className="h-4 w-4" />
           <span className="hidden sm:inline">검색</span>
         </button>
       </form>
       {results.length === 0 ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <EmptyState
             compact
             title="검색 결과 없음"
@@ -106,12 +109,12 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
           />
         </div>
       ) : (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-3 grid gap-2">
           {results.map((stock) => (
             <Link
               key={stock.symbol}
               href={`/stocks/${stock.symbol}`}
-              className="rounded-lg border border-line bg-slate-50 p-3 transition hover:border-brand hover:bg-white dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
+              className="rounded-md border border-line bg-slate-50 p-2.5 transition hover:border-brand hover:bg-white dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -123,7 +126,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                     {stock.date ? ` · ${stock.date} 기준` : ""}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p className="mb-1 text-[11px] font-bold text-slate-400">최근 종가</p>
                   <p className="text-sm font-bold text-ink dark:text-white">
                     {formatKRW(stock.price)}

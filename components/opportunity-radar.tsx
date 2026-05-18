@@ -22,8 +22,8 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
   const categoryCounts = getOpportunityCategoryCounts(safeItems);
 
   return (
-    <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section className="rounded-lg border border-line bg-white p-3 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-normal text-brand">
             오늘의 기회 레이더
@@ -31,7 +31,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">
             오늘의 기회 레이더
           </h2>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
             거래량, 이동평균 돌파, RSI, MACD, 단기 과열 신호를 함께 스캔합니다.
           </p>
         </div>
@@ -43,11 +43,11 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {categoryCounts.map((item) => (
           <span
             key={item.category}
-            className="rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+            className="rounded-md border border-line bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
           >
             {item.category} · {item.count}
           </span>
@@ -64,8 +64,8 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
           />
         </div>
       ) : (
-        <div className="mt-5 grid gap-4">
-          <div className="rounded-lg border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50">
+        <div className="mt-3 grid gap-3">
+          <div className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase tracking-normal text-brand">
@@ -77,12 +77,12 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
               </div>
               <Star className="h-5 w-5 text-amber-400" />
             </div>
-            <div className="mt-4 grid gap-2 lg:grid-cols-5">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
               {topFive.map((item, index) => (
                 <Link
                   key={item.stock.symbol}
                   href={`/stocks/${item.stock.symbol}`}
-                  className="rounded-lg border border-line bg-white p-3 transition hover:border-brand dark:border-dark-line dark:bg-dark-panel"
+                  className="rounded-md border border-line bg-white p-2.5 transition hover:border-brand dark:border-dark-line dark:bg-dark-panel"
                 >
                   <p className="text-xs font-bold text-slate-400">#{index + 1}</p>
                   <p className="mt-1 truncate text-sm font-bold text-ink dark:text-white">
@@ -97,7 +97,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-2 lg:grid-cols-2">
           {safeItems.map((item) => {
             const dataSource = getDataSource(item);
             const groupName = item.stock.sector === "미분류" ? item.stock.market : item.stock.sector;
@@ -106,7 +106,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
             return (
             <article
               key={item.stock.symbol}
-              className="rounded-lg border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50"
+              className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -135,7 +135,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {signals.slice(0, 4).map((signal) => (
                   <span
                     key={signal.id}
@@ -149,7 +149,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                 ))}
               </div>
 
-              <div className="mt-4 rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
+              <div className="mt-3 rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
                 <div className="flex items-center justify-between gap-3">
                   <span
                     className={`inline-flex rounded-md border px-2 py-1 text-xs font-bold ${getRiskLabelClass(
@@ -180,7 +180,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                     업데이트: {item.updatedAt}
                   </p>
                 </div>
-                <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+                <p className="mt-3 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300 sm:text-sm sm:leading-6">
                   {item.aiSummary}
                 </p>
               </div>

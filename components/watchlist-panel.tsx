@@ -67,7 +67,7 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
   }, [symbolKey]);
 
   return (
-    <aside className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+    <aside className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-normal text-slate-400">관심종목</p>
