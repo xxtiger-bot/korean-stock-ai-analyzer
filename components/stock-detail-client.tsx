@@ -83,7 +83,7 @@ export function StockDetailClient({
               ))}
             </div>
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              data.go.kr 데이터는 일 단위 종가 기준이며 실시간 시세가 아닙니다.
+              data.go.kr 데이터는 일별 종가 기준이며 실시간 시세가 아닙니다.
             </p>
             <h1 className="mt-4 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
               {stock.koreanName}
