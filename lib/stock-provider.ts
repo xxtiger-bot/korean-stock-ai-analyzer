@@ -241,6 +241,7 @@ function getRiskPriorityWeight(level: RiskLevel) {
 
 function getSimpleRadarRiskLevel(item: OpportunityRadarItem): RiskLevel {
   const { stock } = item;
+  const signals = Array.isArray(item.signals) ? item.signals : [];
   const ma20Gap = percentChange(stock.price, stock.ma20);
   let score = 0;
 
@@ -266,11 +267,11 @@ function getSimpleRadarRiskLevel(item: OpportunityRadarItem): RiskLevel {
   if (stock.price >= stock.resistancePrice * 0.97) score += 10;
   if (stock.price <= stock.supportPrice * 1.03) score += 6;
 
-  if (item.signals.some((signal) => signal.severity === "extreme")) {
+  if (signals.some((signal) => signal.severity === "extreme")) {
     score = Math.max(score, 75);
-  } else if (item.signals.some((signal) => signal.severity === "high")) {
+  } else if (signals.some((signal) => signal.severity === "high")) {
     score = Math.max(score, 55);
-  } else if (item.signals.some((signal) => signal.severity === "medium")) {
+  } else if (signals.some((signal) => signal.severity === "medium")) {
     score = Math.max(score, 32);
   }
 
@@ -389,7 +390,8 @@ async function getDataGoKrOpportunityRadar() {
   const items = buildOpportunityRadar(available.map((result) => result.stock));
 
   return items.map((item): OpportunityRadarItem => {
-    const isReal = item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr");
+    const stockTags = Array.isArray(item.stock.tags) ? item.stock.tags : [];
+    const isReal = stockTags.some((tag) => tag.toLowerCase() === "data.go.kr");
     const observationFocus = getRealRadarObservationFocus(item.stock, item.observationFocus);
     const dataSource = isReal ? "data.go.kr" : "mock";
 
@@ -417,7 +419,9 @@ async function getDataGoKrPotentialRadar() {
   return buildPotentialRadar(available.map((result) => result.stock)).map(
     (item): PotentialRadarItem => ({
       ...item,
-      dataSource: item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr")
+      dataSource: (Array.isArray(item.stock.tags) ? item.stock.tags : []).some(
+        (tag) => tag.toLowerCase() === "data.go.kr"
+      )
         ? "data.go.kr 일별 종가"
         : "일별 종가 데이터",
       updatedAt: item.stock.date ? `${item.stock.date} 기준` : DATA_UPDATED_AT
@@ -439,7 +443,9 @@ async function getDataGoKrDangerWarnings() {
   return buildDangerWarnings(available.map((result) => result.stock)).map(
     (item): DangerWarningItem => ({
       ...item,
-      dataSource: item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr")
+      dataSource: (Array.isArray(item.stock.tags) ? item.stock.tags : []).some(
+        (tag) => tag.toLowerCase() === "data.go.kr"
+      )
         ? "data.go.kr 일별 종가"
         : "일별 종가 데이터",
       updatedAt: item.stock.date ? `${item.stock.date} 기준` : DATA_UPDATED_AT
@@ -459,7 +465,8 @@ function calculateRecentVolatility(candles: Candle[]) {
 }
 
 function getDataSourceLabel(stock: Stock) {
-  return stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  return tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
 }
 
 function buildRealWatchlistPriorityItems(results: RepresentativeStockResult[]) {

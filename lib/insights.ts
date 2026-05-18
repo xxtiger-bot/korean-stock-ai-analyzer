@@ -123,6 +123,14 @@ function n(value: number | null | undefined, fallback = 0) {
   return Number.isFinite(value) ? Number(value) : fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStockLike(value: unknown): value is Stock {
+  return isRecord(value);
+}
+
 function pct(value: number) {
   const safeValue = n(value);
   const sign = safeValue > 0 ? "+" : "";
@@ -478,7 +486,10 @@ export function getOpportunityCategoryCounts(items: OpportunityRadarItem[]) {
 
   return categories.map((category) => ({
     category,
-    count: items.filter((item) => item.signals.some((signal) => signal.category === category))
+    count: (Array.isArray(items) ? items : []).filter((item) => {
+      const signals = Array.isArray(item?.signals) ? item.signals : [];
+      return signals.some((signal) => signal?.category === category);
+    })
       .length
   }));
 }
@@ -790,6 +801,7 @@ export function calculateDangerWarningItem(stock: Stock): DangerWarningItem {
 
 export function getPotentialRadar(stocks: Stock[]) {
   return (Array.isArray(stocks) ? stocks : [])
+    .filter(isStockLike)
     .map(calculatePotentialRadarItem)
     .sort((left, right) => right.score - left.score)
     .slice(0, 8);
@@ -797,6 +809,7 @@ export function getPotentialRadar(stocks: Stock[]) {
 
 export function getDangerWarnings(stocks: Stock[]) {
   return (Array.isArray(stocks) ? stocks : [])
+    .filter(isStockLike)
     .map(calculateDangerWarningItem)
     .filter((item) => item.score >= 31)
     .sort((left, right) => right.score - left.score)

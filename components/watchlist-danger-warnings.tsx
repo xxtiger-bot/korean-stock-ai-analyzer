@@ -8,7 +8,14 @@ import type { Stock } from "@/lib/types";
 
 export function WatchlistDangerWarnings({ stocks }: { stocks: Stock[] }) {
   const safeStocks = Array.isArray(stocks) ? stocks : [];
-  const warnings = getDangerWarnings(safeStocks);
+  const warnings = (() => {
+    try {
+      const result = getDangerWarnings(safeStocks);
+      return Array.isArray(result) ? result : [];
+    } catch {
+      return [];
+    }
+  })();
 
   if (safeStocks.length === 0) {
     return (
