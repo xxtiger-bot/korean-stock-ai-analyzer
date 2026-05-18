@@ -99,14 +99,14 @@ export function TradingPlanHelper({ stock }: { stock: Stock }) {
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50">
-          <p className="text-xs font-bold text-slate-400">현재 손익 금액</p>
+          <p className="text-xs font-bold text-slate-400">최근 종가 기준 손익 금액</p>
           <p className={`mt-2 text-xl font-bold ${changeColorClass(plan.profitLossAmount)}`}>
             {plan.profitLossAmount > 0 ? "+" : ""}
             {formatKRW(plan.profitLossAmount)}
           </p>
         </div>
         <div className="rounded-lg border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50">
-          <p className="text-xs font-bold text-slate-400">현재 손익률</p>
+          <p className="text-xs font-bold text-slate-400">최근 종가 기준 손익률</p>
           <p className={`mt-2 text-xl font-bold ${changeColorClass(plan.profitLossRate)}`}>
             {formatPercent(plan.profitLossRate)}
           </p>
@@ -128,7 +128,8 @@ export function TradingPlanHelper({ stock }: { stock: Stock }) {
       <div className="mt-4 rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
         <p className="text-xs font-bold text-slate-400">참고 관찰 위치 메모</p>
         <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
-          현재가 {formatKRW(stock.price)} · 수량 {formatNumber(parsedQuantity || 0)}주 · {plan.periodLabel}
+          최근 종가 {formatKRW(stock.price)} · 수량 {formatNumber(parsedQuantity || 0)}주 · {plan.periodLabel}
+          {stock.date ? ` · ${stock.date} 기준` : ""}
         </p>
       </div>
 

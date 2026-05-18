@@ -10,7 +10,7 @@ import {
 import type { Stock, TechnicalPoint } from "@/lib/types";
 
 function formatIndicator(value: number | null, currency = false) {
-  if (value === null) return "-";
+  if (value === null || !Number.isFinite(value)) return "-";
   return currency ? formatKRW(value) : value.toFixed(2);
 }
 
@@ -34,7 +34,9 @@ export function KeyIndicatorsPanel({
 }) {
   const bias = getIndicatorBias(latest);
   const ma20Gap =
-    latest.ma20 === null ? 0 : ((latest.close - latest.ma20) / latest.ma20) * 100;
+    latest.ma20 === null || !Number.isFinite(latest.ma20) || latest.ma20 === 0
+      ? 0
+      : ((latest.close - latest.ma20) / latest.ma20) * 100;
   const metrics = [
     { label: "전일 종가", value: formatKRW(previous.close), icon: Activity },
     { label: "거래량", value: formatNumber(latest.volume), icon: BarChart3 },

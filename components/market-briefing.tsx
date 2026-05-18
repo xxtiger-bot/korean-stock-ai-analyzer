@@ -1,4 +1,5 @@
 import { Activity, Gauge, LineChart, WalletCards } from "lucide-react";
+import { EmptyState } from "@/components/ui-states";
 import {
   changeBgClass,
   changeColorClass,
@@ -7,13 +8,15 @@ import {
 import type { MarketSignal } from "@/lib/types";
 
 function Sparkline({ values, positive }: { values: number[]; positive: boolean }) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const safeValues = Array.isArray(values) && values.length > 0 ? values.filter(Number.isFinite) : [0, 0];
+  const chartValues = safeValues.length > 0 ? safeValues : [0, 0];
+  const min = Math.min(...chartValues);
+  const max = Math.max(...chartValues);
   const width = 130;
   const height = 42;
   const range = max - min || 1;
-  const pointList = values.map((value, index) => {
-      const x = (index / (values.length - 1)) * width;
+  const pointList = chartValues.map((value, index) => {
+      const x = chartValues.length > 1 ? (index / (chartValues.length - 1)) * width : width / 2;
       const y = height - ((value - min) / range) * height;
       return { x, y };
     });
@@ -44,18 +47,20 @@ function Sparkline({ values, positive }: { values: number[]; positive: boolean }
 }
 
 function formatSignalValue(signal: MarketSignal) {
+  const value = Number.isFinite(signal.value) ? signal.value : 0;
+
   if (signal.code === "KRW/USD") {
-    return `${signal.value.toLocaleString("ko-KR", {
+    return `${value.toLocaleString("ko-KR", {
       maximumFractionDigits: 1,
       minimumFractionDigits: 1
     })} ${signal.unit}`;
   }
 
   if (signal.code === "심리 지수") {
-    return `${Math.round(signal.value)}${signal.unit}`;
+    return `${Math.round(value)}${signal.unit}`;
   }
 
-  return signal.value.toLocaleString("ko-KR", {
+  return value.toLocaleString("ko-KR", {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2
   });
@@ -63,7 +68,8 @@ function formatSignalValue(signal: MarketSignal) {
 
 export function MarketBriefing({ signals }: { signals: MarketSignal[] }) {
   const icons = [LineChart, Activity, WalletCards, Gauge];
-  const hasRealIndex = signals.some(
+  const safeSignals = Array.isArray(signals) ? signals : [];
+  const hasRealIndex = safeSignals.some(
     (signal) => (signal.code === "KOSPI" || signal.code === "KOSDAQ") && signal.date
   );
 
@@ -82,8 +88,17 @@ export function MarketBriefing({ signals }: { signals: MarketSignal[] }) {
           {hasRealIndex ? "data.go.kr 지수 + 보조 지표 · KST" : "모의 시장 데이터 · KST"}
         </p>
       </div>
+      {safeSignals.length === 0 ? (
+        <div className="mt-5">
+          <EmptyState
+            compact
+            title="시장 요약 데이터 없음"
+            description="표시할 시장 요약 데이터가 없습니다."
+          />
+        </div>
+      ) : (
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {signals.map((signal, index) => {
+        {safeSignals.map((signal, index) => {
           const Icon = icons[index] ?? Activity;
           return (
             <article
@@ -125,6 +140,7 @@ export function MarketBriefing({ signals }: { signals: MarketSignal[] }) {
           );
         })}
       </div>
+      )}
     </section>
   );
 }

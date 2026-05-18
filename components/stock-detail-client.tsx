@@ -11,6 +11,7 @@ import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
 import { MetricCard } from "@/components/metric-card";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { WatchlistButton } from "@/components/watchlist-button";
+import { EmptyState } from "@/components/ui-states";
 import { buildTechnicalSeries } from "@/lib/indicators";
 import {
   changeBgClass,
@@ -29,13 +30,15 @@ export function StockDetailClient({
   stock: Stock;
   candles: Candle[];
 }) {
-  const technicalSeries = useMemo(() => buildTechnicalSeries(candles), [candles]);
+  const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
+  const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
   const latest = technicalSeries[technicalSeries.length - 1];
   const previous = technicalSeries[technicalSeries.length - 2];
-  const dayRange = `${formatKRW(latest.low)} - ${formatKRW(latest.high)}`;
+  const dayRange = latest ? `${formatKRW(latest.low)} - ${formatKRW(latest.high)}` : "-";
   const tone = stock.change > 0 ? "up" : stock.change < 0 ? "down" : "neutral";
-  const dataSource = stock.tags.find((tag) => tag.toLowerCase() === "data.go.kr") ?? "mock";
-  const detailTags = stock.tags.filter(
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  const dataSource = tags.find((tag) => tag.toLowerCase() === "data.go.kr") ?? "mock";
+  const detailTags = tags.filter(
     (tag) => tag.toLowerCase() !== "data.go.kr" && tag !== stock.market
   );
   const visibleTags = [
@@ -44,6 +47,8 @@ export function StockDetailClient({
   ];
   const secondaryName =
     stock.name && stock.name !== stock.koreanName ? stock.name : undefined;
+  const dataDate = stock.date ?? latest?.date;
+  const dataDateLabel = dataDate ? `${dataDate} 기준` : "일별 종가 기준";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -65,7 +70,8 @@ export function StockDetailClient({
               {[
                 ["시장", stock.market],
                 ["코드", stock.symbol],
-                ["데이터", dataSource]
+                ["데이터", dataSource],
+                ["기준일", dataDateLabel]
               ].map(([label, value]) => (
                 <span
                   key={label}
@@ -76,6 +82,9 @@ export function StockDetailClient({
                 </span>
               ))}
             </div>
+            <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              data.go.kr 데이터는 일 단위 종가 기준이며 실시간 시세가 아닙니다.
+            </p>
             <h1 className="mt-4 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
               {stock.koreanName}
             </h1>
@@ -86,6 +95,7 @@ export function StockDetailClient({
             )}
           </div>
           <div className="min-w-0 max-w-full text-left lg:text-right">
+            <p className="mb-1 text-xs font-bold text-slate-400">최근 종가</p>
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
               {formatKRW(stock.price)}
             </p>
@@ -117,14 +127,14 @@ export function StockDetailClient({
         <MetricCard
           label="거래량"
           value={formatNumber(stock.volume)}
-          subValue={latest.date}
+          subValue={dataDateLabel}
           icon={BarChart3}
         />
         <MetricCard label="시가총액" value={formatCompactKRW(stock.marketCap)} icon={Wallet} />
         <MetricCard label="일중 범위" value={dayRange} icon={Activity} tone={tone} />
         <MetricCard
           label="PER / EPS"
-          value={`${stock.pe.toFixed(1)}x`}
+          value={`${Number.isFinite(stock.pe) ? stock.pe.toFixed(1) : "0.0"}x`}
           subValue={formatKRW(stock.eps)}
           icon={Gauge}
         />
@@ -137,11 +147,31 @@ export function StockDetailClient({
         <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-start-2 xl:row-span-3 xl:row-start-1">
           <AiReportCard stock={stock} />
           <EntryRiskScoreCard stock={stock} />
-          <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />
+          {latest && previous ? (
+            <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />
+          ) : (
+            <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+              <EmptyState
+                compact
+                title="핵심 지표 없음"
+                description="기술 지표를 계산할 일별 데이터가 부족합니다."
+              />
+            </section>
+          )}
           <TradingPlanHelper stock={stock} />
         </div>
         <div className="min-w-0 max-w-full xl:col-start-1">
-          <IndicatorTranslator stock={stock} latest={latest} />
+          {latest ? (
+            <IndicatorTranslator stock={stock} latest={latest} />
+          ) : (
+            <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+              <EmptyState
+                compact
+                title="지표 해석 없음"
+                description="해석할 기술 지표 데이터가 없습니다."
+              />
+            </section>
+          )}
         </div>
         <div className="min-w-0 max-w-full xl:col-start-1">
           <IndicatorSummary series={technicalSeries} />

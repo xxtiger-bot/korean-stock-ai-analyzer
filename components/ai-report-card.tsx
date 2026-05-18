@@ -12,6 +12,26 @@ type AnalysisResponse = {
   report: AiReport;
 };
 
+function normalizeReport(report?: Partial<AiReport> | null): AiReport {
+  return {
+    trend: typeof report?.trend === "string" ? report.trend : "분석 데이터가 부족합니다.",
+    technical:
+      typeof report?.technical === "string" ? report.technical : "기술적 근거를 표시할 데이터가 부족합니다.",
+    risk: typeof report?.risk === "string" ? report.risk : "리스크 정보를 표시할 데이터가 부족합니다.",
+    watchPoints: Array.isArray(report?.watchPoints)
+      ? report.watchPoints.filter((point): point is string => typeof point === "string")
+      : [],
+    shortTermCheckPoints: Array.isArray(report?.shortTermCheckPoints)
+      ? report.shortTermCheckPoints.filter((point): point is string => typeof point === "string")
+      : []
+  };
+}
+
+function formatGeneratedAt(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "생성 시간 확인 필요" : date.toLocaleString("ko-KR");
+}
+
 export function AiReportCard({ stock }: { stock: Stock }) {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +52,12 @@ export function AiReportCard({ stock }: { stock: Stock }) {
         throw new Error("report failed");
       }
 
-      setData(await response.json());
+      const payload = (await response.json()) as AnalysisResponse;
+      setData({
+        source: payload.source === "openai" ? "openai" : "local",
+        generatedAt: payload.generatedAt ?? new Date().toISOString(),
+        report: normalizeReport(payload.report)
+      });
     } catch {
       setError("리포트 생성 실패");
     } finally {
@@ -55,6 +80,14 @@ export function AiReportCard({ stock }: { stock: Stock }) {
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-400">
             데이터 업데이트 {DATA_UPDATED_AT}
+          </p>
+          {stock.date && (
+            <p className="mt-1 text-xs font-semibold text-slate-400">
+              데이터 기준일 {stock.date} 기준
+            </p>
+          )}
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+            본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.
           </p>
         </div>
         <button
@@ -96,7 +129,10 @@ export function AiReportCard({ stock }: { stock: Stock }) {
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   {data.source === "openai" ? "OpenAI 생성" : "실데이터 자동 생성"} ·{" "}
-                  {new Date(data.generatedAt).toLocaleString("ko-KR")}
+                  {formatGeneratedAt(data.generatedAt)}
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+                  본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
@@ -128,7 +164,7 @@ export function AiReportCard({ stock }: { stock: Stock }) {
             <article className="bg-white p-4 dark:bg-dark-panel">
               <h3 className="text-sm font-bold text-ink dark:text-white">관찰 포인트</h3>
               <div className="mt-3 grid gap-2">
-                {data.report.watchPoints.map((point, index) => (
+                {(Array.isArray(data.report.watchPoints) ? data.report.watchPoints : []).map((point, index) => (
                   <p
                     key={point}
                     className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
@@ -144,7 +180,7 @@ export function AiReportCard({ stock }: { stock: Stock }) {
             <article className="bg-white p-4 dark:bg-dark-panel">
               <h3 className="text-sm font-bold text-ink dark:text-white">단기 체크 포인트</h3>
               <div className="mt-3 grid gap-2">
-                {data.report.shortTermCheckPoints.map((point, index) => (
+                {(Array.isArray(data.report.shortTermCheckPoints) ? data.report.shortTermCheckPoints : []).map((point, index) => (
                   <p
                     key={point}
                     className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"

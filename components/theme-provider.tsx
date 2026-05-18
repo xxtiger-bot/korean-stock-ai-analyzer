@@ -22,12 +22,14 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
 
-  const stored = window.localStorage.getItem(storageKey);
-  if (stored === "dark" || stored === "light") return stored;
+  try {
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored === "dark" || stored === "light") return stored;
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -43,8 +45,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isReady) return;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    window.localStorage.setItem(storageKey, theme);
+    try {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      window.localStorage.setItem(storageKey, theme);
+    } catch {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
   }, [isReady, theme]);
 
   const toggleTheme = useCallback(() => {

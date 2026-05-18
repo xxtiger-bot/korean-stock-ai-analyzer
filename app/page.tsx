@@ -21,9 +21,12 @@ export default async function Home() {
     getMarketOverview(),
     getOpportunityRadar()
   ]);
-  const { signals } = marketOverview;
-  const kospiStocks = allStocks.filter((stock) => stock.market === "KOSPI").slice(0, 6);
-  const kosdaqStocks = allStocks.filter((stock) => stock.market === "KOSDAQ").slice(0, 6);
+  const safeAllStocks = Array.isArray(allStocks) ? allStocks : [];
+  const safePopularStocks = Array.isArray(popularStocks) ? popularStocks : [];
+  const safeOpportunityRadar = Array.isArray(opportunityRadar) ? opportunityRadar : [];
+  const signals = Array.isArray(marketOverview?.signals) ? marketOverview.signals : [];
+  const kospiStocks = safeAllStocks.filter((stock) => stock.market === "KOSPI").slice(0, 6);
+  const kosdaqStocks = safeAllStocks.filter((stock) => stock.market === "KOSDAQ").slice(0, 6);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -44,7 +47,7 @@ export default async function Home() {
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
                 <p className="text-xs font-bold text-slate-400">종목</p>
-                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{allStocks.length}</p>
+                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{safeAllStocks.length}</p>
               </div>
               <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
                 <p className="text-xs font-bold text-slate-400">KOSPI</p>
@@ -57,14 +60,14 @@ export default async function Home() {
             </div>
           </div>
         </div>
-        <WatchlistPanel stocks={allStocks} />
+        <WatchlistPanel stocks={safeAllStocks} />
       </section>
 
       <div className="grid gap-5">
         <MarketBriefing signals={signals} />
-        <OpportunityRadar items={opportunityRadar} />
-        <StockSearch stocks={allStocks} />
-        <StockCardGrid title="인기 종목" stocks={popularStocks} />
+        <OpportunityRadar items={safeOpportunityRadar} />
+        <StockSearch stocks={safeAllStocks} />
+        <StockCardGrid title="인기 종목" stocks={safePopularStocks} />
         <div className="grid gap-5 xl:grid-cols-2">
           <StockTable title="KOSPI 주요 종목" stocks={kospiStocks} />
           <StockTable title="KOSDAQ 관심 종목" stocks={kosdaqStocks} />

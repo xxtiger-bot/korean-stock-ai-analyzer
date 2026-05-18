@@ -87,9 +87,9 @@ function createDailyReport(items: WatchlistPriorityItem[]) {
     "주요 변동 요약",
     ...items.slice(0, 5).map(
       (item) =>
-        `- ${item.stock.koreanName}: 현재가 ${formatKRW(item.stock.price)}, 등락률 ${formatPercent(
+        `- ${item.stock.koreanName}: 최근 종가 ${formatKRW(item.stock.price)}, 등락률 ${formatPercent(
           item.stock.changeRate
-        )}, ${item.reasons.slice(0, 2).join(", ")}`
+        )}, ${item.stock.date ? `${item.stock.date} 기준, ` : ""}${item.reasons.slice(0, 2).join(", ")}`
     ),
     "",
     "리스크가 높아진 종목",

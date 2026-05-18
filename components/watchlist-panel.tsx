@@ -18,15 +18,16 @@ type WatchlistPriorityResponse = {
 export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
   const { symbols, remove } = useWatchlist();
   const [liveStocks, setLiveStocks] = useState<Stock[]>([]);
+  const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
   const symbolKey = symbols.join("|");
   const selected = useMemo(() => {
     const liveMap = new Map(liveStocks.map((stock) => [stock.symbol, stock]));
-    const fallbackMap = new Map(stocks.map((stock) => [stock.symbol, stock]));
+    const fallbackMap = new Map(safeStocks.map((stock) => [stock.symbol, stock]));
 
     return symbols
       .map((symbol) => liveMap.get(symbol) ?? fallbackMap.get(symbol))
       .filter((stock): stock is Stock => Boolean(stock));
-  }, [liveStocks, stocks, symbols]);
+  }, [liveStocks, safeStocks, symbols]);
 
   useEffect(() => {
     if (symbols.length === 0) {
@@ -50,7 +51,8 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
 
         const data = (await response.json()) as WatchlistPriorityResponse;
         if (!cancelled) {
-          setLiveStocks(data.priorities.map((item) => item.stock));
+          const priorities = Array.isArray(data.priorities) ? data.priorities : [];
+          setLiveStocks(priorities.map((item) => item.stock).filter(Boolean));
         }
       } catch {
         if (!cancelled) setLiveStocks([]);
@@ -93,12 +95,17 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
                   {stock.koreanName}
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {stock.symbol} ·{" "}
+                  {stock.symbol} · 최근 종가{" "}
                   {formatKRW(stock.price)}
                   <span className={`ml-2 ${changeColorClass(stock.change)}`}>
                     {formatPercent(stock.changeRate)}
                   </span>
                 </p>
+                {stock.date && (
+                  <p className="mt-1 text-[11px] font-bold text-slate-400">
+                    {stock.date} 기준
+                  </p>
+                )}
               </Link>
               <button
                 type="button"
@@ -113,7 +120,7 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
           ))
         )}
       </div>
-      <WatchlistPriority stocks={stocks} />
+      <WatchlistPriority stocks={safeStocks} />
     </aside>
   );
 }

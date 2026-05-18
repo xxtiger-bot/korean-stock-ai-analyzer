@@ -12,12 +12,14 @@ import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
 import type { OpportunityRadarItem } from "@/lib/insights";
 
 function getDataSource(item: OpportunityRadarItem) {
-  return item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
+  const tags = Array.isArray(item.stock?.tags) ? item.stock.tags : [];
+  return tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
 }
 
 export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
-  const topFive = items.slice(0, 5);
-  const categoryCounts = getOpportunityCategoryCounts(items);
+  const safeItems = Array.isArray(items) ? items.filter((item) => item?.stock) : [];
+  const topFive = safeItems.slice(0, 5);
+  const categoryCounts = getOpportunityCategoryCounts(safeItems);
 
   return (
     <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
@@ -52,7 +54,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
         ))}
       </div>
 
-      {items.length === 0 ? (
+      {safeItems.length === 0 ? (
         <div className="mt-5">
           <EmptyState
             compact
@@ -88,7 +90,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                   </p>
                   <p className="mt-1 text-xs font-bold text-brand">{item.priorityScore}점</p>
                   <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-                    {item.signals[0]?.category ?? "관찰"} · {item.observationFocus}
+                    {(Array.isArray(item.signals) ? item.signals[0]?.category : undefined) ?? "관찰"} · {item.observationFocus}
                   </p>
                 </Link>
               ))}
@@ -96,9 +98,10 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-          {items.map((item) => {
+          {safeItems.map((item) => {
             const dataSource = getDataSource(item);
             const groupName = item.stock.sector === "미분류" ? item.stock.market : item.stock.sector;
+            const signals = Array.isArray(item.signals) ? item.signals : [];
 
             return (
             <article
@@ -119,7 +122,8 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                     </span>
                   </div>
                   <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {groupName} · {formatKRW(item.stock.price)} · 데이터: {dataSource}
+                    {groupName} · 최근 종가 {formatKRW(item.stock.price)} · 데이터: {dataSource}
+                    {item.stock.date ? ` · ${item.stock.date} 기준` : ""}
                     <span className={`ml-2 ${changeColorClass(item.stock.change)}`}>
                       {formatPercent(item.stock.changeRate)}
                     </span>
@@ -132,7 +136,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {item.signals.slice(0, 4).map((signal) => (
+                {signals.slice(0, 4).map((signal) => (
                   <span
                     key={signal.id}
                     className={`rounded-md border px-2 py-1 text-xs font-bold ${getSignalLabelClass(
@@ -164,7 +168,7 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                     <span className="font-bold text-slate-700 dark:text-slate-200">
                       신호 발생 이유:
                     </span>{" "}
-                    {item.signals[0]?.reason ?? "신호 확인 중"}
+                    {signals[0]?.reason ?? "신호 확인 중"}
                   </p>
                   <p className="text-slate-500 dark:text-slate-400">
                     <span className="font-bold text-slate-700 dark:text-slate-200">

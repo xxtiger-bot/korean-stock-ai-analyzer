@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { EmptyState } from "@/components/ui-states";
 import { getIndicatorBias } from "@/lib/indicators";
 import { formatKRW } from "@/lib/format";
 import type { TechnicalPoint } from "@/lib/types";
@@ -23,9 +24,23 @@ function translateStatus(value: string) {
 }
 
 export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
-  const latest = series[series.length - 1];
+  const safeSeries = Array.isArray(series) ? series : [];
+  const latest = safeSeries[safeSeries.length - 1];
+
+  if (!latest) {
+    return (
+      <section className="max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+        <EmptyState
+          compact
+          title="기술 지표 없음"
+          description="표시할 MA, RSI, MACD 데이터가 없습니다."
+        />
+      </section>
+    );
+  }
+
   const bias = getIndicatorBias(latest);
-  const visible = series.slice(-64);
+  const visible = safeSeries.slice(-64);
 
   return (
     <section className="max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
@@ -77,7 +92,7 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
           <ResponsiveContainer width="100%" height="86%">
             <ComposedChart data={visible}>
               <CartesianGrid stroke="#dfe6ee" strokeDasharray="4 6" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(value) => value.slice(5)} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(value) => String(value).slice(5)} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={34} />
               <Tooltip
                 contentStyle={{
@@ -85,7 +100,7 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
                   border: "1px solid #dfe6ee",
                   fontSize: 12
                 }}
-                formatter={(value) => Number(value).toFixed(2)}
+                formatter={(value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "-")}
               />
               <ReferenceLine y={70} stroke="#e23b3b" strokeDasharray="4 5" />
               <ReferenceLine y={30} stroke="#2563eb" strokeDasharray="4 5" />
@@ -104,7 +119,7 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
           <ResponsiveContainer width="100%" height="86%">
             <ComposedChart data={visible}>
               <CartesianGrid stroke="#dfe6ee" strokeDasharray="4 6" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(value) => value.slice(5)} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(value) => String(value).slice(5)} />
               <YAxis tick={{ fontSize: 10 }} width={42} />
               <Tooltip
                 contentStyle={{
@@ -112,7 +127,7 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
                   border: "1px solid #dfe6ee",
                   fontSize: 12
                 }}
-                formatter={(value) => Number(value).toFixed(2)}
+                formatter={(value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "-")}
               />
               <Bar dataKey="macdHistogram" fill="#94a3b8" radius={[2, 2, 0, 0]} />
               <Line dataKey="macd" dot={false} stroke="#e23b3b" strokeWidth={2} type="monotone" />

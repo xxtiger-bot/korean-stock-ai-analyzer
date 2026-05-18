@@ -34,22 +34,24 @@ type WatchlistPriorityResponse = {
 };
 
 function getDataSource(item: WatchlistPriorityItem) {
+  const tags = Array.isArray(item.stock?.tags) ? item.stock.tags : [];
   return (
     item.dataSource ??
-    (item.stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock")
+    (tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock")
   );
 }
 
 function createFallbackBrief(items: WatchlistPriorityItem[]) {
-  if (items.length === 0) return "";
+  const safeItems = Array.isArray(items) ? items.filter((item) => item?.stock) : [];
+  if (safeItems.length === 0) return "";
 
-  const top = items.slice(0, 3);
-  const highRisk = items
+  const top = safeItems.slice(0, 3);
+  const highRisk = safeItems
     .filter((item) =>
       ["매우 높음", "높음", "위험 높음", "신중 관찰"].includes(item.riskLevel)
     )
     .slice(0, 3);
-  const keepWatching = items
+  const keepWatching = safeItems
     .filter(
       (item) => !["매우 높음", "높음", "위험 높음", "신중 관찰"].includes(item.riskLevel)
     )
@@ -63,11 +65,11 @@ function createFallbackBrief(items: WatchlistPriorityItem[]) {
     ),
     "",
     "주요 변동 요약",
-    ...items.slice(0, 5).map(
+    ...safeItems.slice(0, 5).map(
       (item) =>
-        `- ${item.stock.koreanName}: 현재가 ${formatKRW(item.stock.price)}, 등락률 ${formatPercent(
+        `- ${item.stock.koreanName}: 최근 종가 ${formatKRW(item.stock.price)}, 등락률 ${formatPercent(
           item.stock.changeRate
-        )}, ${item.reasons.slice(0, 2).join(", ")}`
+        )}, ${item.stock.date ? `${item.stock.date} 기준, ` : ""}${item.reasons.slice(0, 2).join(", ")}`
     ),
     "",
     "리스크가 높아진 종목",
@@ -101,10 +103,11 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
   const [remoteDataSource, setRemoteDataSource] = useState("mock");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
   const symbolKey = symbols.join("|");
   const selected = useMemo(
-    () => stocks.filter((stock) => symbols.includes(stock.symbol)),
-    [stocks, symbols]
+    () => safeStocks.filter((stock) => symbols.includes(stock.symbol)),
+    [safeStocks, symbols]
   );
   const fallbackPriorities = useMemo(
     () =>
@@ -150,7 +153,7 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
         const data = (await response.json()) as WatchlistPriorityResponse;
         if (cancelled) return;
 
-        setRemotePriorities(data.priorities ?? []);
+        setRemotePriorities(Array.isArray(data.priorities) ? data.priorities.filter((item) => item?.stock) : []);
         setRemoteReport(data.report ?? "");
         setRemoteUpdatedAt(data.generatedAt ?? DATA_UPDATED_AT);
         setRemoteDataSource(data.dataSource ?? "mock");
@@ -158,7 +161,7 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
         if (cancelled) return;
         setRemotePriorities([]);
         setRemoteReport("");
-        setErrorMessage("실시간 우선순위를 불러오지 못해 임시 데이터로 표시합니다.");
+        setErrorMessage("일별 데이터 기반 우선순위를 불러오지 못해 임시 데이터로 표시합니다.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -215,7 +218,7 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
 
       {isLoading && symbols.length > 0 && (
         <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs font-bold text-slate-500 dark:bg-dark-panel dark:text-slate-300">
-          관심종목 실시간 우선순위를 계산하는 중입니다.
+          관심종목 일별 데이터 기반 우선순위를 계산하는 중입니다.
         </p>
       )}
       {errorMessage && priorities.length > 0 && (
@@ -253,11 +256,17 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
                     {item.stock.symbol}
                   </p>
                   <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
+                    <span className="mr-1 text-slate-400">최근 종가</span>
                     {formatKRW(item.stock.price)}
                     <span className={`ml-2 ${changeColorClass(item.stock.change)}`}>
                       {formatPercent(item.stock.changeRate)}
                     </span>
                   </p>
+                  {item.stock.date && (
+                    <p className="mt-1 text-[11px] font-bold text-slate-400">
+                      {item.stock.date} 기준
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskLabelClass(

@@ -1,16 +1,19 @@
 import { Activity } from "lucide-react";
+import { EmptyState } from "@/components/ui-states";
 import { changeBgClass, changeColorClass, formatCompactKRW, formatPercent } from "@/lib/format";
 import type { MarketIndex } from "@/lib/types";
 
 function Sparkline({ values, positive }: { values: number[]; positive: boolean }) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const safeValues = Array.isArray(values) && values.length > 0 ? values.filter(Number.isFinite) : [0, 0];
+  const chartValues = safeValues.length > 0 ? safeValues : [0, 0];
+  const min = Math.min(...chartValues);
+  const max = Math.max(...chartValues);
   const width = 116;
   const height = 36;
   const range = max - min || 1;
-  const points = values
+  const points = chartValues
     .map((value, index) => {
-      const x = (index / (values.length - 1)) * width;
+      const x = chartValues.length > 1 ? (index / (chartValues.length - 1)) * width : width / 2;
       const y = height - ((value - min) / range) * height;
       return `${x},${y}`;
     })
@@ -31,9 +34,23 @@ function Sparkline({ values, positive }: { values: number[]; positive: boolean }
 }
 
 export function MarketOverview({ indices }: { indices: MarketIndex[] }) {
+  const safeIndices = Array.isArray(indices) ? indices : [];
+
+  if (safeIndices.length === 0) {
+    return (
+      <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+        <EmptyState
+          compact
+          title="시장 지수 데이터 없음"
+          description="표시할 KOSPI/KOSDAQ 데이터가 없습니다."
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="grid gap-3 md:grid-cols-3">
-      {indices.map((index) => (
+      {safeIndices.map((index) => (
         <article
           key={index.code}
           className="rounded-lg border border-line bg-white p-5 shadow-soft"
@@ -51,7 +68,7 @@ export function MarketOverview({ indices }: { indices: MarketIndex[] }) {
           <div className="mt-5 flex items-end justify-between gap-4">
             <div>
               <p className="text-2xl font-bold text-ink">
-                {index.price.toLocaleString("ko-KR", {
+                {(Number.isFinite(index.price) ? index.price : 0).toLocaleString("ko-KR", {
                   maximumFractionDigits: 2,
                   minimumFractionDigits: 2
                 })}
@@ -62,7 +79,7 @@ export function MarketOverview({ indices }: { indices: MarketIndex[] }) {
                 )}`}
               >
                 {index.change > 0 ? "+" : ""}
-                {index.change.toFixed(2)} · {formatPercent(index.changeRate)}
+                {(Number.isFinite(index.change) ? index.change : 0).toFixed(2)} · {formatPercent(index.changeRate)}
               </span>
             </div>
             <div className="text-right">

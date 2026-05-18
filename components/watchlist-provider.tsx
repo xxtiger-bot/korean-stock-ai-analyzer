@@ -25,24 +25,28 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(storageKey);
-    if (stored) {
-      try {
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (stored) {
         const parsed = JSON.parse(stored);
         const storedSymbols = Array.isArray(parsed)
           ? parsed.filter((item): item is string => typeof item === "string")
           : [];
         setSymbols((current) => (current.length > 0 ? current : storedSymbols));
-      } catch {
-        setSymbols((current) => current);
       }
+    } catch {
+      setSymbols((current) => current);
     }
     setIsReady(true);
   }, []);
 
   useEffect(() => {
     if (isReady) {
-      window.localStorage.setItem(storageKey, JSON.stringify(symbols));
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(symbols));
+      } catch {
+        // Storage can be unavailable in restricted browser contexts.
+      }
     }
   }, [isReady, symbols]);
 

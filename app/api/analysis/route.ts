@@ -40,6 +40,9 @@ type ReportContext = {
   }>;
 };
 
+const DATA_BASIS_NOTICE =
+  "본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.";
+
 function formatKRW(value: number) {
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
 }
@@ -148,11 +151,13 @@ function createLocalReport(context: ReportContext): AiReport {
   });
 
   return {
-    trend: `${stock.name}(${stock.code})는 ${stock.market} 종목으로 현재가 ${formatKRW(
+    trend: `${DATA_BASIS_NOTICE} ${stock.name}(${stock.code})는 ${stock.market} 종목으로 최근 종가 ${formatKRW(
       stock.price
-    )}, 당일 등락률 ${formatPercent(stock.changeRate)}를 기록했습니다. 최근 K선 기준 10거래일 변화율은 ${formatPercent(
+    )}, 일별 등락률 ${formatPercent(stock.changeRate)}를 기록했습니다. 최근 K선 기준 10거래일 변화율은 ${formatPercent(
       recentMove
-    )}이며, MA20 대비 위치는 ${formatPercent(technical.ma20Gap)}입니다. 데이터 출처는 ${stock.dataSource}입니다.`,
+    )}이며, MA20 대비 위치는 ${formatPercent(technical.ma20Gap)}입니다. 기준일은 ${
+      stock.date ?? "확인 필요"
+    }이며, 데이터 출처는 ${stock.dataSource}입니다.`,
     technical: `MA5 ${technical.ma5 ? formatKRW(technical.ma5) : "확인 필요"}, MA20 ${
       technical.ma20 ? formatKRW(technical.ma20) : "확인 필요"
     }, MA60 ${technical.ma60 ? formatKRW(technical.ma60) : "확인 필요"}입니다. RSI는 ${rsiText}로 ${getRsiLabel(
@@ -160,8 +165,8 @@ function createLocalReport(context: ReportContext): AiReport {
     )}이며, MACD는 ${macdLabel} 상태입니다. 20일 고점은 ${formatKRW(
       technical.high20
     )}, 20일 저점은 ${formatKRW(technical.low20)}입니다.`,
-    risk: `${nearResistance ? "현재가가 20일 고점권에 가까워 단기 변동성 확대를 신중하게 관찰해야 합니다. " : ""}${
-      nearSupport ? "현재가가 20일 저점권에 가까워 지지 확인이 필요합니다. " : ""
+    risk: `${nearResistance ? "최근 종가가 20일 고점권에 가까워 단기 변동성 확대를 신중하게 관찰해야 합니다. " : ""}${
+      nearSupport ? "최근 종가가 20일 저점권에 가까워 지지 확인이 필요합니다. " : ""
     }거래량은 ${formatNumber(stock.volume)}주이며, 시가총액은 ${formatKRW(
       stock.marketCap
     )}입니다. 가격이 ${aboveMa20 ? "MA20 위" : "MA20 아래"}에 있고 ${
@@ -179,6 +184,15 @@ function createLocalReport(context: ReportContext): AiReport {
       `거래량 ${formatNumber(stock.volume)}주가 최근 흐름 대비 확대되는지 참고`,
       `20일 범위 ${formatKRW(technical.low20)}~${formatKRW(technical.high20)} 안에서 변동성이 커지는지 점검`
     ]
+  };
+}
+
+function ensureDataBasisNotice(report: AiReport): AiReport {
+  return {
+    ...report,
+    trend: report.trend.includes(DATA_BASIS_NOTICE)
+      ? report.trend
+      : `${DATA_BASIS_NOTICE} ${report.trend}`
   };
 }
 
@@ -220,7 +234,7 @@ export async function POST(request: Request) {
   }
 
   const context = createReportContext(stock, candles, technicalSeries);
-  const fallback = createLocalReport(context);
+  const fallback = ensureDataBasisNotice(createLocalReport(context));
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({
@@ -240,7 +254,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, watchPoints, shortTermCheckPoints입니다. 모든 문장은 자연스러운 한국어로 작성하세요. 매수, 매도, 추천, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
+            "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, watchPoints, shortTermCheckPoints입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 현재가가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. 매수, 매도, 추천, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
         },
         {
           role: "user",
@@ -254,6 +268,7 @@ export async function POST(request: Request) {
               "면책 문구"
             ],
             context,
+            dataBasisNotice: DATA_BASIS_NOTICE,
             disclaimer: DISCLAIMER
           })
         }
@@ -264,11 +279,12 @@ export async function POST(request: Request) {
     if (!content) throw new Error("Empty OpenAI response");
 
     const parsed = JSON.parse(content) as Partial<AiReport>;
+    const report = ensureDataBasisNotice(normalizeReport(parsed, fallback));
 
     return NextResponse.json({
       source: "openai",
       generatedAt: new Date().toISOString(),
-      report: normalizeReport(parsed, fallback)
+      report
     });
   } catch {
     return NextResponse.json({

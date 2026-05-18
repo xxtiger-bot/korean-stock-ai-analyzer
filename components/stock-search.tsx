@@ -9,10 +9,11 @@ import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
 import type { Stock } from "@/lib/types";
 
 function filterStocks(stocks: Stock[], query: string) {
+  const safeStocks = Array.isArray(stocks) ? stocks : [];
   const normalized = query.trim().toLowerCase();
-  if (!normalized) return stocks;
+  if (!normalized) return safeStocks;
 
-  return stocks.filter((stock) =>
+  return safeStocks.filter((stock) =>
     [stock.symbol, stock.name, stock.koreanName, stock.sector, stock.market]
       .join(" ")
       .toLowerCase()
@@ -24,7 +25,8 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
   const [query, setQuery] = useState("");
   const [remoteResults, setRemoteResults] = useState<Stock[] | null>(null);
   const router = useRouter();
-  const localResults = useMemo(() => filterStocks(stocks, query).slice(0, 6), [query, stocks]);
+  const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
+  const localResults = useMemo(() => filterStocks(safeStocks, query).slice(0, 6), [query, safeStocks]);
   const results = remoteResults ?? localResults;
 
   useEffect(() => {
@@ -62,8 +64,9 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (results[0]) {
-      router.push(`/stocks/${results[0].symbol}`);
+    const firstResult = results[0];
+    if (firstResult?.symbol) {
+      router.push(`/stocks/${firstResult.symbol}`);
     }
   }
 
@@ -117,9 +120,11 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                   </p>
                   <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     {stock.symbol} · {stock.market}
+                    {stock.date ? ` · ${stock.date} 기준` : ""}
                   </p>
                 </div>
                 <div className="text-right">
+                  <p className="mb-1 text-[11px] font-bold text-slate-400">최근 종가</p>
                   <p className="text-sm font-bold text-ink dark:text-white">
                     {formatKRW(stock.price)}
                   </p>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Layers, TrendingDown, TrendingUp } from "lucide-react";
+import { EmptyState } from "@/components/ui-states";
 import { WatchlistButton } from "@/components/watchlist-button";
 import {
   changeBgClass,
@@ -12,7 +13,8 @@ import {
 import type { Stock } from "@/lib/types";
 
 function getDataSource(stock: Stock) {
-  return stock.tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  return tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
 }
 
 export function StockCardGrid({
@@ -22,6 +24,8 @@ export function StockCardGrid({
   title: string;
   stocks: Stock[];
 }) {
+  const safeStocks = Array.isArray(stocks) ? stocks : [];
+
   return (
     <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -35,12 +39,22 @@ export function StockCardGrid({
           거래량 기준
         </span>
       </div>
+      {safeStocks.length === 0 ? (
+        <div className="mt-5">
+          <EmptyState
+            compact
+            title="종목 데이터 없음"
+            description="표시할 인기 종목 데이터가 없습니다."
+          />
+        </div>
+      ) : (
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {stocks.map((stock) => {
+        {safeStocks.map((stock) => {
           const positive = stock.change >= 0;
           const TrendIcon = positive ? TrendingUp : TrendingDown;
           const dataSource = getDataSource(stock);
-          const visibleTags = stock.tags.filter(
+          const tags = Array.isArray(stock.tags) ? stock.tags : [];
+          const visibleTags = tags.filter(
             (tag) => tag.toLowerCase() !== "data.go.kr" && tag !== stock.market
           );
           const sectorLabel = stock.sector === "미분류" ? stock.market : stock.sector;
@@ -77,6 +91,7 @@ export function StockCardGrid({
 
               <div className="mt-5 flex items-end justify-between gap-3">
                 <div>
+                  <p className="text-xs font-bold text-slate-400">최근 종가</p>
                   <p className="text-2xl font-bold text-ink dark:text-white">
                     {formatKRW(stock.price)}
                   </p>
@@ -123,6 +138,7 @@ export function StockCardGrid({
                 </span>
                 <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
                   데이터: {dataSource}
+                  {stock.date ? ` · ${stock.date} 기준` : ""}
                 </span>
                 {visibleTags.slice(0, 1).map((tag) => (
                   <span
@@ -137,6 +153,7 @@ export function StockCardGrid({
           );
         })}
       </div>
+      )}
     </section>
   );
 }

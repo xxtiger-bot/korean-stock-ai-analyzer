@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { EmptyState } from "@/components/ui-states";
 import { WatchlistButton } from "@/components/watchlist-button";
 import {
   changeBgClass,
@@ -19,6 +20,8 @@ type StockTableProps = {
 };
 
 export function StockTable({ title, stocks }: StockTableProps) {
+  const safeStocks = Array.isArray(stocks) ? stocks : [];
+
   return (
     <section className="min-w-0 rounded-lg border border-line bg-white shadow-soft dark:border-dark-line dark:bg-dark-panel">
       <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 dark:border-dark-line">
@@ -27,12 +30,21 @@ export function StockTable({ title, stocks }: StockTableProps) {
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">{title}</h2>
         </div>
       </div>
+      {safeStocks.length === 0 ? (
+        <div className="p-5">
+          <EmptyState
+            compact
+            title="종목 리스트 없음"
+            description="표시할 종목 데이터가 없습니다."
+          />
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-left">
           <thead>
             <tr className="border-b border-line bg-slate-50 text-xs font-bold uppercase tracking-normal text-slate-400 dark:border-dark-line dark:bg-slate-900/60">
               <th className="px-5 py-3">종목</th>
-              <th className="px-4 py-3 text-right">현재가</th>
+              <th className="px-4 py-3 text-right">최근 종가</th>
               <th className="px-4 py-3 text-right">등락률</th>
               <th className="px-4 py-3 text-right">거래량</th>
               <th className="px-4 py-3 text-right">시가총액</th>
@@ -41,12 +53,12 @@ export function StockTable({ title, stocks }: StockTableProps) {
             </tr>
           </thead>
           <tbody>
-            {stocks.map((stock) => (
+            {safeStocks.map((stock) => (
               <tr key={stock.symbol} className="border-b border-line last:border-0 dark:border-dark-line">
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                      {stock.koreanName.slice(0, 2)}
+                      {(stock.koreanName || stock.symbol || "--").slice(0, 2)}
                     </span>
                     <div>
                       <Link
@@ -57,6 +69,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
                       </Link>
                       <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                         {stock.symbol} · {stock.sector}
+                        {stock.date ? ` · ${stock.date} 기준` : ""}
                       </p>
                     </div>
                   </div>
@@ -99,6 +112,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
           </tbody>
         </table>
       </div>
+      )}
     </section>
   );
 }

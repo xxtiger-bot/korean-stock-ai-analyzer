@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { EmptyState } from "@/components/ui-states";
 import { formatKRW, formatNumber } from "@/lib/format";
 import type { TechnicalPoint } from "@/lib/types";
 
@@ -12,7 +13,8 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(860);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const visible = useMemo(() => series.slice(-72), [series]);
+  const safeSeries = useMemo(() => (Array.isArray(series) ? series : []), [series]);
+  const visible = useMemo(() => safeSeries.slice(-72), [safeSeries]);
 
   useEffect(() => {
     const element = wrapperRef.current;
@@ -35,11 +37,11 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
   const volumeTop = 308;
   const volumeHeight = 54;
   const plotWidth = width - left - right;
-  const step = plotWidth / visible.length;
+  const step = visible.length > 0 ? plotWidth / visible.length : plotWidth;
   const candleWidth = Math.max(4, Math.min(10, step * 0.55));
-  const maxPrice = Math.max(...visible.map((item) => item.high));
-  const minPrice = Math.min(...visible.map((item) => item.low));
-  const maxVolume = Math.max(...visible.map((item) => item.volume));
+  const maxPrice = Math.max(...visible.map((item) => item.high).filter(Number.isFinite), 1);
+  const minPrice = Math.min(...visible.map((item) => item.low).filter(Number.isFinite), maxPrice);
+  const maxVolume = Math.max(...visible.map((item) => item.volume).filter(Number.isFinite), 1);
   const priceRange = maxPrice - minPrice || 1;
 
   function x(index: number) {
@@ -100,6 +102,15 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
         ref={wrapperRef}
         className="relative mt-4 h-[390px] w-full overflow-hidden rounded-lg border border-line bg-slate-50 dark:border-dark-line dark:bg-slate-900/50"
       >
+        {visible.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-4">
+            <EmptyState
+              compact
+              title="K선 데이터 없음"
+              description="표시할 일별 종가 데이터가 없습니다."
+            />
+          </div>
+        ) : (
         <svg
           width={width}
           height={height}
@@ -217,6 +228,7 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
             />
           )}
         </svg>
+        )}
         {active && (
           <div className="absolute left-3 top-3 min-w-[184px] rounded-lg border border-line bg-white/95 p-3 text-xs shadow-soft dark:border-dark-line dark:bg-slate-950/90">
             <p className="font-bold text-ink dark:text-white">{active.date}</p>

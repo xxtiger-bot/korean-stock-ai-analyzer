@@ -91,14 +91,20 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+function n(value: number | null | undefined, fallback = 0) {
+  return Number.isFinite(value) ? Number(value) : fallback;
+}
+
 function pct(value: number) {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}%`;
+  const safeValue = n(value);
+  const sign = safeValue > 0 ? "+" : "";
+  return `${sign}${safeValue.toFixed(2)}%`;
 }
 
 function formatFlow(value: number) {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${(value / 100_000_000).toFixed(0)}억원`;
+  const safeValue = n(value);
+  const sign = safeValue > 0 ? "+" : "";
+  return `${sign}${(safeValue / 100_000_000).toFixed(0)}억원`;
 }
 
 function translateMacdSignal(signal: Stock["macdSignal"]) {
@@ -109,7 +115,9 @@ function translateMacdSignal(signal: Stock["macdSignal"]) {
 }
 
 function maGap(stock: Stock, period: "ma5" | "ma20" | "ma60") {
-  return ((stock.price - stock[period]) / stock[period]) * 100;
+  const baseline = n(stock[period]);
+  if (!baseline) return 0;
+  return ((n(stock.price) - baseline) / baseline) * 100;
 }
 
 export function getRiskLevel(score: number): RiskLevel {
@@ -164,15 +172,19 @@ export function getOpportunitySignals(stock: Stock): OpportunitySignal[] {
   const signals: OpportunitySignal[] = [];
   const ma20Gap = maGap(stock, "ma20");
   const ma60Gap = maGap(stock, "ma60");
-  const netFlow = stock.foreignFlow + stock.institutionFlow;
 
-  if (stock.volumeChange >= 18) {
+  const rsi = n(stock.rsi, 50);
+  const recentChangeRate = n(stock.recentChangeRate);
+  const volumeChange = n(stock.volumeChange);
+  const netFlow = n(stock.foreignFlow) + n(stock.institutionFlow);
+
+  if (volumeChange >= 18) {
     signals.push({
       id: "volume_expansion",
       label: "거래량 확대",
       category: "거래량 이상",
-      severity: stock.volumeChange >= 55 ? "high" : "medium",
-      reason: `거래량이 20일 평균 대비 ${pct(stock.volumeChange)} 확대`,
+      severity: volumeChange >= 55 ? "high" : "medium",
+      reason: `거래량이 20일 평균 대비 ${pct(volumeChange)} 확대`,
       aiComment: "거래 참여가 늘어나며 가격 방향을 확인해야 하는 구간입니다.",
       observationFocus: "거래량 증가가 가격 유지로 이어지는지 확인"
     });
@@ -184,13 +196,13 @@ export function getOpportunitySignals(stock: Stock): OpportunitySignal[] {
       label: "MA20 돌파",
       category: "추세 돌파",
       severity: ma20Gap > 3 ? "high" : "medium",
-      reason: `현재가가 MA20보다 ${pct(ma20Gap)} 위`,
+      reason: `최근 종가가 MA20보다 ${pct(ma20Gap)} 위`,
       aiComment: "단기 추세선을 회복했습니다. 유지 여부가 중요합니다.",
       observationFocus: "MA20 위에서 종가가 유지되는지 관찰"
     });
   }
 
-  if (ma60Gap > 0.2 && stock.recentChangeRate > 0) {
+  if (ma60Gap > 0.2 && recentChangeRate > 0) {
     signals.push({
       id: "ma60_breakout",
       label: "MA60 돌파",
@@ -202,13 +214,13 @@ export function getOpportunitySignals(stock: Stock): OpportunitySignal[] {
     });
   }
 
-  if (stock.rsi <= 42 && stock.recentChangeRate > -1) {
+  if (rsi <= 42 && recentChangeRate > -1) {
     signals.push({
       id: "rsi_rebound",
       label: "RSI 과매도 반등",
       category: "과매도 반등",
       severity: "medium",
-      reason: `RSI ${stock.rsi.toFixed(1)}에서 반등 가능 구간`,
+      reason: `RSI ${rsi.toFixed(1)}에서 반등 가능 구간`,
       aiComment: "낙폭 이후 매도 압력이 둔화되는지 볼 수 있는 위치입니다.",
       observationFocus: "RSI 45 회복과 거래량 동반 여부 확인"
     });
@@ -229,13 +241,13 @@ export function getOpportunitySignals(stock: Stock): OpportunitySignal[] {
     });
   }
 
-  if (stock.recentChangeRate >= 5 || stock.rsi >= 70 || ma20Gap >= 7) {
+  if (recentChangeRate >= 5 || rsi >= 70 || ma20Gap >= 7) {
     signals.push({
       id: "fast_rally_risk",
       label: "단기 급등 주의",
       category: "고위험 추격",
-      severity: stock.recentChangeRate >= 8 || stock.rsi >= 76 ? "extreme" : "high",
-      reason: `최근 5거래일 등락률 ${pct(stock.recentChangeRate)}, RSI ${stock.rsi.toFixed(1)}`,
+      severity: recentChangeRate >= 8 || rsi >= 76 ? "extreme" : "high",
+      reason: `최근 5거래일 등락률 ${pct(recentChangeRate)}, RSI ${rsi.toFixed(1)}`,
       aiComment: "단기 과열 신호가 있어 변동성 확대를 조심해서 관찰해야 합니다.",
       observationFocus: "고점 부근 거래량 감소나 긴 윗꼬리 발생 여부 확인"
     });
@@ -266,10 +278,13 @@ function getComponentTone(score: number, maxScore: number): SignalSeverity {
 
 export function calculateEntryRiskScore(stock: Stock): EntryRiskScore {
   const ma20Gap = maGap(stock, "ma20");
-  const rsiRisk = clamp(Math.round((stock.rsi - 35) * 0.55), 0, 22);
+  const rsi = n(stock.rsi, 50);
+  const volumeChange = n(stock.volumeChange);
+  const recentChangeRate = n(stock.recentChangeRate);
+  const rsiRisk = clamp(Math.round((rsi - 35) * 0.55), 0, 22);
   const maRisk = clamp(Math.round(Math.abs(ma20Gap) * 2.2), 0, 22);
-  const volumeRisk = clamp(Math.round(Math.max(stock.volumeChange, 0) * 0.28), 0, 18);
-  const rallyRisk = clamp(Math.round(Math.max(stock.recentChangeRate, 0) * 3.1), 0, 20);
+  const volumeRisk = clamp(Math.round(Math.max(volumeChange, 0) * 0.28), 0, 18);
+  const rallyRisk = clamp(Math.round(Math.max(recentChangeRate, 0) * 3.1), 0, 20);
   const macdRisk =
     stock.macdSignal === "golden_cross"
       ? 8
@@ -290,12 +305,12 @@ export function calculateEntryRiskScore(stock: Stock): EntryRiskScore {
       label: "RSI 위험",
       score: rsiRisk,
       maxScore: 22,
-      value: stock.rsi.toFixed(1),
+      value: rsi.toFixed(1),
       tone: getComponentTone(rsiRisk, 22),
       explanation:
-        stock.rsi >= 70
+        rsi >= 70
           ? "단기 과열권에 가까워 신중 관찰이 필요합니다."
-          : stock.rsi <= 35
+          : rsi <= 35
             ? "침체권에 가까워 반등 확인이 우선입니다."
             : "과열과 침체 사이의 중립 구간입니다."
     },
@@ -316,10 +331,10 @@ export function calculateEntryRiskScore(stock: Stock): EntryRiskScore {
       label: "거래량 위험",
       score: volumeRisk,
       maxScore: 18,
-      value: pct(stock.volumeChange),
+      value: pct(volumeChange),
       tone: getComponentTone(volumeRisk, 18),
       explanation:
-        stock.volumeChange >= 50
+        volumeChange >= 50
           ? "거래량이 급증해 기대와 변동성이 동시에 커진 상태입니다."
           : "거래량 변화는 확인 가능한 수준입니다."
     },
@@ -328,10 +343,10 @@ export function calculateEntryRiskScore(stock: Stock): EntryRiskScore {
       label: "단기 상승 위험",
       score: rallyRisk,
       maxScore: 20,
-      value: pct(stock.recentChangeRate),
+      value: pct(recentChangeRate),
       tone: getComponentTone(rallyRisk, 20),
       explanation:
-        stock.recentChangeRate >= 5
+        recentChangeRate >= 5
           ? "최근 상승 속도가 빨라 기다림과 확인이 필요한 구간입니다."
           : "최근 등락 속도는 과도하지 않은 편입니다."
     },
@@ -439,21 +454,25 @@ export function getIndicatorTranslations(stock: Stock, latest?: TechnicalPoint):
   const ma5Gap = maGap(stock, "ma5");
   const ma20Gap = maGap(stock, "ma20");
   const ma60Gap = maGap(stock, "ma60");
+  const rsi = n(stock.rsi, 50);
+  const ma5 = n(stock.ma5, n(stock.price));
+  const ma20 = n(stock.ma20, n(stock.price));
+  const ma60 = n(stock.ma60, n(stock.price));
 
   return [
     {
       label: "RSI",
-      value: stock.rsi.toFixed(1),
+      value: rsi.toFixed(1),
       plainText:
-        stock.rsi >= 70
-          ? `RSI ${stock.rsi.toFixed(0)}: 단기 과열권에 가까워 추격 관찰 위험이 높아집니다.`
-          : stock.rsi <= 35
-            ? `RSI ${stock.rsi.toFixed(0)}: 매도 압력이 컸던 구간으로 반등 확인이 필요합니다.`
-            : `RSI ${stock.rsi.toFixed(0)}: 과열과 침체 사이의 중립 구간입니다.`,
+        rsi >= 70
+          ? `RSI ${rsi.toFixed(0)}: 단기 과열권에 가까워 추격 관찰 위험이 높아집니다.`
+          : rsi <= 35
+            ? `RSI ${rsi.toFixed(0)}: 매도 압력이 컸던 구간으로 반등 확인이 필요합니다.`
+            : `RSI ${rsi.toFixed(0)}: 과열과 침체 사이의 중립 구간입니다.`,
       riskMeaning:
-        stock.rsi >= 70
+        rsi >= 70
           ? "단기 기대가 앞서 있어 변동성 확대 가능성이 있습니다."
-          : stock.rsi <= 35
+          : rsi <= 35
             ? "낙폭 이후에도 추가 확인 전까지 방향성이 불안정할 수 있습니다."
             : "과열 부담은 제한적이지만 뚜렷한 우위 신호도 아직 약합니다.",
       nextWatch: "RSI 50선 회복 또는 70선 근처 둔화 여부를 관찰합니다."
@@ -475,11 +494,11 @@ export function getIndicatorTranslations(stock: Stock, latest?: TechnicalPoint):
     },
     {
       label: "MA5",
-      value: stock.ma5.toLocaleString("ko-KR"),
+      value: ma5.toLocaleString("ko-KR"),
       plainText:
         ma5Gap >= 0
-          ? `현재가가 MA5보다 ${pct(ma5Gap)} 위에 있어 아주 단기 흐름은 강한 편입니다.`
-          : `현재가가 MA5보다 ${pct(ma5Gap)} 아래에 있어 단기 속도 조절이 나타납니다.`,
+          ? `최근 종가가 MA5보다 ${pct(ma5Gap)} 위에 있어 아주 단기 흐름은 강한 편입니다.`
+          : `최근 종가가 MA5보다 ${pct(ma5Gap)} 아래에 있어 단기 속도 조절이 나타납니다.`,
       riskMeaning:
         Math.abs(ma5Gap) >= 4
           ? "단기 평균과 거리가 벌어져 하루 단위 흔들림이 커질 수 있습니다."
@@ -488,11 +507,11 @@ export function getIndicatorTranslations(stock: Stock, latest?: TechnicalPoint):
     },
     {
       label: "MA20",
-      value: stock.ma20.toLocaleString("ko-KR"),
+      value: ma20.toLocaleString("ko-KR"),
       plainText:
         ma20Gap >= 0
-          ? `현재가가 MA20 위에 있어 단기 추세선은 참고 관찰 지지 역할을 할 수 있습니다.`
-          : `현재가가 MA20 아래에 있어 회복 확인 전까지 변동성 관찰이 필요합니다.`,
+          ? `최근 종가가 MA20 위에 있어 단기 추세선은 참고 관찰 지지 역할을 할 수 있습니다.`
+          : `최근 종가가 MA20 아래에 있어 회복 확인 전까지 변동성 관찰이 필요합니다.`,
       riskMeaning:
         Math.abs(ma20Gap) >= 6
           ? "20일 평균과의 이격이 커져 되돌림 또는 재확인 가능성이 있습니다."
@@ -501,11 +520,11 @@ export function getIndicatorTranslations(stock: Stock, latest?: TechnicalPoint):
     },
     {
       label: "MA60",
-      value: stock.ma60.toLocaleString("ko-KR"),
+      value: ma60.toLocaleString("ko-KR"),
       plainText:
         ma60Gap >= 0
-          ? `현재가가 MA60 위에 있어 중기 흐름은 상대적으로 안정적인 편입니다.`
-          : `현재가가 MA60 아래에 있어 중기 추세 회복 여부를 더 확인해야 합니다.`,
+          ? `최근 종가가 MA60 위에 있어 중기 흐름은 상대적으로 안정적인 편입니다.`
+          : `최근 종가가 MA60 아래에 있어 중기 추세 회복 여부를 더 확인해야 합니다.`,
       riskMeaning:
         ma60Gap >= 0
           ? "중기 흐름은 우호적이나 단기 과열과 별도로 확인해야 합니다."
@@ -521,8 +540,13 @@ export function createTradingPlan(
   quantity: number,
   holdingPeriod: HoldingPeriod
 ): TradingPlan {
-  const invested = entryPrice * quantity;
-  const currentValue = stock.price * quantity;
+  const safeEntryPrice = n(entryPrice);
+  const safeQuantity = n(quantity);
+  const price = n(stock.price);
+  const supportPrice = n(stock.supportPrice, price);
+  const resistancePrice = n(stock.resistancePrice, price);
+  const invested = safeEntryPrice * safeQuantity;
+  const currentValue = price * safeQuantity;
   const profitLossAmount = currentValue - invested;
   const profitLossRate = invested > 0 ? (profitLossAmount / invested) * 100 : 0;
   const periodLabel =
@@ -537,18 +561,18 @@ export function createTradingPlan(
   return {
     profitLossAmount,
     profitLossRate,
-    supportPrice: stock.supportPrice,
-    resistancePrice: stock.resistancePrice,
+    supportPrice,
+    resistancePrice,
     periodLabel,
     warning:
-      stock.price < stock.supportPrice * 1.02
-        ? "현재가가 참고 관찰 지지권에 가까워 변동성 확대 여부를 확인해야 합니다."
-        : stock.price > stock.resistancePrice * 0.98
-          ? "현재가가 참고 관찰 저항권에 가까워 단기 되돌림 가능성을 함께 봐야 합니다."
-          : "현재가는 참고 관찰 지지권과 저항권 사이에 있어 거래량 변화가 중요합니다.",
-    observationStrategy: `${periodStrategy} 참고 관찰 지지위 ${stock.supportPrice.toLocaleString(
+      price < supportPrice * 1.02
+        ? "최근 종가가 참고 관찰 지지권에 가까워 변동성 확대 여부를 확인해야 합니다."
+        : price > resistancePrice * 0.98
+          ? "최근 종가가 참고 관찰 저항권에 가까워 단기 되돌림 가능성을 함께 봐야 합니다."
+          : "최근 종가는 참고 관찰 지지권과 저항권 사이에 있어 거래량 변화가 중요합니다.",
+    observationStrategy: `${periodStrategy} 참고 관찰 지지위 ${supportPrice.toLocaleString(
       "ko-KR"
-    )}원, 참고 관찰 저항위 ${stock.resistancePrice.toLocaleString("ko-KR")}원을 기준으로 흔들림 범위를 확인합니다.`
+    )}원, 참고 관찰 저항위 ${resistancePrice.toLocaleString("ko-KR")}원을 기준으로 흔들림 범위를 확인합니다.`
   };
 }
 
@@ -557,6 +581,7 @@ export function getWatchlistPriority(stocks: Stock[]) {
     .map((stock) => {
       const signals = getOpportunitySignals(stock);
       const risk = calculateEntryRiskScore(stock);
+      const volumeChange = n(stock.volumeChange);
       const severityBonus = signals.reduce(
         (sum, signal) =>
           sum + (signal.severity === "extreme" ? 12 : signal.severity === "high" ? 9 : 5),
@@ -564,16 +589,16 @@ export function getWatchlistPriority(stocks: Stock[]) {
       );
       const priority = clamp(
         Math.round(
-          signals.length * 18 +
+            signals.length * 18 +
             severityBonus +
             risk.score * 0.5 +
-            Math.max(stock.volumeChange, 0) * 0.18
+            Math.max(volumeChange, 0) * 0.18
         ),
         0,
         100
       );
       const leadReason =
-        signals[0]?.reason ?? `거래량 변화 ${pct(stock.volumeChange)}와 MA20 위치를 우선 확인`;
+        signals[0]?.reason ?? `거래량 변화 ${pct(volumeChange)}와 MA20 위치를 우선 확인`;
 
       return {
         stock,
