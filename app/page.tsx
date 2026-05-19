@@ -1,5 +1,7 @@
+import { DangerWarningList } from "@/components/danger-warning-list";
 import { MarketBriefing } from "@/components/market-briefing";
 import { OpportunityRadar } from "@/components/opportunity-radar";
+import { PotentialRadar } from "@/components/potential-radar";
 import { StockCardGrid } from "@/components/stock-card-grid";
 import { StockSearch } from "@/components/stock-search";
 import { StockTable } from "@/components/stock-table";
@@ -77,6 +79,11 @@ export default async function Home() {
       <section className="mt-3 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <OpportunityRadar items={safeOpportunityRadar} />
         <StockCardGrid title="인기 종목" stocks={safePopularStocks} />
+      </section>
+
+      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2">
+        <PotentialRadar />
+        <DangerWarningList />
       </section>
 
       <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
