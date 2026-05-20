@@ -109,6 +109,9 @@ export type RiskProfile = "보수형" | "일반형" | "공격형";
 export type PortfolioPositionInput = {
   id: string;
   symbol: string;
+  stockName?: string;
+  market?: string;
+  dataSource?: string;
   buyPrice: number;
   quantity: number;
   investmentHorizon: InvestmentHorizon;
@@ -120,8 +123,8 @@ export type PortfolioJudgementLabel =
   | "추가 관찰 가능"
   | "유지 관찰"
   | "대기 / 확인 필요"
-  | "비중 축소 관찰"
-  | "리스크 관리 필요";
+  | "비중 조절 검토 구간"
+  | "리스크 관리 관찰";
 
 export type PortfolioDiagnosis = {
   id: string;

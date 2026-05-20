@@ -22,6 +22,17 @@ type DiagnoseResponse = {
   }>;
 };
 
+type StockLookupResult = {
+  symbol?: string;
+  koreanName?: string;
+  market?: string;
+  tags?: unknown;
+};
+
+type StockLookupResponse = {
+  results?: StockLookupResult[];
+};
+
 type DraftState = {
   symbol: string;
   buyPrice: string;
@@ -65,10 +76,10 @@ function summarize(items: PortfolioDiagnosis[]) {
 }
 
 function judgementClass(judgement: string) {
-  if (judgement === "리스크 관리 필요") {
+  if (judgement === "리스크 관리 관찰") {
     return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-200";
   }
-  if (judgement === "비중 축소 관찰") {
+  if (judgement === "비중 조절 검토 구간") {
     return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/50 dark:text-orange-200";
   }
   if (judgement === "대기 / 확인 필요") {
@@ -106,6 +117,14 @@ export function PortfolioPageClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [symbolLookup, setSymbolLookup] = useState<{
+    symbol: string;
+    name: string;
+    market: string;
+    dataSource: string;
+  } | null>(null);
+  const [lookupFailed, setLookupFailed] = useState(false);
+  const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [draft, setDraft] = useState<DraftState>({
     symbol: "",
     buyPrice: "",
@@ -114,6 +133,11 @@ export function PortfolioPageClient() {
     riskProfile: "일반형",
     memo: ""
   });
+
+  const normalizedDraftSymbol = useMemo(
+    () => draft.symbol.trim().toUpperCase(),
+    [draft.symbol]
+  );
 
   const safeEntries = useMemo(
     () => (Array.isArray(entries) ? entries : []),
@@ -183,6 +207,71 @@ export function PortfolioPageClient() {
     };
   }, [entryKey, safeEntries]);
 
+  useEffect(() => {
+    if (!normalizedDraftSymbol) {
+      setSymbolLookup(null);
+      setIsLookupLoading(false);
+      setLookupFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setIsLookupLoading(true);
+      setLookupFailed(false);
+
+      try {
+        const response = await fetch(
+          `/api/stocks/search?keyword=${encodeURIComponent(normalizedDraftSymbol)}`,
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error("lookup failed");
+        }
+
+        const payload = (await response.json().catch(() => null)) as StockLookupResponse | null;
+        const list = Array.isArray(payload?.results) ? payload.results : [];
+        const exact = list.find(
+          (item) => safeText(item?.symbol).toUpperCase() === normalizedDraftSymbol
+        );
+        const candidate = exact ?? list[0];
+        const symbol = safeText(candidate?.symbol).toUpperCase();
+        const name = safeText(candidate?.koreanName);
+        const market = safeText(candidate?.market);
+        const tags = Array.isArray(candidate?.tags)
+          ? candidate.tags.filter((tag): tag is string => typeof tag === "string")
+          : [];
+        const dataSource =
+          tags.find((tag) => tag.toLowerCase() === "data.go.kr") ?? "mock";
+
+        if (!cancelled) {
+          if (symbol && name && market) {
+            setSymbolLookup({ symbol, name, market, dataSource });
+            setLookupFailed(false);
+          } else {
+            setSymbolLookup(null);
+            setLookupFailed(true);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setSymbolLookup(null);
+          setLookupFailed(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLookupLoading(false);
+        }
+      }
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedDraftSymbol]);
+
   const diagnosisMap = useMemo(() => {
     const map = new Map<string, PortfolioDiagnosis>();
     const safeDiagnoses = Array.isArray(diagnoses) ? diagnoses : [];
@@ -210,6 +299,9 @@ export function PortfolioPageClient() {
 
     addEntry({
       symbol,
+      stockName: symbolLookup?.symbol === symbol ? symbolLookup.name : "",
+      market: symbolLookup?.symbol === symbol ? symbolLookup.market : "",
+      dataSource: symbolLookup?.symbol === symbol ? symbolLookup.dataSource : "",
       buyPrice,
       quantity,
       investmentHorizon: draft.investmentHorizon,
@@ -282,6 +374,28 @@ export function PortfolioPageClient() {
                 placeholder="예: 005930"
                 className="h-10 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
               />
+              {isLookupLoading ? (
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  종목 정보를 확인하고 있습니다.
+                </p>
+              ) : symbolLookup ? (
+                <div className="rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300">
+                  <p>
+                    선택된 종목: {symbolLookup.name} · {symbolLookup.symbol} · {symbolLookup.market}
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    데이터 출처: {symbolLookup.dataSource}
+                  </p>
+                </div>
+              ) : lookupFailed && normalizedDraftSymbol ? (
+                <p className="text-xs font-semibold text-red-600 dark:text-red-300">
+                  종목 정보를 확인할 수 없습니다. 코드를 다시 확인해주세요.
+                </p>
+              ) : (
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  예: 005930 입력 시 종목명과 시장을 자동으로 확인합니다.
+                </p>
+              )}
             </label>
             <label className="grid gap-1">
               <span className="text-xs font-bold text-slate-500">매수가</span>
@@ -371,8 +485,8 @@ export function PortfolioPageClient() {
           {!isLoading && safeEntries.length === 0 && (
             <div className="mt-4">
               <EmptyState
-                title="보유종목 없음"
-                description="종목코드, 매수가, 수량을 입력해 내 보유종목 AI 진단을 시작해보세요."
+                title="아직 등록된 보유종목이 없습니다."
+                description="종목코드, 매수가, 보유수량을 입력하면 AI가 보유 상태를 진단해드립니다."
               />
             </div>
           )}
@@ -386,6 +500,8 @@ export function PortfolioPageClient() {
                 const judgement = diagnosis?.judgement ?? "대기 / 확인 필요";
                 const quoteSource = diagnosis?.quoteSource === "KIS" ? "KIS" : "data.go.kr 최근 종가";
                 const quoteLabel = diagnosis?.quoteSource === "KIS" ? "현재가" : "최근 종가";
+                const displayName = safeText(diagnosis?.stockName, safeText(entry.stockName, entry.symbol));
+                const displayMarket = safeText(diagnosis?.market, safeText(entry.market, "시장 확인 필요"));
                 return (
                   <article
                     key={entry.id}
@@ -394,10 +510,10 @@ export function PortfolioPageClient() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-ink dark:text-white">
-                          {diagnosis?.stockName ?? entry.symbol}
+                          {displayName}
                         </p>
                         <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          {entry.symbol} · {diagnosis?.market ?? "시장 확인 필요"}
+                          {entry.symbol} · {displayMarket}
                         </p>
                         <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                           매수가 {formatKRW(entry.buyPrice)} · 수량 {formatNumber(entry.quantity)}
@@ -512,7 +628,7 @@ export function PortfolioPageClient() {
                             <ListBlock title="추가 관찰이 가능한 이유" items={Array.isArray(diagnosis.addReasons) ? diagnosis.addReasons : []} />
                             <ListBlock title="신중해야 하는 이유" items={Array.isArray(diagnosis.cautionReasons) ? diagnosis.cautionReasons : []} />
                             <ListBlock
-                              title="비중 축소 / 리스크 관리 관찰 이유"
+                              title="리스크 관리가 필요한 이유"
                               items={Array.isArray(diagnosis.riskManagementReasons) ? diagnosis.riskManagementReasons : []}
                             />
                             <ListBlock title="다음 확인 조건" items={Array.isArray(diagnosis.nextChecks) ? diagnosis.nextChecks : []} />

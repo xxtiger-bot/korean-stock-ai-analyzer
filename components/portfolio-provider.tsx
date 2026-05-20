@@ -12,6 +12,9 @@ import type { InvestmentHorizon, PortfolioPositionInput, RiskProfile } from "@/l
 
 type PortfolioDraftInput = {
   symbol: string;
+  stockName?: string;
+  market?: string;
+  dataSource?: string;
   buyPrice: number;
   quantity: number;
   investmentHorizon: InvestmentHorizon;
@@ -52,6 +55,11 @@ function normalizeMemo(value: unknown) {
   return typeof value === "string" ? value.trim().slice(0, 300) : "";
 }
 
+function normalizeOptionalText(value: unknown, maxLength = 60) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+}
+
 function normalizeEntry(value: unknown): PortfolioPositionInput | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
 
@@ -68,6 +76,9 @@ function normalizeEntry(value: unknown): PortfolioPositionInput | null {
   return {
     id,
     symbol,
+    stockName: normalizeOptionalText(raw.stockName, 80) || undefined,
+    market: normalizeOptionalText(raw.market, 20) || undefined,
+    dataSource: normalizeOptionalText(raw.dataSource, 40) || undefined,
     buyPrice,
     quantity,
     investmentHorizon: normalizeHorizon(raw.investmentHorizon),
@@ -125,6 +136,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const entry: PortfolioPositionInput = {
       id: buildEntryId(symbol),
       symbol,
+      stockName: normalizeOptionalText(draft.stockName, 80) || undefined,
+      market: normalizeOptionalText(draft.market, 20) || undefined,
+      dataSource: normalizeOptionalText(draft.dataSource, 40) || undefined,
       buyPrice,
       quantity,
       investmentHorizon: normalizeHorizon(draft.investmentHorizon),
@@ -155,6 +169,18 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         return {
           ...entry,
           symbol,
+          stockName:
+            patch.stockName !== undefined
+              ? normalizeOptionalText(patch.stockName, 80) || undefined
+              : entry.stockName,
+          market:
+            patch.market !== undefined
+              ? normalizeOptionalText(patch.market, 20) || undefined
+              : entry.market,
+          dataSource:
+            patch.dataSource !== undefined
+              ? normalizeOptionalText(patch.dataSource, 40) || undefined
+              : entry.dataSource,
           buyPrice,
           quantity,
           investmentHorizon: patch.investmentHorizon

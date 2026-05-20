@@ -86,8 +86,8 @@ function normalizePosition(value: unknown): PortfolioPositionInput | null {
 }
 
 function getJudgement(holdingHealthScore: number, addObservationScore: number, riskManagementScore: number): PortfolioJudgementLabel {
-  if (riskManagementScore >= 80) return "리스크 관리 필요";
-  if (riskManagementScore >= 65) return "비중 축소 관찰";
+  if (riskManagementScore >= 80) return "리스크 관리 관찰";
+  if (riskManagementScore >= 65) return "비중 조절 검토 구간";
   if (addObservationScore <= 35 || riskManagementScore >= 50) return "대기 / 확인 필요";
   if (holdingHealthScore >= 70 && addObservationScore >= 65 && riskManagementScore <= 45) {
     return "추가 관찰 가능";
@@ -243,7 +243,7 @@ async function diagnoseOne(position: PortfolioPositionInput) {
   if (cautionReasons.length === 0) cautionReasons.push("신중 구간 신호는 제한적이지만 추세 지속 여부는 계속 확인이 필요합니다.");
 
   if (profitLoss < 0) riskManagementReasons.push("평가손익이 음수 구간이라 리스크 관리 관찰이 필요합니다.");
-  if (riskManagementScore >= 65) riskManagementReasons.push("리스크 관리 점수가 높아 비중 조절 관찰이 필요한 구간입니다.");
+  if (riskManagementScore >= 65) riskManagementReasons.push("리스크 관리 점수가 높아 비중 조절 검토 구간으로 재평가가 필요합니다.");
   if (isVolumeDownDay) riskManagementReasons.push("방향 약세와 거래량 증가가 겹쳐 변동성 확대 가능성을 신중하게 관찰해야 합니다.");
   if (isNear20Low) riskManagementReasons.push("20일 저점 부근 접근으로 지지 여부 재확인이 필요합니다.");
   if (macdHistogram < 0) riskManagementReasons.push("MACD 동력이 약해져 리스크 관리 기준을 재평가할 필요가 있습니다.");
