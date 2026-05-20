@@ -43,6 +43,28 @@ type DraftState = {
   memo: string;
 };
 
+type AlertConditionType =
+  | "price_lte"
+  | "price_gte"
+  | "return_lte"
+  | "return_gte"
+  | "ma20_below"
+  | "rsi_gte_70"
+  | "rsi_lte_30";
+
+type UserAlertCondition = {
+  id: string;
+  type: AlertConditionType;
+  threshold: number | null;
+  enabled: boolean;
+  createdAt: string;
+};
+
+type ConditionDraft = {
+  type: AlertConditionType;
+  threshold: string;
+};
+
 type PortfolioRiskAlert = {
   key: string;
   id: string;
@@ -53,6 +75,16 @@ type PortfolioRiskAlert = {
   nextCheck: string;
   priority: number;
 };
+
+type TriggeredUserAlert = {
+  key: string;
+  symbol: string;
+  stockName: string;
+  message: string;
+  nextCheck: string;
+};
+
+const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
 
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -158,6 +190,178 @@ function getCoreJudgementReason(diagnosis: PortfolioDiagnosis | undefined) {
   }
 
   return "데이터 확인 후 보유 상태를 재평가할 필요가 있습니다.";
+}
+
+function isAlertConditionType(value: unknown): value is AlertConditionType {
+  return (
+    value === "price_lte" ||
+    value === "price_gte" ||
+    value === "return_lte" ||
+    value === "return_gte" ||
+    value === "ma20_below" ||
+    value === "rsi_gte_70" ||
+    value === "rsi_lte_30"
+  );
+}
+
+function isThresholdRequired(type: AlertConditionType) {
+  return (
+    type === "price_lte" ||
+    type === "price_gte" ||
+    type === "return_lte" ||
+    type === "return_gte"
+  );
+}
+
+function getConditionTypeLabel(type: AlertConditionType) {
+  if (type === "price_lte") return "현재가가 특정 가격 이하";
+  if (type === "price_gte") return "현재가가 특정 가격 이상";
+  if (type === "return_lte") return "수익률이 특정 값 이하";
+  if (type === "return_gte") return "수익률이 특정 값 이상";
+  if (type === "ma20_below") return "MA20 아래로 내려가면";
+  if (type === "rsi_gte_70") return "RSI 70 이상";
+  return "RSI 30 이하";
+}
+
+function normalizeAlertCondition(value: unknown): UserAlertCondition | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const id = typeof raw.id === "string" ? raw.id : "";
+  const type = raw.type;
+  const enabled = typeof raw.enabled === "boolean" ? raw.enabled : true;
+  const createdAt = typeof raw.createdAt === "string" ? raw.createdAt : new Date().toISOString();
+  const thresholdRaw = raw.threshold;
+  const threshold =
+    typeof thresholdRaw === "number" && Number.isFinite(thresholdRaw) ? thresholdRaw : null;
+
+  if (!id || !isAlertConditionType(type)) return null;
+
+  return {
+    id,
+    type,
+    threshold,
+    enabled,
+    createdAt
+  };
+}
+
+function extractRsiFromDiagnosis(diagnosis: PortfolioDiagnosis) {
+  const chunks = [
+    ...(Array.isArray(diagnosis.nextChecks) ? diagnosis.nextChecks : []),
+    ...(Array.isArray(diagnosis.cautionReasons) ? diagnosis.cautionReasons : []),
+    ...(Array.isArray(diagnosis.addReasons) ? diagnosis.addReasons : []),
+    safeText(diagnosis.why, "")
+  ]
+    .filter((text) => typeof text === "string")
+    .join(" ");
+
+  const match = chunks.match(/RSI\s*([0-9]+(?:\.[0-9]+)?)/i);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isMa20BelowByDiagnosis(diagnosis: PortfolioDiagnosis) {
+  const cautionReasons = Array.isArray(diagnosis.cautionReasons) ? diagnosis.cautionReasons : [];
+  return cautionReasons.some((reason) => typeof reason === "string" && reason.includes("MA20 아래"));
+}
+
+function buildTriggeredUserAlerts(
+  entries: PortfolioPositionInput[],
+  diagnoses: PortfolioDiagnosis[],
+  conditionsByEntry: Record<string, UserAlertCondition[]>
+) {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const safeDiagnoses = Array.isArray(diagnoses) ? diagnoses : [];
+  const map = new Map<string, PortfolioDiagnosis>();
+  for (const item of safeDiagnoses) {
+    if (typeof item?.id === "string") {
+      map.set(item.id, item);
+    }
+  }
+
+  const results: TriggeredUserAlert[] = [];
+
+  for (const entry of safeEntries) {
+    const diagnosis = map.get(entry.id);
+    if (!diagnosis) continue;
+
+    const stockName = safeText(diagnosis.stockName, safeText(entry.stockName, entry.symbol));
+    const symbol = safeText(diagnosis.symbol, entry.symbol);
+    const currentPrice = safeNumber(diagnosis.currentPrice, 0);
+    const returnRate = safeNumber(diagnosis.returnRate, 0);
+    const rsi = extractRsiFromDiagnosis(diagnosis);
+    const ma20Below = isMa20BelowByDiagnosis(diagnosis);
+    const fallbackNextCheck = "다음 KIS 현재가와 MA20 유지 여부를 확인하세요.";
+    const usingFallback = diagnosis.quoteSource !== "KIS";
+    const nextCheckText = usingFallback
+      ? "현재가는 data.go.kr 최근 종가 기준입니다. 다음 종가와 MA20 유지 여부를 확인하세요."
+      : fallbackNextCheck;
+
+    const conditionList = Array.isArray(conditionsByEntry[entry.id])
+      ? conditionsByEntry[entry.id]
+      : [];
+
+    for (const condition of conditionList) {
+      if (!condition.enabled) continue;
+
+      let triggered = false;
+      let message = "";
+
+      if (condition.type === "price_lte") {
+        const threshold = safeNumber(condition.threshold, NaN);
+        if (Number.isFinite(threshold) && currentPrice <= threshold) {
+          triggered = true;
+          message = `현재가가 설정가 ${formatKRW(threshold)} 이하에 접근했습니다.`;
+        }
+      } else if (condition.type === "price_gte") {
+        const threshold = safeNumber(condition.threshold, NaN);
+        if (Number.isFinite(threshold) && currentPrice >= threshold) {
+          triggered = true;
+          message = `현재가가 설정가 ${formatKRW(threshold)} 이상 구간에 진입했습니다.`;
+        }
+      } else if (condition.type === "return_lte") {
+        const threshold = safeNumber(condition.threshold, NaN);
+        if (Number.isFinite(threshold) && returnRate <= threshold) {
+          triggered = true;
+          message = `수익률이 설정값 ${formatPercent(threshold)} 이하로 하락해 확인 필요 신호가 감지되었습니다.`;
+        }
+      } else if (condition.type === "return_gte") {
+        const threshold = safeNumber(condition.threshold, NaN);
+        if (Number.isFinite(threshold) && returnRate >= threshold) {
+          triggered = true;
+          message = `수익률이 설정값 ${formatPercent(threshold)} 이상 구간에 도달했습니다.`;
+        }
+      } else if (condition.type === "ma20_below") {
+        if (ma20Below) {
+          triggered = true;
+          message = "MA20 아래 구간으로 내려가 관찰 및 재평가가 필요합니다.";
+        }
+      } else if (condition.type === "rsi_gte_70") {
+        if (typeof rsi === "number" && Number.isFinite(rsi) && rsi >= 70) {
+          triggered = true;
+          message = `RSI ${rsi.toFixed(1)}로 70 이상 과열 구간 신호가 감지되었습니다.`;
+        }
+      } else if (condition.type === "rsi_lte_30") {
+        if (typeof rsi === "number" && Number.isFinite(rsi) && rsi <= 30) {
+          triggered = true;
+          message = `RSI ${rsi.toFixed(1)}로 30 이하 침체 구간 신호가 감지되었습니다.`;
+        }
+      }
+
+      if (triggered) {
+        results.push({
+          key: `${entry.id}-${condition.id}`,
+          symbol,
+          stockName,
+          message,
+          nextCheck: nextCheckText
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 function hasKeyword(items: string[], keyword: string) {
@@ -297,6 +501,11 @@ export function PortfolioPageClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [alertConditionsByEntry, setAlertConditionsByEntry] = useState<
+    Record<string, UserAlertCondition[]>
+  >({});
+  const [isAlertConditionsReady, setIsAlertConditionsReady] = useState(false);
+  const [alertDraftByEntry, setAlertDraftByEntry] = useState<Record<string, ConditionDraft>>({});
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -399,6 +608,48 @@ export function PortfolioPageClient() {
   }, [entryKey, safeEntries]);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(ALERT_CONDITIONS_STORAGE_KEY);
+      if (!raw) {
+        setAlertConditionsByEntry({});
+        setIsAlertConditionsReady(true);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Record<string, unknown> | null;
+      const normalized: Record<string, UserAlertCondition[]> = {};
+      const entries = parsed && typeof parsed === "object" ? Object.entries(parsed) : [];
+
+      for (const [entryId, conditions] of entries) {
+        const safeConditions = Array.isArray(conditions)
+          ? conditions
+              .map(normalizeAlertCondition)
+              .filter((item): item is UserAlertCondition => Boolean(item))
+          : [];
+        normalized[entryId] = safeConditions;
+      }
+
+      setAlertConditionsByEntry(normalized);
+    } catch {
+      setAlertConditionsByEntry({});
+    } finally {
+      setIsAlertConditionsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAlertConditionsReady) return;
+    try {
+      window.localStorage.setItem(
+        ALERT_CONDITIONS_STORAGE_KEY,
+        JSON.stringify(alertConditionsByEntry)
+      );
+    } catch {
+      // localStorage may be blocked in restricted contexts.
+    }
+  }, [alertConditionsByEntry, isAlertConditionsReady]);
+
+  useEffect(() => {
     if (!normalizedDraftSymbol) {
       setSymbolLookup(null);
       setIsLookupLoading(false);
@@ -484,6 +735,88 @@ export function PortfolioPageClient() {
     () => (Array.isArray(riskAlerts) ? riskAlerts.slice(0, 3) : []),
     [riskAlerts]
   );
+  const triggeredUserAlerts = useMemo(
+    () => buildTriggeredUserAlerts(safeEntries, diagnoses, alertConditionsByEntry),
+    [safeEntries, diagnoses, alertConditionsByEntry]
+  );
+
+  function getAlertDraft(entryId: string): ConditionDraft {
+    const draft = alertDraftByEntry[entryId];
+    if (draft && isAlertConditionType(draft.type)) {
+      return draft;
+    }
+    return {
+      type: "price_lte",
+      threshold: ""
+    };
+  }
+
+  function updateAlertDraft(entryId: string, patch: Partial<ConditionDraft>) {
+    setAlertDraftByEntry((current) => {
+      const base = getAlertDraft(entryId);
+      const nextType = patch.type ?? base.type;
+      const nextThreshold = patch.threshold ?? base.threshold;
+      return {
+        ...current,
+        [entryId]: {
+          type: isAlertConditionType(nextType) ? nextType : base.type,
+          threshold: nextThreshold
+        }
+      };
+    });
+  }
+
+  function addAlertCondition(entryId: string) {
+    const draft = getAlertDraft(entryId);
+    const needsThreshold = isThresholdRequired(draft.type);
+    const parsedThreshold = Number(draft.threshold);
+    const threshold =
+      needsThreshold && Number.isFinite(parsedThreshold) ? parsedThreshold : null;
+
+    if (needsThreshold && threshold === null) return;
+
+    const newCondition: UserAlertCondition = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: draft.type,
+      threshold,
+      enabled: true,
+      createdAt: new Date().toISOString()
+    };
+
+    setAlertConditionsByEntry((current) => {
+      const existing = Array.isArray(current[entryId]) ? current[entryId] : [];
+      return {
+        ...current,
+        [entryId]: [...existing, newCondition]
+      };
+    });
+
+    updateAlertDraft(entryId, { threshold: "" });
+  }
+
+  function toggleAlertCondition(entryId: string, conditionId: string) {
+    setAlertConditionsByEntry((current) => {
+      const existing = Array.isArray(current[entryId]) ? current[entryId] : [];
+      return {
+        ...current,
+        [entryId]: existing.map((condition) =>
+          condition.id === conditionId
+            ? { ...condition, enabled: !condition.enabled }
+            : condition
+        )
+      };
+    });
+  }
+
+  function removeAlertCondition(entryId: string, conditionId: string) {
+    setAlertConditionsByEntry((current) => {
+      const existing = Array.isArray(current[entryId]) ? current[entryId] : [];
+      return {
+        ...current,
+        [entryId]: existing.filter((condition) => condition.id !== conditionId)
+      };
+    });
+  }
 
   function onDraftChange<K extends keyof DraftState>(key: K, value: DraftState[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -582,6 +915,36 @@ export function PortfolioPageClient() {
             ))}
           </div>
         )}
+
+        <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
+          <h3 className="text-sm font-bold text-ink dark:text-white">사용자 알림 발동</h3>
+          {triggeredUserAlerts.length === 0 ? (
+            <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              현재 설정된 알림 조건 중 발동된 항목이 없습니다.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-2">
+              {(Array.isArray(triggeredUserAlerts) ? triggeredUserAlerts : [])
+                .slice(0, 3)
+                .map((alert) => (
+                  <article
+                    key={alert.key}
+                    className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
+                  >
+                    <p className="text-sm font-bold text-ink dark:text-white">
+                      {alert.stockName} · {alert.symbol}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      사용자 알림: {alert.message}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      확인 조건: {alert.nextCheck}
+                    </p>
+                  </article>
+                ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -757,6 +1120,10 @@ export function PortfolioPageClient() {
                 const displayName = safeText(diagnosis?.stockName, safeText(entry.stockName, entry.symbol));
                 const displayMarket = safeText(diagnosis?.market, safeText(entry.market, "시장 확인 필요"));
                 const coreReason = getCoreJudgementReason(diagnosis);
+                const conditionDraft = getAlertDraft(entry.id);
+                const conditionList = Array.isArray(alertConditionsByEntry[entry.id])
+                  ? alertConditionsByEntry[entry.id]
+                  : [];
                 return (
                   <article
                     key={entry.id}
@@ -828,6 +1195,107 @@ export function PortfolioPageClient() {
 
                     {isExpanded && (
                       <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
+                        <section className="mb-4 rounded-md border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
+                          <h3 className="text-sm font-bold text-ink dark:text-white">알림 조건 설정</h3>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_auto]">
+                            <select
+                              value={conditionDraft.type}
+                              onChange={(event) =>
+                                updateAlertDraft(entry.id, {
+                                  type: event.target.value as AlertConditionType
+                                })
+                              }
+                              className="h-9 rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
+                            >
+                              <option value="price_lte">현재가가 특정 가격 이하이면 알림</option>
+                              <option value="price_gte">현재가가 특정 가격 이상이면 알림</option>
+                              <option value="return_lte">수익률이 특정 값 이하이면 알림</option>
+                              <option value="return_gte">수익률이 특정 값 이상이면 알림</option>
+                              <option value="ma20_below">MA20 아래로 내려가면 알림</option>
+                              <option value="rsi_gte_70">RSI 70 이상이면 알림</option>
+                              <option value="rsi_lte_30">RSI 30 이하이면 알림</option>
+                            </select>
+                            <input
+                              value={conditionDraft.threshold}
+                              onChange={(event) =>
+                                updateAlertDraft(entry.id, { threshold: event.target.value })
+                              }
+                              disabled={!isThresholdRequired(conditionDraft.type)}
+                              inputMode="decimal"
+                              placeholder={
+                                conditionDraft.type === "return_lte" ||
+                                conditionDraft.type === "return_gte"
+                                  ? "예: -5"
+                                  : "예: 270000"
+                              }
+                              className="h-9 rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink outline-none ring-brand/20 focus:ring disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => addAlertCondition(entry.id)}
+                              className="inline-flex h-9 items-center justify-center rounded-md bg-brand px-3 text-xs font-bold text-white hover:bg-blue-700"
+                            >
+                              조건 추가
+                            </button>
+                          </div>
+                          <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            {isThresholdRequired(conditionDraft.type)
+                              ? conditionDraft.type === "return_lte" ||
+                                conditionDraft.type === "return_gte"
+                                ? "수익률 기준은 % 숫자로 입력하세요. 예: -5, 3"
+                                : "가격 기준은 원 단위 숫자로 입력하세요."
+                              : "해당 조건은 임계값 입력 없이 신호 기반으로 감지됩니다."}
+                          </p>
+
+                          {conditionList.length === 0 ? (
+                            <p className="mt-2 rounded-md border border-line bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+                              설정된 알림 조건이 없습니다.
+                            </p>
+                          ) : (
+                            <ul className="mt-2 grid gap-2">
+                              {(Array.isArray(conditionList) ? conditionList : []).map((condition) => (
+                                <li
+                                  key={condition.id}
+                                  className="rounded-md border border-line bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="min-w-0 break-words">
+                                      {getConditionTypeLabel(condition.type)}
+                                      {typeof condition.threshold === "number" &&
+                                      Number.isFinite(condition.threshold)
+                                        ? condition.type === "return_lte" ||
+                                          condition.type === "return_gte"
+                                          ? ` · ${formatPercent(condition.threshold)}`
+                                          : ` · ${formatKRW(condition.threshold)}`
+                                        : ""}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleAlertCondition(entry.id, condition.id)}
+                                        className={`rounded-md border px-2 py-1 text-[11px] font-bold ${
+                                          condition.enabled
+                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+                                            : "border-slate-200 bg-slate-100 text-slate-500 dark:border-dark-line dark:bg-slate-800 dark:text-slate-300"
+                                        }`}
+                                      >
+                                        {condition.enabled ? "ON" : "OFF"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeAlertCondition(entry.id, condition.id)}
+                                        className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-bold text-slate-500 hover:text-danger dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+                                      >
+                                        삭제
+                                      </button>
+                                    </div>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </section>
+
                         {!diagnosis ? (
                           <EmptyState
                             compact
