@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { AlertTriangle, Bell, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
@@ -100,6 +100,18 @@ type UserAlertSummary = {
 };
 
 const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
+const BROWSER_NOTIFICATION_ENABLED_KEY = "portfolioBrowserNotificationEnabled";
+const BROWSER_NOTIFICATION_NOTIFIED_PREFIX = "portfolioAlertNotified";
+
+type NotificationPermissionState = NotificationPermission | "unsupported";
+
+type PortfolioNotificationItem = {
+  symbol: string;
+  stockName: string;
+  body: string;
+  priority: number;
+  signature: string;
+};
 
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -500,6 +512,134 @@ function buildTriggeredUserAlertSummaries(
   });
 }
 
+function normalizeNotificationPermission(value: unknown): NotificationPermissionState {
+  if (value === "granted" || value === "denied" || value === "default") {
+    return value;
+  }
+  return "default";
+}
+
+function notificationStatusLabel(
+  permission: NotificationPermissionState,
+  enabled: boolean
+) {
+  if (permission === "denied") return "권한 차단됨";
+  if (permission === "granted" && enabled) return "알림 켜짐";
+  return "알림 꺼짐";
+}
+
+function localDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildPortfolioNotificationItems(
+  riskAlerts: PortfolioRiskAlert[],
+  userAlertSummaries: UserAlertSummary[]
+) {
+  const safeRiskAlerts = Array.isArray(riskAlerts) ? riskAlerts : [];
+  const safeUserSummaries = Array.isArray(userAlertSummaries) ? userAlertSummaries : [];
+  const grouped = new Map<
+    string,
+    {
+      symbol: string;
+      stockName: string;
+      riskAlerts: PortfolioRiskAlert[];
+      userSummary: UserAlertSummary | null;
+      priority: number;
+    }
+  >();
+
+  for (const riskAlert of safeRiskAlerts) {
+    const key = safeText(riskAlert.symbol);
+    if (!key) continue;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.riskAlerts.push(riskAlert);
+      existing.priority = Math.max(existing.priority, safeNumber(riskAlert.priority, 0) + 100);
+      continue;
+    }
+    grouped.set(key, {
+      symbol: safeText(riskAlert.symbol),
+      stockName: safeText(riskAlert.stockName, safeText(riskAlert.symbol)),
+      riskAlerts: [riskAlert],
+      userSummary: null,
+      priority: safeNumber(riskAlert.priority, 0) + 100
+    });
+  }
+
+  for (const summary of safeUserSummaries) {
+    const key = safeText(summary.symbol);
+    if (!key) continue;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.userSummary = summary;
+      existing.priority = Math.max(existing.priority, safeNumber(summary.topPriority, 0));
+      continue;
+    }
+    grouped.set(key, {
+      symbol: safeText(summary.symbol),
+      stockName: safeText(summary.stockName, safeText(summary.symbol)),
+      riskAlerts: [],
+      userSummary: summary,
+      priority: safeNumber(summary.topPriority, 0)
+    });
+  }
+
+  const items: PortfolioNotificationItem[] = [];
+  grouped.forEach((group) => {
+    const riskCount = Array.isArray(group.riskAlerts) ? group.riskAlerts.length : 0;
+    const userCount = safeNumber(group.userSummary?.triggerCount, 0);
+    if (riskCount <= 0 && userCount <= 0) return;
+
+    const hasMa20Risk = (Array.isArray(group.riskAlerts) ? group.riskAlerts : []).some((item) =>
+      safeText(item.riskType).includes("MA20")
+    );
+    const hasPriceLowerUser = Array.isArray(group.userSummary?.triggerMessages)
+      ? group.userSummary?.triggerMessages.some((msg) => safeText(msg).includes("설정가"))
+      : false;
+
+    let body = "";
+    if (riskCount > 0 && userCount > 0) {
+      body = `${group.stockName} 리스크 알림 ${riskCount}개와 사용자 알림 ${userCount}개가 있습니다. 현재가 조건과 MA20 기준을 확인하세요.`;
+    } else if (riskCount > 0) {
+      body = `${group.stockName} 리스크 알림 ${riskCount}개가 있습니다. 다음 확인 조건을 점검하세요.`;
+    } else {
+      body = `${group.stockName} 사용자 알림 ${userCount}개가 발동했습니다. 설정한 조건을 확인하세요.`;
+    }
+
+    const riskTypes = (Array.isArray(group.riskAlerts) ? group.riskAlerts : [])
+      .map((item) => safeText(item.riskType))
+      .filter(Boolean)
+      .sort()
+      .join("|");
+    const userTriggerDigest = (Array.isArray(group.userSummary?.triggerMessages)
+      ? group.userSummary?.triggerMessages
+      : []
+    )
+      .map((msg) => safeText(msg))
+      .filter(Boolean)
+      .sort()
+      .join("|");
+    const signature = `${riskTypes}::${userTriggerDigest}::${hasMa20Risk ? "ma20" : ""}::${
+      hasPriceLowerUser ? "price" : ""
+    }`;
+
+    items.push({
+      symbol: group.symbol,
+      stockName: group.stockName,
+      body,
+      priority: safeNumber(group.priority, 0),
+      signature
+    });
+  });
+
+  return items.sort((left, right) => right.priority - left.priority);
+}
+
 function hasKeyword(items: string[], keyword: string) {
   const safeItems = Array.isArray(items) ? items : [];
   return safeItems.some((item) => typeof item === "string" && item.includes(keyword));
@@ -642,6 +782,10 @@ export function PortfolioPageClient() {
   >({});
   const [isAlertConditionsReady, setIsAlertConditionsReady] = useState(false);
   const [alertDraftByEntry, setAlertDraftByEntry] = useState<Record<string, ConditionDraft>>({});
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermissionState>("default");
+  const [isBrowserNotificationEnabled, setIsBrowserNotificationEnabled] = useState(false);
+  const [browserNotificationNotice, setBrowserNotificationNotice] = useState("");
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -786,6 +930,30 @@ export function PortfolioPageClient() {
   }, [alertConditionsByEntry, isAlertConditionsReady]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      setIsBrowserNotificationEnabled(false);
+      setBrowserNotificationNotice("이 브라우저에서는 알림 기능을 사용할 수 없습니다.");
+      return;
+    }
+
+    const permission = normalizeNotificationPermission(Notification.permission);
+    setNotificationPermission(permission);
+    try {
+      const raw = window.localStorage.getItem(BROWSER_NOTIFICATION_ENABLED_KEY);
+      setIsBrowserNotificationEnabled(raw === "true");
+    } catch {
+      setIsBrowserNotificationEnabled(false);
+    }
+    if (permission === "denied") {
+      setBrowserNotificationNotice(
+        "브라우저 알림 권한이 차단되었습니다. 브라우저 설정에서 알림 권한을 허용해주세요."
+      );
+    }
+  }, []);
+
+  useEffect(() => {
     if (!normalizedDraftSymbol) {
       setSymbolLookup(null);
       setIsLookupLoading(false);
@@ -879,6 +1047,43 @@ export function PortfolioPageClient() {
     () => buildTriggeredUserAlertSummaries(triggeredUserAlerts, diagnosisMap),
     [triggeredUserAlerts, diagnosisMap]
   );
+  const portfolioNotificationItems = useMemo(
+    () => buildPortfolioNotificationItems(riskAlerts, triggeredUserAlertSummaries),
+    [riskAlerts, triggeredUserAlertSummaries]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isBrowserNotificationEnabled) return;
+    if (notificationPermission !== "granted") return;
+    if (!("Notification" in window)) return;
+
+    const safeItems = Array.isArray(portfolioNotificationItems) ? portfolioNotificationItems : [];
+    if (safeItems.length === 0) return;
+
+    const dateKey = localDateKey();
+    for (const item of safeItems.slice(0, 3)) {
+      const symbol = safeText(item.symbol).toUpperCase();
+      const signature = safeText(item.signature);
+      if (!symbol || !signature) continue;
+      const notifiedKey = `${BROWSER_NOTIFICATION_NOTIFIED_PREFIX}:${dateKey}:${symbol}:${signature}`;
+
+      try {
+        if (window.localStorage.getItem(notifiedKey)) {
+          continue;
+        }
+
+        new Notification("KRX Insight 보유종목 알림", {
+          body: safeText(item.body, `${safeText(item.stockName)} 알림을 확인하세요.`)
+        });
+        window.localStorage.setItem(notifiedKey, new Date().toISOString());
+      } catch {
+        setBrowserNotificationNotice(
+          "브라우저 알림 전송 중 문제가 발생했습니다. 권한과 브라우저 설정을 확인해주세요."
+        );
+      }
+    }
+  }, [isBrowserNotificationEnabled, notificationPermission, portfolioNotificationItems]);
 
   function getAlertDraft(entryId: string): ConditionDraft {
     const draft = alertDraftByEntry[entryId];
@@ -990,6 +1195,71 @@ export function PortfolioPageClient() {
     }));
   }
 
+  async function enableBrowserNotification() {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      setIsBrowserNotificationEnabled(false);
+      setBrowserNotificationNotice("이 브라우저에서는 알림 기능을 사용할 수 없습니다.");
+      return;
+    }
+
+    try {
+      let nextPermission = normalizeNotificationPermission(Notification.permission);
+      if (nextPermission === "default") {
+        nextPermission = normalizeNotificationPermission(await Notification.requestPermission());
+      }
+      setNotificationPermission(nextPermission);
+
+      if (nextPermission === "granted") {
+        setIsBrowserNotificationEnabled(true);
+        setBrowserNotificationNotice("브라우저 알림이 켜졌습니다.");
+        try {
+          window.localStorage.setItem(BROWSER_NOTIFICATION_ENABLED_KEY, "true");
+        } catch {
+          // localStorage may be blocked in restricted contexts.
+        }
+        try {
+          new Notification("KRX Insight", {
+            body: "브라우저 알림이 정상적으로 켜졌습니다."
+          });
+        } catch {
+          setBrowserNotificationNotice(
+            "브라우저 알림은 켜졌지만 테스트 알림 전송 중 문제가 발생했습니다."
+          );
+        }
+        return;
+      }
+
+      if (nextPermission === "denied") {
+        setIsBrowserNotificationEnabled(false);
+        try {
+          window.localStorage.setItem(BROWSER_NOTIFICATION_ENABLED_KEY, "false");
+        } catch {
+          // localStorage may be blocked in restricted contexts.
+        }
+        setBrowserNotificationNotice(
+          "브라우저 알림 권한이 차단되었습니다. 브라우저 설정에서 알림 권한을 허용해주세요."
+        );
+        return;
+      }
+
+      setIsBrowserNotificationEnabled(false);
+      try {
+        window.localStorage.setItem(BROWSER_NOTIFICATION_ENABLED_KEY, "false");
+      } catch {
+        // localStorage may be blocked in restricted contexts.
+      }
+      setBrowserNotificationNotice(
+        "브라우저 알림 권한 허용이 필요합니다. 브라우저 설정에서 권한 상태를 확인해주세요."
+      );
+    } catch {
+      setBrowserNotificationNotice(
+        "브라우저 알림 설정 중 문제가 발생했습니다. 브라우저 권한 상태를 확인해주세요."
+      );
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
@@ -1000,6 +1270,32 @@ export function PortfolioPageClient() {
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
           KIS 현재가와 data.go.kr 일별 종가 데이터를 기반으로 보유 상태를 관찰하고, 확인 필요 구간을 정리하는 참고 정보입니다.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void enableBrowserNotification()}
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            <Bell className="h-3.5 w-3.5" />
+            브라우저 알림 켜기
+          </button>
+          <span
+            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${
+              notificationPermission === "denied"
+                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+                : notificationPermission === "granted" && isBrowserNotificationEnabled
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+            }`}
+          >
+            {notificationStatusLabel(notificationPermission, isBrowserNotificationEnabled)}
+          </span>
+        </div>
+        {browserNotificationNotice && (
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+            {browserNotificationNotice}
+          </p>
+        )}
       </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
@@ -1059,9 +1355,16 @@ export function PortfolioPageClient() {
         <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
           <h3 className="text-sm font-bold text-ink dark:text-white">사용자 알림 발동</h3>
           {triggeredUserAlertSummaries.length === 0 ? (
-            <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
-              현재 설정된 알림 조건 중 발동된 항목이 없습니다.
-            </p>
+            <div className="mt-2 grid gap-2">
+              <p className="rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+                현재 설정된 알림 조건 중 발동된 항목이 없습니다.
+              </p>
+              {notificationPermission === "granted" && isBrowserNotificationEnabled && (
+                <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold leading-5 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  현재 발동된 알림은 없지만 브라우저 알림은 켜져 있습니다.
+                </p>
+              )}
+            </div>
           ) : (
             <div className="mt-2 grid gap-2">
               {(Array.isArray(triggeredUserAlertSummaries) ? triggeredUserAlertSummaries : [])
