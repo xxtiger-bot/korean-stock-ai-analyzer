@@ -91,20 +91,28 @@ function withTimeout(ms: number) {
   };
 }
 
-function formatAsOf(dateRaw: string | undefined, timeRaw: string | undefined) {
-  const date =
-    dateRaw && /^\d{8}$/.test(dateRaw)
-      ? `${dateRaw.slice(0, 4)}-${dateRaw.slice(4, 6)}-${dateRaw.slice(6, 8)}`
-      : "";
-  const time =
-    timeRaw && /^\d{6}$/.test(timeRaw)
-      ? `${timeRaw.slice(0, 2)}:${timeRaw.slice(2, 4)}:${timeRaw.slice(4, 6)}`
-      : "";
+function formatRequestTime(date: Date) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
+}
 
-  if (date && time) return `${date} ${time}`;
-  if (date) return date;
-  if (time) return time;
-  return new Date().toISOString();
+function formatAsOf(dateRaw: string | undefined, timeRaw: string | undefined, requestTime: Date) {
+  const hasDate = Boolean(dateRaw && /^\d{8}$/.test(dateRaw));
+  const hasTime = Boolean(timeRaw && /^\d{6}$/.test(timeRaw));
+
+  if (hasDate && hasTime) {
+    return `${dateRaw!.slice(0, 4)}-${dateRaw!.slice(4, 6)}-${dateRaw!.slice(6, 8)} ${timeRaw!.slice(0, 2)}:${timeRaw!.slice(2, 4)}`;
+  }
+
+  // KIS에서 체결 시간 필드를 주지 않으면 서버 요청 시각으로 대체
+  return formatRequestTime(requestTime);
 }
 
 export async function getKisAccessToken(): Promise<string | null> {
@@ -189,6 +197,7 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
     fid_input_iscd: normalizedCode
   });
   const timeout = withTimeout(8_000);
+  const requestTime = new Date();
   const trId = process.env.KIS_QUOTE_TR_ID?.trim() || "FHKST01010100";
 
   try {
@@ -238,7 +247,7 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
       changeRate,
       volume: toNumber(output.acml_vol),
       source: "kis",
-      asOf: formatAsOf(output.stck_bsop_date, output.stck_cntg_hour)
+      asOf: formatAsOf(output.stck_bsop_date, output.stck_cntg_hour, requestTime)
     };
   } catch (error) {
     warnOnce(

@@ -25,6 +25,26 @@ import {
 import type { Candle, RealtimeQuote, Stock } from "@/lib/types";
 import { useMemo } from "react";
 
+function formatRealtimeUpdatedAt(value: string | undefined) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(value)) return value;
+
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).format(parsed);
+  }
+
+  return value;
+}
+
 export function StockDetailClient({
   stock,
   candles,
@@ -52,7 +72,14 @@ export function StockDetailClient({
       ? realtimeQuote!.changeRate
       : stock.changeRate;
   const headlineLabel = hasRealtimeQuote ? "현재가" : "최근 종가";
-  const headlineSource = hasRealtimeQuote ? "KIS 기준" : "data.go.kr 일별 종가 기준";
+  const realtimeUpdatedAt = hasRealtimeQuote
+    ? formatRealtimeUpdatedAt(realtimeQuote?.asOf)
+    : "";
+  const headlineSource = hasRealtimeQuote
+    ? realtimeUpdatedAt
+      ? `KIS 기준 · 업데이트 ${realtimeUpdatedAt}`
+      : "KIS 기준"
+    : "data.go.kr 일별 종가 기준";
   const tone = headlineChange > 0 ? "up" : headlineChange < 0 ? "down" : "neutral";
   const tags = Array.isArray(stock.tags) ? stock.tags : [];
   const dataSource = tags.find((tag) => tag.toLowerCase() === "data.go.kr") ?? "mock";
