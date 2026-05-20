@@ -19,7 +19,10 @@ import {
   getStockDetailFromKrx,
   searchStocksFromKrx
 } from "@/lib/providers/krx";
-import { getRealtimeQuote as getRealtimeQuoteFromKis } from "@/lib/providers/kis";
+import {
+  getForeignOwnership as getForeignOwnershipFromKis,
+  getRealtimeQuote as getRealtimeQuoteFromKis
+} from "@/lib/providers/kis";
 import { buildTechnicalSeries } from "@/lib/indicators";
 import {
   DATA_UPDATED_AT,
@@ -29,7 +32,15 @@ import {
   getWatchlistPriority as buildWatchlistPriority
 } from "@/lib/insights";
 import type { DangerWarningItem, OpportunityRadarItem, PotentialRadarItem, RiskLevel } from "@/lib/insights";
-import type { Candle, MarketIndex, MarketSignal, RealtimeQuote, Stock, TechnicalPoint } from "@/lib/types";
+import type {
+  Candle,
+  ForeignOwnershipData,
+  MarketIndex,
+  MarketSignal,
+  RealtimeQuote,
+  Stock,
+  TechnicalPoint
+} from "@/lib/types";
 
 export type StockDataProviderMode = "mock" | "real";
 export type KoreaStockApiSource = "data_go_kr" | "krx";
@@ -924,6 +935,36 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
     warnOnce(
       `kis-fallback-error:${code}`,
       `[stock-provider] KIS realtime quote failed for ${code}. ${
+        error instanceof Error ? error.message : "request failed"
+      }`
+    );
+    return null;
+  }
+}
+
+export async function getForeignOwnership(
+  code: string
+): Promise<ForeignOwnershipData | null> {
+  if (getRealtimeProvider() !== "kis") {
+    return null;
+  }
+
+  try {
+    const foreignOwnership = await getForeignOwnershipFromKis(code);
+
+    if (!foreignOwnership) {
+      warnOnce(
+        `kis-foreign-fallback:${code}`,
+        `[stock-provider] KIS foreign ownership unavailable for ${code}.`
+      );
+      return null;
+    }
+
+    return foreignOwnership;
+  } catch (error) {
+    warnOnce(
+      `kis-foreign-fallback-error:${code}`,
+      `[stock-provider] KIS foreign ownership failed for ${code}. ${
         error instanceof Error ? error.message : "request failed"
       }`
     );

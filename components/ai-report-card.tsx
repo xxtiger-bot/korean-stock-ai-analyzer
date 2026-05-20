@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
-import type { AiReport, Stock } from "@/lib/types";
+import type { AiReport, ForeignOwnershipData, Stock } from "@/lib/types";
 
 type AnalysisResponse = {
   source: "openai" | "local";
@@ -80,7 +80,21 @@ function formatGeneratedAt(value: unknown) {
   return Number.isNaN(date.getTime()) ? "생성 시간 확인 필요" : date.toLocaleString("ko-KR");
 }
 
-export function AiReportCard({ stock }: { stock: Stock }) {
+function formatForeignOwnershipRatio(data?: ForeignOwnershipData | null) {
+  const ratio = data?.foreignOwnershipRatio;
+  if (typeof ratio === "number" && Number.isFinite(ratio)) {
+    return `${ratio.toFixed(2)}%`;
+  }
+  return "확인 필요";
+}
+
+export function AiReportCard({
+  stock,
+  foreignOwnership
+}: {
+  stock: Stock;
+  foreignOwnership?: ForeignOwnershipData | null;
+}) {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +146,9 @@ export function AiReportCard({ stock }: { stock: Stock }) {
           )}
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
             본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+            수급 참고: 외국인 보유율 {formatForeignOwnershipRatio(foreignOwnership)} (KIS 기준)
           </p>
         </div>
         <button

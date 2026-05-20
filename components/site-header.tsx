@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Star } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Star } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export function SiteHeader() {
@@ -24,6 +24,14 @@ export function SiteHeader() {
             <Star className="h-4 w-4 text-amber-500" />
             관심종목
           </div>
+          <Link
+            href="/portfolio"
+            className="inline-flex items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            <BriefcaseBusiness className="h-4 w-4 text-brand" />
+            <span className="hidden sm:inline">내 보유종목</span>
+            <span className="sm:hidden">보유종목</span>
+          </Link>
           <ThemeToggle />
         </div>
       </div>

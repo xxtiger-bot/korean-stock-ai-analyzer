@@ -3,6 +3,7 @@ import "@/app/globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WatchlistProvider } from "@/components/watchlist-provider";
+import { PortfolioProvider } from "@/components/portfolio-provider";
 
 export const metadata: Metadata = {
   title: "KRX Insight | Korean Stock Analytics",
@@ -18,10 +19,12 @@ export default function RootLayout({
     <html lang="ko" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <WatchlistProvider>
-            <SiteHeader />
-            {children}
-          </WatchlistProvider>
+          <PortfolioProvider>
+            <WatchlistProvider>
+              <SiteHeader />
+              {children}
+            </WatchlistProvider>
+          </PortfolioProvider>
         </ThemeProvider>
       </body>
     </html>

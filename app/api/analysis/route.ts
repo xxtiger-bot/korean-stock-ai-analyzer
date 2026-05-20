@@ -1,8 +1,19 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { DISCLAIMER } from "@/lib/insights";
-import { getStockCandles, getStockDetail, getTechnicalIndicators } from "@/lib/stock-provider";
-import type { AiReport, Candle, Stock, TechnicalPoint } from "@/lib/types";
+import {
+  getForeignOwnership,
+  getStockCandles,
+  getStockDetail,
+  getTechnicalIndicators
+} from "@/lib/stock-provider";
+import type {
+  AiReport,
+  Candle,
+  ForeignOwnershipData,
+  Stock,
+  TechnicalPoint
+} from "@/lib/types";
 
 type ReportContext = {
   stock: {
@@ -38,6 +49,14 @@ type ReportContext = {
     close: number;
     volume: number;
   }>;
+  foreignOwnership: {
+    ratio: number | null;
+    holdingQty: number | null;
+    limitQty: number | null;
+    exhaustionRate: number | null;
+    source: string;
+    updatedAt?: string;
+  };
 };
 
 const DATA_BASIS_NOTICE =
@@ -122,7 +141,8 @@ function getRsiLabel(rsi: number | null) {
 function createReportContext(
   stock: Stock,
   candles: Candle[],
-  technicalSeries: TechnicalPoint[]
+  technicalSeries: TechnicalPoint[],
+  foreignOwnership: ForeignOwnershipData | null
 ): ReportContext {
   const latest = technicalSeries[technicalSeries.length - 1];
   const recent20 = technicalSeries.slice(-20);
@@ -164,12 +184,36 @@ function createReportContext(
       low: item.low,
       close: item.close,
       volume: item.volume
-    }))
+    })),
+    foreignOwnership: {
+      ratio:
+        typeof foreignOwnership?.foreignOwnershipRatio === "number" &&
+        Number.isFinite(foreignOwnership.foreignOwnershipRatio)
+          ? foreignOwnership.foreignOwnershipRatio
+          : null,
+      holdingQty:
+        typeof foreignOwnership?.foreignHoldingQty === "number" &&
+        Number.isFinite(foreignOwnership.foreignHoldingQty)
+          ? foreignOwnership.foreignHoldingQty
+          : null,
+      limitQty:
+        typeof foreignOwnership?.foreignLimitQty === "number" &&
+        Number.isFinite(foreignOwnership.foreignLimitQty)
+          ? foreignOwnership.foreignLimitQty
+          : null,
+      exhaustionRate:
+        typeof foreignOwnership?.foreignExhaustionRate === "number" &&
+        Number.isFinite(foreignOwnership.foreignExhaustionRate)
+          ? foreignOwnership.foreignExhaustionRate
+          : null,
+      source: foreignOwnership?.source ?? "KIS 확인 필요",
+      updatedAt: foreignOwnership?.updatedAt
+    }
   };
 }
 
 function createLocalReport(context: ReportContext): AiReport {
-  const { stock, technical } = context;
+  const { stock, technical, foreignOwnership } = context;
   const latestCandle = context.recentCandles[context.recentCandles.length - 1];
   const firstCandle = context.recentCandles[0];
   const recentMove = firstCandle ? percentGap(latestCandle.close, firstCandle.close) : 0;
@@ -177,6 +221,12 @@ function createLocalReport(context: ReportContext): AiReport {
   const aboveMa60 = technical.ma60 ? stock.price >= technical.ma60 : false;
   const nearSupport = stock.price <= technical.supportPrice * 1.03;
   const nearResistance = stock.price >= technical.resistancePrice * 0.97;
+  const foreignRatioText =
+    foreignOwnership.ratio === null ? "확인 필요" : `${foreignOwnership.ratio.toFixed(2)}%`;
+  const hasHighForeignRatio =
+    foreignOwnership.ratio !== null && foreignOwnership.ratio >= 20;
+  const hasLowForeignRatio =
+    foreignOwnership.ratio !== null && foreignOwnership.ratio <= 5;
   const rsiText =
     technical.rsi === null || !Number.isFinite(technical.rsi) ? "N/A" : technical.rsi.toFixed(1);
   const macdLabel = getMacdLabel({
@@ -202,7 +252,7 @@ function createLocalReport(context: ReportContext): AiReport {
       technical.ma20 ? formatKRW(technical.ma20) : "확인 필요"
     }, MA60 ${technical.ma60 ? formatKRW(technical.ma60) : "확인 필요"}입니다. RSI는 ${rsiText}로 ${getRsiLabel(
       technical.rsi
-    )}이며, MACD는 ${macdLabel} 상태입니다. 20일 고점은 ${formatKRW(
+    )}이며, MACD는 ${macdLabel} 상태입니다. 외국인 보유율은 ${foreignRatioText} (${foreignOwnership.source})로 수급 참고 지표입니다. 20일 고점은 ${formatKRW(
       technical.high20
     )}, 20일 저점은 ${formatKRW(technical.low20)}입니다.`,
     risk: `${nearResistance ? "최근 종가가 20일 고점권에 가까워 단기 변동성 확대를 신중하게 관찰해야 합니다. " : ""}${
@@ -211,12 +261,19 @@ function createLocalReport(context: ReportContext): AiReport {
       stock.marketCap
     )}입니다. 가격이 ${aboveMa20 ? "MA20 위" : "MA20 아래"}에 있고 ${
       aboveMa60 ? "MA60 위" : "MA60 아래"
-    }에 있어 추세 확인과 리스크 관리가 함께 필요합니다.`,
+    }에 있어 추세 확인과 리스크 관리가 함께 필요합니다. ${
+      hasHighForeignRatio
+        ? `외국인 보유율 ${foreignRatioText}로 수급 안정 참고 요인이 있으나 변화율 재확인이 필요합니다.`
+        : hasLowForeignRatio
+          ? `외국인 보유율 ${foreignRatioText}로 수급 변동 가능성을 신중하게 관찰해야 합니다.`
+          : "외국인 보유율 변화는 후속 관찰 항목으로 확인 필요합니다."
+    }`,
     watchPoints: [
       `참고 지지권 ${formatKRW(technical.supportPrice)} 부근에서 종가가 유지되는지 관찰`,
       `참고 저항권 ${formatKRW(technical.resistancePrice)} 부근에서 거래량이 증가하거나 둔화되는지 확인`,
       `MA20 ${technical.ma20 ? formatKRW(technical.ma20) : "확인 필요"} 기준 이탈 또는 재회복 여부 관찰`,
-      `RSI ${rsiText}가 과열권 또는 회복권으로 이동하는지 확인`
+      `RSI ${rsiText}가 과열권 또는 회복권으로 이동하는지 확인`,
+      `외국인 보유율(${foreignRatioText})과 소진율(${foreignOwnership.exhaustionRate === null ? "확인 필요" : `${foreignOwnership.exhaustionRate.toFixed(2)}%`}) 변화 여부 추적`
     ],
     shortTermCheckPoints: [
       `최근 K선 종가가 MA5 ${technical.ma5 ? formatKRW(technical.ma5) : "확인 필요"} 위에서 유지되는지 확인`,
@@ -233,7 +290,12 @@ function createLocalReport(context: ReportContext): AiReport {
         : "20일 저점권 이탈 위험은 제한적으로 관찰됩니다.",
       `가격이 ${aboveMa20 ? "MA20 위" : "MA20 아래"}에 있고 ${
         aboveMa60 ? "MA60 위" : "MA60 아래"
-      }에 있어 추세 확인과 리스크 관리가 함께 필요합니다.`
+      }에 있어 추세 확인과 리스크 관리가 함께 필요합니다.`,
+      hasHighForeignRatio
+        ? `외국인 보유율 ${foreignRatioText}는 수급 안정 참고 요인이지만 일별 변화 재평가가 필요합니다.`
+        : hasLowForeignRatio
+          ? `외국인 보유율 ${foreignRatioText}로 수급 공백 가능성을 신중하게 관찰해야 합니다.`
+          : "외국인 보유율 데이터 변화는 확인 필요 상태입니다."
     ]
   };
 }
@@ -269,10 +331,11 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     const symbol = String(isRecord(body) ? body.symbol ?? "" : "").trim().toUpperCase();
 
-    const [stock, candles, technicalSeries] = await Promise.all([
+    const [stock, candles, technicalSeries, foreignOwnership] = await Promise.all([
       getStockDetail(symbol),
       getStockCandles(symbol),
-      getTechnicalIndicators(symbol)
+      getTechnicalIndicators(symbol),
+      getForeignOwnership(symbol)
     ]);
 
     if (!stock) {
@@ -297,7 +360,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const context = createReportContext(stock, candles, technicalSeries);
+    const context = createReportContext(stock, candles, technicalSeries, foreignOwnership);
     const fallback = ensureDataBasisNotice(createLocalReport(context));
 
     if (!process.env.OPENAI_API_KEY) {
@@ -318,7 +381,7 @@ export async function POST(request: Request) {
           {
             role: "system",
             content:
-              "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, risks, watchPoints, shortTermCheckPoints입니다. risks, watchPoints, shortTermCheckPoints는 반드시 문자열 배열입니다. trend, technical, risk는 반드시 문자열입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 시세가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. 거래 실행 유도, 단정적 판단, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
+              "당신은 한국 주식 핀테크 SaaS의 증권 분석 리포트 작성자입니다. 반드시 엄격한 JSON만 반환하세요. 키는 trend, technical, risk, risks, watchPoints, shortTermCheckPoints입니다. risks, watchPoints, shortTermCheckPoints는 반드시 문자열 배열입니다. trend, technical, risk는 반드시 문자열입니다. 모든 문장은 자연스러운 한국어로 작성하세요. stock.price는 실시간 시세가 아니라 data.go.kr 일별 최근 종가입니다. 리포트에는 반드시 '본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.' 문장을 포함하세요. foreignOwnership 정보를 활용해 외국인 보유율의 높고 낮음, 그리고 이후 변화 관찰 필요성을 반드시 반영하세요. 거래 실행 유도, 단정적 판단, 목표가, 수익 보장 표현은 금지합니다. 관찰, 신중, 확인 필요, 리스크 관리, 참고 정보라는 표현을 사용하세요."
           },
           {
             role: "user",

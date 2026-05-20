@@ -7,7 +7,8 @@
     "build": "next build",
     "lint": "next lint",
     "test:data-go-kr": "tsx scripts/test-data-go-kr.ts",
-    "test:data-go-kr-index": "tsx scripts/test-data-go-kr-index.ts"
+    "test:data-go-kr-index": "tsx scripts/test-data-go-kr-index.ts",
+    "test:kis-foreign": "tsx scripts/test-kis-foreign.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

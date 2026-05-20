@@ -74,6 +74,16 @@ export type RealtimeQuote = {
   asOf: string;
 };
 
+export type ForeignOwnershipData = {
+  code: string;
+  foreignOwnershipRatio: number | null;
+  foreignHoldingQty: number | null;
+  foreignLimitQty: number | null;
+  foreignExhaustionRate: number | null;
+  source: "KIS";
+  updatedAt: string;
+};
+
 export type TechnicalPoint = Candle & {
   ma5: number | null;
   ma20: number | null;
@@ -91,4 +101,51 @@ export type AiReport = {
   risks: string[];
   watchPoints: string[];
   shortTermCheckPoints: string[];
+};
+
+export type InvestmentHorizon = "단기" | "중기" | "장기";
+export type RiskProfile = "보수형" | "일반형" | "공격형";
+
+export type PortfolioPositionInput = {
+  id: string;
+  symbol: string;
+  buyPrice: number;
+  quantity: number;
+  investmentHorizon: InvestmentHorizon;
+  riskProfile: RiskProfile;
+  memo: string;
+};
+
+export type PortfolioJudgementLabel =
+  | "추가 관찰 가능"
+  | "유지 관찰"
+  | "대기 / 확인 필요"
+  | "비중 축소 관찰"
+  | "리스크 관리 필요";
+
+export type PortfolioDiagnosis = {
+  id: string;
+  symbol: string;
+  stockName: string;
+  market: string;
+  buyPrice: number;
+  quantity: number;
+  currentPrice: number;
+  recentClosePrice: number;
+  valuationAmount: number;
+  profitLoss: number;
+  returnRate: number;
+  holdingHealthScore: number;
+  addObservationScore: number;
+  riskManagementScore: number;
+  judgement: PortfolioJudgementLabel;
+  why: string;
+  addReasons: string[];
+  cautionReasons: string[];
+  riskManagementReasons: string[];
+  nextChecks: string[];
+  disclaimer: string;
+  hasRealtimePrice: boolean;
+  dataSource: string;
+  updatedAt: string;
 };

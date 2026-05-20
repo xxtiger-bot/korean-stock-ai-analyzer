@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { Activity, ArrowLeft, BarChart3, Gauge, Wallet } from "lucide-react";
 import { AiReportCard } from "@/components/ai-report-card";
+import { AiTradingJudgementCard } from "@/components/ai-trading-judgement-card";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { DangerWarningCard } from "@/components/danger-warning-card";
 import { EntryRiskScoreCard } from "@/components/entry-risk-score-card";
+import { ForeignOwnershipCard } from "@/components/foreign-ownership-card";
 import { IndicatorSummary } from "@/components/indicator-summary";
 import { IndicatorTranslator } from "@/components/indicator-translator";
 import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
@@ -22,7 +24,7 @@ import {
   formatNumber,
   formatPercent
 } from "@/lib/format";
-import type { Candle, RealtimeQuote, Stock } from "@/lib/types";
+import type { Candle, ForeignOwnershipData, RealtimeQuote, Stock } from "@/lib/types";
 import { useMemo } from "react";
 
 function formatRealtimeUpdatedAt(value: string | undefined) {
@@ -48,11 +50,13 @@ function formatRealtimeUpdatedAt(value: string | undefined) {
 export function StockDetailClient({
   stock,
   candles,
-  realtimeQuote
+  realtimeQuote,
+  foreignOwnership
 }: {
   stock: Stock;
   candles: Candle[];
   realtimeQuote?: RealtimeQuote | null;
+  foreignOwnership?: ForeignOwnershipData | null;
 }) {
   const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
   const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
@@ -181,7 +185,7 @@ export function StockDetailClient({
         )}
       </section>
 
-      <section className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           label="거래량"
           value={formatNumber(stock.volume)}
@@ -196,16 +200,15 @@ export function StockDetailClient({
           subValue={formatKRW(stock.eps)}
           icon={Gauge}
         />
+        <ForeignOwnershipCard data={foreignOwnership} />
       </section>
 
-      <div className="mt-5 grid min-w-0 max-w-full gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)] 2xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
-        <div className="min-w-0 max-w-full xl:col-start-1">
+      <div className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="min-w-0 max-w-full xl:col-span-8">
           <CandlestickChart series={technicalSeries} />
         </div>
-        <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-start-2 xl:row-span-3 xl:row-start-1">
-          <AiReportCard stock={stock} />
-          <PotentialScoreCard stock={stock} />
-          <DangerWarningCard stock={stock} />
+        <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-span-4">
+          <AiReportCard stock={stock} foreignOwnership={foreignOwnership} />
           <EntryRiskScoreCard stock={stock} />
           {latest && previous ? (
             <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />
@@ -218,9 +221,22 @@ export function StockDetailClient({
               />
             </section>
           )}
-          <TradingPlanHelper stock={stock} />
         </div>
-        <div className="min-w-0 max-w-full xl:col-start-1">
+        <div className="min-w-0 max-w-full xl:col-span-8">
+          <AiTradingJudgementCard
+            stock={stock}
+            candles={safeCandles}
+            technicalSeries={technicalSeries}
+            realtimeQuote={realtimeQuote}
+            foreignOwnership={foreignOwnership}
+          />
+        </div>
+        <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-span-4">
+          <TradingPlanHelper stock={stock} />
+          <PotentialScoreCard stock={stock} />
+          <DangerWarningCard stock={stock} />
+        </div>
+        <div className="min-w-0 max-w-full xl:col-span-8">
           {latest ? (
             <IndicatorTranslator stock={stock} latest={latest} />
           ) : (
@@ -233,7 +249,7 @@ export function StockDetailClient({
             </section>
           )}
         </div>
-        <div className="min-w-0 max-w-full xl:col-start-1">
+        <div className="min-w-0 max-w-full xl:col-span-8">
           <IndicatorSummary series={technicalSeries} />
         </div>
       </div>

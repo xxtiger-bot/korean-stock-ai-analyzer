@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { RealtimeQuote } from "@/lib/types";
+import type { ForeignOwnershipData, RealtimeQuote } from "@/lib/types";
 
 type KisTokenResponse = {
   access_token?: string;
@@ -8,6 +8,7 @@ type KisTokenResponse = {
 };
 
 type KisRealtimeOutput = {
+  [key: string]: unknown;
   stck_shrn_iscd?: string;
   stck_prpr?: string;
   prdy_vrss?: string;
@@ -66,8 +67,13 @@ function normalizeCode(code: string) {
   return code.trim().toUpperCase();
 }
 
-function toNumber(value: string | undefined) {
-  if (!value) return 0;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return 0;
   const parsed = Number(value.replaceAll(",", "").trim());
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -89,6 +95,28 @@ function withTimeout(ms: number) {
       clearTimeout(timeout);
     }
   };
+}
+
+function toNullableNumber(value: unknown) {
+  const parsed = toNumber(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function findOutputValue(output: KisRealtimeOutput, keys: string[]) {
+  const entries = Object.entries(output);
+
+  for (const key of keys) {
+    if (key in output) {
+      return output[key];
+    }
+
+    const found = entries.find(([entryKey]) => entryKey.toLowerCase() === key.toLowerCase());
+    if (found) {
+      return found[1];
+    }
+  }
+
+  return undefined;
 }
 
 function formatRequestTime(date: Date) {
@@ -113,6 +141,65 @@ function formatAsOf(dateRaw: string | undefined, timeRaw: string | undefined, re
 
   // KIS에서 체결 시간 필드를 주지 않으면 서버 요청 시각으로 대체
   return formatRequestTime(requestTime);
+}
+
+async function fetchDomesticQuoteOutput(code: string) {
+  const config = getKisConfig();
+  if (!config) return null;
+
+  const token = await getKisAccessToken();
+  if (!token) return null;
+
+  const normalizedCode = normalizeCode(code);
+  if (!normalizedCode) return null;
+
+  const params = new URLSearchParams({
+    fid_cond_mrkt_div_code: "J",
+    fid_input_iscd: normalizedCode
+  });
+  const timeout = withTimeout(8_000);
+  const requestTime = new Date();
+  const trId = process.env.KIS_QUOTE_TR_ID?.trim() || "FHKST01010100";
+
+  try {
+    const response = await fetch(
+      `${config.baseUrl}/uapi/domestic-stock/v1/quotations/inquire-price?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          authorization: `Bearer ${token}`,
+          appkey: config.appKey,
+          appsecret: config.appSecret,
+          tr_id: trId
+        },
+        cache: "no-store",
+        signal: timeout.signal
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`KIS quote HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as KisRealtimeResponse;
+    if (payload.rt_cd !== "0") {
+      throw new Error(payload.msg1 || "KIS quote rt_cd is not 0");
+    }
+
+    const outputCandidate = payload.output ?? payload.output1;
+    if (!isRecord(outputCandidate)) {
+      throw new Error("KIS quote output is empty");
+    }
+
+    return {
+      normalizedCode,
+      requestTime,
+      output: outputCandidate as KisRealtimeOutput
+    };
+  } finally {
+    timeout.done();
+  }
 }
 
 export async function getKisAccessToken(): Promise<string | null> {
@@ -183,61 +270,21 @@ export async function getKisAccessToken(): Promise<string | null> {
 }
 
 export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | null> {
-  const config = getKisConfig();
-  if (!config) return null;
-
-  const token = await getKisAccessToken();
-  if (!token) return null;
-
-  const normalizedCode = normalizeCode(code);
-  if (!normalizedCode) return null;
-
-  const params = new URLSearchParams({
-    fid_cond_mrkt_div_code: "J",
-    fid_input_iscd: normalizedCode
-  });
-  const timeout = withTimeout(8_000);
-  const requestTime = new Date();
-  const trId = process.env.KIS_QUOTE_TR_ID?.trim() || "FHKST01010100";
-
   try {
-    const response = await fetch(
-      `${config.baseUrl}/uapi/domestic-stock/v1/quotations/inquire-price?${params.toString()}`,
-      {
-        method: "GET",
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-          authorization: `Bearer ${token}`,
-          appkey: config.appKey,
-          appsecret: config.appSecret,
-          tr_id: trId
-        },
-        cache: "no-store",
-        signal: timeout.signal
-      }
-    );
+    const quotePayload = await fetchDomesticQuoteOutput(code);
+    if (!quotePayload) return null;
 
-    if (!response.ok) {
-      throw new Error(`KIS quote HTTP ${response.status}`);
-    }
-
-    const payload = (await response.json()) as KisRealtimeResponse;
-    if (payload.rt_cd !== "0") {
-      throw new Error(payload.msg1 || "KIS quote rt_cd is not 0");
-    }
-
-    const output = payload.output ?? payload.output1;
-    if (!output) {
-      throw new Error("KIS quote output is empty");
-    }
-
+    const { output, requestTime, normalizedCode } = quotePayload;
     const price = toNumber(output.stck_prpr);
     if (price <= 0) {
       throw new Error("KIS quote price is invalid");
     }
 
     const rawChange = toNumber(output.prdy_vrss);
-    const change = toSignedChange(rawChange, output.prdy_vrss_sign);
+    const change = toSignedChange(
+      rawChange,
+      typeof output.prdy_vrss_sign === "string" ? output.prdy_vrss_sign : undefined
+    );
     const changeRate = toNumber(output.prdy_ctrt);
 
     return {
@@ -250,6 +297,7 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
       asOf: formatAsOf(output.stck_bsop_date, output.stck_cntg_hour, requestTime)
     };
   } catch (error) {
+    const normalizedCode = normalizeCode(code);
     warnOnce(
       `kis-quote-failed:${normalizedCode}`,
       `[kis] Realtime quote unavailable for ${normalizedCode}. ${
@@ -257,7 +305,87 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
       }`
     );
     return null;
-  } finally {
-    timeout.done();
+  }
+}
+
+export async function getForeignOwnership(
+  code: string
+): Promise<ForeignOwnershipData | null> {
+  const normalizedCode = normalizeCode(code);
+  if (!normalizedCode) return null;
+
+  try {
+    const quotePayload = await fetchDomesticQuoteOutput(normalizedCode);
+    if (!quotePayload) return null;
+
+    const { output, requestTime } = quotePayload;
+    const foreignExhaustionRate = toNullableNumber(
+      findOutputValue(output, ["hts_frgn_ehrt", "frgn_ehrt", "frgn_exh_rt"])
+    );
+    const foreignHoldingQty = toNullableNumber(
+      findOutputValue(output, ["frgn_hldn_qty", "frgn_hldn_qnty"])
+    );
+    const foreignLimitQty = toNullableNumber(
+      findOutputValue(output, ["frgn_lmtl_qty", "frgn_lmtt_qty", "frgn_lmt_qty"])
+    );
+    const directRatio = toNullableNumber(
+      findOutputValue(output, ["frgn_hldn_rt", "frgn_hldn_rate"])
+    );
+    const hasHoldingQty =
+      typeof foreignHoldingQty === "number" && Number.isFinite(foreignHoldingQty);
+    const hasLimitQty =
+      typeof foreignLimitQty === "number" && Number.isFinite(foreignLimitQty);
+    const hasDirectRatio =
+      typeof directRatio === "number" && Number.isFinite(directRatio);
+    const hasExhaustionRate =
+      typeof foreignExhaustionRate === "number" && Number.isFinite(foreignExhaustionRate);
+    const inferredRatio =
+      hasHoldingQty &&
+      hasLimitQty &&
+      foreignLimitQty > 0
+        ? (foreignHoldingQty / foreignLimitQty) * 100
+        : null;
+    const hasInferredRatio =
+      typeof inferredRatio === "number" && Number.isFinite(inferredRatio);
+    const foreignOwnershipRatio = hasDirectRatio
+      ? directRatio
+      : hasInferredRatio
+        ? inferredRatio
+        : null;
+
+    if (
+      !(typeof foreignOwnershipRatio === "number" && Number.isFinite(foreignOwnershipRatio)) &&
+      !hasHoldingQty &&
+      !hasLimitQty &&
+      !hasExhaustionRate
+    ) {
+      warnOnce(
+        `kis-foreign-empty:${normalizedCode}`,
+        `[kis] Foreign ownership fields not found for ${normalizedCode}.`
+      );
+      return null;
+    }
+
+    return {
+      code: normalizedCode,
+      foreignOwnershipRatio,
+      foreignHoldingQty,
+      foreignLimitQty,
+      foreignExhaustionRate,
+      source: "KIS",
+      updatedAt: formatAsOf(
+        typeof output.stck_bsop_date === "string" ? output.stck_bsop_date : undefined,
+        typeof output.stck_cntg_hour === "string" ? output.stck_cntg_hour : undefined,
+        requestTime
+      )
+    };
+  } catch (error) {
+    warnOnce(
+      `kis-foreign-failed:${normalizedCode}`,
+      `[kis] Foreign ownership unavailable for ${normalizedCode}. ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+    return null;
   }
 }
