@@ -115,29 +115,37 @@ function getCoreJudgementReason(diagnosis: PortfolioDiagnosis | undefined) {
     return "일별 데이터와 현재가를 확인한 뒤 핵심 판단 이유를 제공합니다.";
   }
 
-  const addReasons = Array.isArray(diagnosis.addReasons) ? diagnosis.addReasons : [];
-  const cautionReasons = Array.isArray(diagnosis.cautionReasons) ? diagnosis.cautionReasons : [];
-  const riskReasons = Array.isArray(diagnosis.riskManagementReasons)
-    ? diagnosis.riskManagementReasons
-    : [];
-
   if (diagnosis.judgement === "추가 관찰 가능") {
-    return addReasons[0] ?? "추세와 지표 흐름이 상대적으로 안정적이라 추가 관찰 여지가 있습니다.";
+    return "지지 확인과 거래량 조건이 동반될 때 추가 관찰이 가능합니다.";
   }
 
   if (diagnosis.judgement === "유지 관찰") {
-    return cautionReasons[0] ?? addReasons[0] ?? "추세 유지 여부를 중심으로 확인이 필요한 구간입니다.";
+    const isProfitable = safeNumber(diagnosis.returnRate) >= 0;
+    const isAddHigh = safeNumber(diagnosis.addObservationScore) >= 65;
+    const cautionReasons = Array.isArray(diagnosis.cautionReasons)
+      ? diagnosis.cautionReasons
+      : [];
+    const isFarFromMa20 = cautionReasons.some((reason) => reason.includes("MA20"));
+
+    if (isProfitable && isAddHigh && isFarFromMa20) {
+      return "현재 수익 구간이며 보유 추세는 유지되지만 MA20 이격이 커 추가는 신중한 재평가가 필요합니다.";
+    }
+
+    return "현재 수익 구간이고 단기 추세가 유지되어 보유 상태를 관찰할 수 있습니다.";
   }
 
   if (diagnosis.judgement === "대기 / 확인 필요") {
-    return cautionReasons[0] ?? "추세 재확인 전까지 신중한 관찰이 필요한 구간입니다.";
+    return "데이터 재확인 또는 추세 확인이 필요해 대기 관찰이 적절한 구간입니다.";
   }
 
-  if (diagnosis.judgement === "비중 조절 검토 구간") {
-    return riskReasons[0] ?? cautionReasons[0] ?? "리스크 지표가 높아 비중 조절 관찰이 필요한 구간입니다.";
+  if (
+    diagnosis.judgement === "비중 조절 검토 구간" ||
+    diagnosis.judgement === "리스크 관리 관찰"
+  ) {
+    return "추세 약화 또는 손실 확대 가능성이 있어 리스크 관리가 필요합니다.";
   }
 
-  return riskReasons[0] ?? "변동성 확대 가능성이 있어 리스크 관리 관찰이 필요한 구간입니다.";
+  return "데이터 확인 후 보유 상태를 재평가할 필요가 있습니다.";
 }
 
 export function PortfolioPageClient() {

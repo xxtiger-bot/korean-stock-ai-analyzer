@@ -85,13 +85,37 @@ function normalizePosition(value: unknown): PortfolioPositionInput | null {
   };
 }
 
-function getJudgement(holdingHealthScore: number, addObservationScore: number, riskManagementScore: number): PortfolioJudgementLabel {
-  if (riskManagementScore >= 80) return "리스크 관리 관찰";
-  if (riskManagementScore >= 65) return "비중 조절 검토 구간";
-  if (addObservationScore <= 35 || riskManagementScore >= 50) return "대기 / 확인 필요";
-  if (holdingHealthScore >= 70 && addObservationScore >= 65 && riskManagementScore <= 45) {
+function getJudgement(
+  holdingHealthScore: number,
+  addObservationScore: number,
+  riskManagementScore: number,
+  profitLoss: number,
+  currentPrice: number,
+  ma20: number,
+  isFarFromMa20: boolean
+): PortfolioJudgementLabel {
+  if (riskManagementScore >= 70) return "리스크 관리 관찰";
+  if (profitLoss < 0 && currentPrice < ma20) return "리스크 관리 관찰";
+  if (riskManagementScore >= 55) return "비중 조절 검토 구간";
+
+  // 보유 종목은 신규 진입보다 보유 상태 판단을 우선
+  if (holdingHealthScore >= 70 && riskManagementScore < 50) {
+    return "유지 관찰";
+  }
+
+  if (
+    addObservationScore >= 70 &&
+    holdingHealthScore >= 60 &&
+    riskManagementScore < 45 &&
+    !isFarFromMa20
+  ) {
     return "추가 관찰 가능";
   }
+
+  if (addObservationScore <= 30 || holdingHealthScore < 45) {
+    return "대기 / 확인 필요";
+  }
+
   return "유지 관찰";
 }
 
@@ -223,7 +247,15 @@ async function diagnoseOne(position: PortfolioPositionInput) {
   const profitLoss = valuationAmount - costBasis;
   const returnRate = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
 
-  const judgement = getJudgement(holdingHealthScore, addObservationScore, riskManagementScore);
+  const judgement = getJudgement(
+    holdingHealthScore,
+    addObservationScore,
+    riskManagementScore,
+    profitLoss,
+    currentPrice,
+    ma20,
+    isFarFromMa20
+  );
 
   const addReasons: string[] = [];
   const cautionReasons: string[] = [];
