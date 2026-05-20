@@ -384,6 +384,8 @@ export function PortfolioPageClient() {
                 const isExpanded = expandedId === entry.id;
                 const failureReason = failures[entry.id];
                 const judgement = diagnosis?.judgement ?? "대기 / 확인 필요";
+                const quoteSource = diagnosis?.quoteSource === "KIS" ? "KIS" : "data.go.kr 최근 종가";
+                const quoteLabel = diagnosis?.quoteSource === "KIS" ? "현재가" : "최근 종가";
                 return (
                   <article
                     key={entry.id}
@@ -424,7 +426,7 @@ export function PortfolioPageClient() {
 
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                       <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        현재가{" "}
+                        {quoteLabel}{" "}
                         <span className="font-bold text-ink dark:text-white">
                           {formatKRW(safeNumber(diagnosis?.currentPrice, 0))}
                         </span>
@@ -486,11 +488,22 @@ export function PortfolioPageClient() {
                                 </span>
                               </p>
                               <p>
+                                시세 출처{" "}
+                                <span className="font-bold text-ink dark:text-white">
+                                  {quoteSource}
+                                </span>
+                              </p>
+                              <p>
                                 데이터 출처{" "}
                                 <span className="font-bold text-ink dark:text-white">
                                   {safeText(diagnosis.dataSource, "data.go.kr 일별 종가")}
                                 </span>
                               </p>
+                              {diagnosis.quoteSource !== "KIS" && (
+                                <p className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+                                  현재가는 data.go.kr 최근 종가 기준입니다.
+                                </p>
+                              )}
                             </div>
                             <article className="rounded-md border border-line bg-white p-3 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
                               <p className="font-bold text-ink dark:text-white">왜 이런 판단인가?</p>

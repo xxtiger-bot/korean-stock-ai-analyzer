@@ -148,6 +148,9 @@ async function diagnoseOne(position: PortfolioPositionInput) {
 
   const recentClosePrice = n(detail.price, n(latest.close));
   const hasRealtimePrice = Boolean(realtime && Number.isFinite(realtime.price) && realtime.price > 0);
+  const quoteSource: PortfolioDiagnosis["quoteSource"] = hasRealtimePrice
+    ? "KIS"
+    : "data.go.kr fallback";
   const currentPrice = hasRealtimePrice ? n(realtime?.price) : recentClosePrice;
 
   const ma5 = n(latest.ma5, n(detail.ma5, recentClosePrice));
@@ -264,6 +267,7 @@ async function diagnoseOne(position: PortfolioPositionInput) {
     symbol: detail.symbol,
     stockName: detail.koreanName,
     market: detail.market,
+    quoteSource,
     buyPrice: position.buyPrice,
     quantity: position.quantity,
     currentPrice,
@@ -284,7 +288,7 @@ async function diagnoseOne(position: PortfolioPositionInput) {
     hasRealtimePrice,
     dataSource: hasRealtimePrice
       ? "KIS 현재가 + data.go.kr 일별 종가"
-      : "data.go.kr 일별 종가 (KIS 현재가 확인 필요)",
+      : "현재가는 data.go.kr 최근 종가 기준입니다.",
     updatedAt: getUpdatedAtLabel(hasRealtimePrice ? realtime?.asOf ?? null : null, detail.date)
   };
 

@@ -920,24 +920,8 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
   }
 
   try {
-    const quote = await getRealtimeQuoteFromKis(code);
-
-    if (!quote) {
-      warnOnce(
-        `kis-fallback:${code}`,
-        `[stock-provider] KIS realtime unavailable for ${code}. Fallback to daily close data.`
-      );
-      return null;
-    }
-
-    return quote;
-  } catch (error) {
-    warnOnce(
-      `kis-fallback-error:${code}`,
-      `[stock-provider] KIS realtime quote failed for ${code}. ${
-        error instanceof Error ? error.message : "request failed"
-      }`
-    );
+    return await getRealtimeQuoteFromKis(code);
+  } catch {
     return null;
   }
 }
@@ -950,24 +934,8 @@ export async function getForeignOwnership(
   }
 
   try {
-    const foreignOwnership = await getForeignOwnershipFromKis(code);
-
-    if (!foreignOwnership) {
-      warnOnce(
-        `kis-foreign-fallback:${code}`,
-        `[stock-provider] KIS foreign ownership unavailable for ${code}.`
-      );
-      return null;
-    }
-
-    return foreignOwnership;
-  } catch (error) {
-    warnOnce(
-      `kis-foreign-fallback-error:${code}`,
-      `[stock-provider] KIS foreign ownership failed for ${code}. ${
-        error instanceof Error ? error.message : "request failed"
-      }`
-    );
+    return await getForeignOwnershipFromKis(code);
+  } catch {
     return null;
   }
 }

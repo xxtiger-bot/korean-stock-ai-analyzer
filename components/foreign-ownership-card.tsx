@@ -56,7 +56,7 @@ export function ForeignOwnershipCard({
 
       {!hasAnyValue ? (
         <p className="mt-4 break-words text-sm font-semibold text-slate-500 dark:text-slate-400">
-          외국인 보유율 데이터를 확인할 수 없습니다.
+          외국인 보유율 데이터를 현재 확인할 수 없습니다.
         </p>
       ) : (
         <>

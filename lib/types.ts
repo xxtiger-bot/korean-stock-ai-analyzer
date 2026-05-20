@@ -128,6 +128,7 @@ export type PortfolioDiagnosis = {
   symbol: string;
   stockName: string;
   market: string;
+  quoteSource: "KIS" | "data.go.kr fallback";
   buyPrice: number;
   quantity: number;
   currentPrice: number;

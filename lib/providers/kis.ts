@@ -143,6 +143,10 @@ function formatAsOf(dateRaw: string | undefined, timeRaw: string | undefined, re
   return formatRequestTime(requestTime);
 }
 
+function isHttp500Error(error: unknown) {
+  return error instanceof Error && /HTTP 500\b/.test(error.message);
+}
+
 async function fetchDomesticQuoteOutput(code: string) {
   const config = getKisConfig();
   if (!config) return null;
@@ -298,11 +302,14 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
     };
   } catch (error) {
     const normalizedCode = normalizeCode(code);
+    const isHttp500 = isHttp500Error(error);
     warnOnce(
-      `kis-quote-failed:${normalizedCode}`,
-      `[kis] Realtime quote unavailable for ${normalizedCode}. ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
+      isHttp500 ? `kis-quote-http500:${normalizedCode}` : `kis-quote-failed:${normalizedCode}`,
+      isHttp500
+        ? `[kis] Realtime quote failed (HTTP 500). code=${normalizedCode}`
+        : `[kis] Realtime quote unavailable. code=${normalizedCode}, reason=${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
     );
     return null;
   }
@@ -359,10 +366,6 @@ export async function getForeignOwnership(
       !hasLimitQty &&
       !hasExhaustionRate
     ) {
-      warnOnce(
-        `kis-foreign-empty:${normalizedCode}`,
-        `[kis] Foreign ownership fields not found for ${normalizedCode}.`
-      );
       return null;
     }
 
@@ -379,13 +382,7 @@ export async function getForeignOwnership(
         requestTime
       )
     };
-  } catch (error) {
-    warnOnce(
-      `kis-foreign-failed:${normalizedCode}`,
-      `[kis] Foreign ownership unavailable for ${normalizedCode}. ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
+  } catch {
     return null;
   }
 }
