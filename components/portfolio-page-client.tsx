@@ -113,6 +113,17 @@ type PortfolioNotificationItem = {
   signature: string;
 };
 
+type DailyPortfolioReportItem = {
+  id: string;
+  symbol: string;
+  stockName: string;
+  returnRate: number;
+  judgement: string;
+  coreReason: string;
+  nextCheck: string;
+  priority: number;
+};
+
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -534,6 +545,162 @@ function localDateKey() {
   const month = `${now.getMonth() + 1}`.padStart(2, "0");
   const day = `${now.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function judgementPriority(judgement: string) {
+  if (judgement === "리스크 관리 관찰") return 100;
+  if (judgement === "비중 조절 검토 구간") return 90;
+  if (judgement === "대기 / 확인 필요") return 80;
+  if (judgement === "유지 관찰") return 70;
+  if (judgement === "추가 관찰 가능") return 60;
+  return 50;
+}
+
+function buildDailyPortfolioReportItems(
+  entries: PortfolioPositionInput[],
+  diagnosisMap: Map<string, PortfolioDiagnosis>,
+  failures: Record<string, string>
+) {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const safeFailures =
+    failures && typeof failures === "object" ? failures : ({} as Record<string, string>);
+  const items: DailyPortfolioReportItem[] = [];
+
+  for (const entry of safeEntries) {
+    const diagnosis = diagnosisMap.get(entry.id);
+    const judgement = safeText(diagnosis?.judgement, "대기 / 확인 필요");
+    const returnRate = safeNumber(diagnosis?.returnRate, 0);
+    const nextChecks = Array.isArray(diagnosis?.nextChecks) ? diagnosis.nextChecks : [];
+    const nextCheck =
+      safeText(nextChecks[0]) ||
+      safeText(safeFailures[entry.id]) ||
+      "다음 종가와 MA20 유지 여부를 확인해 재평가가 필요합니다.";
+
+    items.push({
+      id: entry.id,
+      symbol: safeText(diagnosis?.symbol, entry.symbol),
+      stockName: safeText(diagnosis?.stockName, safeText(entry.stockName, entry.symbol)),
+      returnRate,
+      judgement,
+      coreReason: getCoreJudgementReason(diagnosis),
+      nextCheck,
+      priority: judgementPriority(judgement)
+    });
+  }
+
+  return items.sort((left, right) => {
+    if (right.priority !== left.priority) return right.priority - left.priority;
+    return left.returnRate - right.returnRate;
+  });
+}
+
+function buildPortfolioSummaryLines(options: {
+  totalCount: number;
+  avgReturn: number;
+  riskUpCount: number;
+  keepCount: number;
+  topItems: DailyPortfolioReportItem[];
+}) {
+  const lines: string[] = [];
+  const totalCount = safeNumber(options.totalCount, 0);
+  const avgReturn = safeNumber(options.avgReturn, 0);
+  const riskUpCount = safeNumber(options.riskUpCount, 0);
+  const keepCount = safeNumber(options.keepCount, 0);
+  const safeTopItems = Array.isArray(options.topItems) ? options.topItems : [];
+  const topName = safeText(safeTopItems[0]?.stockName);
+
+  if (totalCount === 0) {
+    return ["보유종목을 추가하면 오늘의 AI 리포트를 생성할 수 있습니다."];
+  }
+
+  if (riskUpCount > 0) {
+    lines.push(
+      `현재 포트폴리오는 ${avgReturn >= 0 ? "수익 관찰" : "변동성 관찰"} 구간이지만 리스크 상승 종목이 ${riskUpCount}개 있어 우선 확인이 필요합니다.`
+    );
+  } else {
+    lines.push(
+      `현재 포트폴리오는 ${avgReturn >= 0 ? "수익 관찰" : "변동성 관찰"} 흐름이며 급격한 리스크 확대 신호는 제한적입니다.`
+    );
+  }
+
+  if (topName) {
+    lines.push(
+      `${topName}을 포함한 우선 확인 종목은 다음 종가 흐름과 MA20 유지 여부를 신중하게 점검하세요.`
+    );
+  }
+
+  if (keepCount > 0) {
+    lines.push(
+      `유지 관찰 종목은 ${keepCount}개이며, KIS 현재가 변화와 사용자 알림 조건 발동 여부를 참고 정보로 확인하세요.`
+    );
+  } else {
+    lines.push("유지 관찰 종목이 적어 리스크 관리 기준과 확인 조건 중심의 재평가가 필요합니다.");
+  }
+
+  return lines.slice(0, 4);
+}
+
+function buildTomorrowCheckItems(options: {
+  diagnoses: PortfolioDiagnosis[];
+  riskAlerts: PortfolioRiskAlert[];
+  alertConditionsByEntry: Record<string, UserAlertCondition[]>;
+  triggeredUserAlertSummaries: UserAlertSummary[];
+}) {
+  const safeDiagnoses = Array.isArray(options.diagnoses) ? options.diagnoses : [];
+  const safeRiskAlerts = Array.isArray(options.riskAlerts) ? options.riskAlerts : [];
+  const safeTriggered = Array.isArray(options.triggeredUserAlertSummaries)
+    ? options.triggeredUserAlertSummaries
+    : [];
+  const safeConditions =
+    options.alertConditionsByEntry && typeof options.alertConditionsByEntry === "object"
+      ? options.alertConditionsByEntry
+      : {};
+  const checks: string[] = [];
+  const addCheck = (value: string) => {
+    if (!value) return;
+    if (!checks.includes(value)) checks.push(value);
+  };
+
+  const hasMa20Check = safeDiagnoses.some((item) => {
+    const nextChecks = Array.isArray(item.nextChecks) ? item.nextChecks : [];
+    const cautionReasons = Array.isArray(item.cautionReasons) ? item.cautionReasons : [];
+    return hasKeyword(nextChecks, "MA20") || hasKeyword(cautionReasons, "MA20");
+  });
+  if (hasMa20Check) {
+    addCheck("MA20 유지 여부를 확인하고 종가 기준 추세를 재평가하세요.");
+  }
+
+  addCheck("KIS 현재가 변화와 data.go.kr 최근 종가 간 괴리를 함께 관찰하세요.");
+
+  const hasRsiHot = safeDiagnoses.some((item) => {
+    const rsi = extractRsiFromDiagnosis(item);
+    const cautionReasons = Array.isArray(item.cautionReasons) ? item.cautionReasons : [];
+    return (typeof rsi === "number" && Number.isFinite(rsi) && rsi >= 70) || hasKeyword(cautionReasons, "과열");
+  });
+  if (hasRsiHot) {
+    addCheck("RSI 과열 여부와 단기 변동성 확대 신호를 신중하게 확인하세요.");
+  }
+
+  const hasLowBreakRisk = safeRiskAlerts.some((item) => safeText(item.riskType).includes("20일 저점"));
+  if (hasLowBreakRisk) {
+    addCheck("20일 저점 이탈 여부와 거래량 반응을 함께 점검하세요.");
+  }
+
+  const hasUserConditions = Object.values(safeConditions).some(
+    (list) => Array.isArray(list) && list.some((condition) => condition.enabled)
+  );
+  if (hasUserConditions || safeTriggered.length > 0) {
+    addCheck("사용자 알림 조건 발동 여부를 확인하고 필요한 경우 기준값을 재조정하세요.");
+  }
+
+  if (checks.length < 3) {
+    addCheck("다음 종가 흐름과 손익 전환 구간을 중심으로 확인 필요 항목을 점검하세요.");
+  }
+  if (checks.length < 3) {
+    addCheck("리스크 관리 관찰 종목은 우선순위를 높여 점검하고 재평가하세요.");
+  }
+
+  return checks.slice(0, 5);
 }
 
 function buildPortfolioNotificationItems(
@@ -1058,6 +1225,62 @@ export function PortfolioPageClient() {
     () => buildPortfolioNotificationItems(riskAlerts, triggeredUserAlertSummaries),
     [riskAlerts, triggeredUserAlertSummaries]
   );
+  const dailyReportItems = useMemo(
+    () => buildDailyPortfolioReportItems(safeEntries, diagnosisMap, failures),
+    [safeEntries, diagnosisMap, failures]
+  );
+  const todayPriorityItems = useMemo(
+    () => (Array.isArray(dailyReportItems) ? dailyReportItems.slice(0, 3) : []),
+    [dailyReportItems]
+  );
+  const keepObservationItems = useMemo(
+    () =>
+      (Array.isArray(dailyReportItems) ? dailyReportItems : [])
+        .filter((item) => item.judgement === "유지 관찰")
+        .slice(0, 3),
+    [dailyReportItems]
+  );
+  const riskManagementItems = useMemo(
+    () =>
+      (Array.isArray(dailyReportItems) ? dailyReportItems : [])
+        .filter((item) => item.judgement === "리스크 관리 관찰")
+        .slice(0, 3),
+    [dailyReportItems]
+  );
+  const keepObservationCount = useMemo(
+    () =>
+      (Array.isArray(dailyReportItems) ? dailyReportItems : []).filter(
+        (item) => item.judgement === "유지 관찰"
+      ).length,
+    [dailyReportItems]
+  );
+  const portfolioSummaryLines = useMemo(
+    () =>
+      buildPortfolioSummaryLines({
+        totalCount: safeEntries.length,
+        avgReturn: summary.avgReturn,
+        riskUpCount,
+        keepCount: keepObservationCount,
+        topItems: todayPriorityItems
+      }),
+    [safeEntries.length, summary.avgReturn, riskUpCount, keepObservationCount, todayPriorityItems]
+  );
+  const tomorrowCheckItems = useMemo(
+    () =>
+      buildTomorrowCheckItems({
+        diagnoses,
+        riskAlerts,
+        alertConditionsByEntry,
+        triggeredUserAlertSummaries
+      }),
+    [diagnoses, riskAlerts, alertConditionsByEntry, triggeredUserAlertSummaries]
+  );
+  const portfolioStatusLabel = useMemo(() => {
+    if (safeEntries.length === 0) return "포트폴리오 데이터 대기";
+    if (riskUpCount > 0) return "리스크 재평가 필요 구간";
+    if (summary.avgReturn >= 0) return "수익 관찰 구간";
+    return "변동성 관찰 구간";
+  }, [safeEntries.length, riskUpCount, summary.avgReturn]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1425,6 +1648,180 @@ export function PortfolioPageClient() {
         </div>
       </section>
 
+      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">Daily Report</p>
+            <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
+              오늘의 내 보유종목 AI 리포트
+            </h2>
+          </div>
+          <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            전체 포트폴리오 상태: {portfolioStatusLabel}
+          </span>
+        </div>
+
+        {safeEntries.length === 0 ? (
+          <div className="mt-3 rounded-md border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50">
+            <p className="text-sm font-bold text-ink dark:text-white">
+              보유종목을 추가하면 오늘의 AI 리포트를 생성할 수 있습니다.
+            </p>
+            <a
+              href="#portfolio-add-entry"
+              className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-brand px-3 text-xs font-bold text-white hover:bg-blue-700"
+            >
+              보유종목 추가하기
+            </a>
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">총 보유 종목 수</p>
+                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{safeEntries.length}</p>
+              </article>
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">평균 수익률</p>
+                <p className={`mt-1 text-sm font-bold ${changeColorClass(summary.avgReturn)}`}>
+                  {formatPercent(summary.avgReturn)}
+                </p>
+              </article>
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">리스크 상승 종목 수</p>
+                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{riskUpCount}</p>
+              </article>
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">유지 관찰 종목 수</p>
+                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{keepObservationCount}</p>
+              </article>
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">전체 포트폴리오 상태</p>
+                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{portfolioStatusLabel}</p>
+              </article>
+            </div>
+
+            <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <h3 className="text-sm font-bold text-ink dark:text-white">AI 요약</h3>
+              <div className="mt-2 grid gap-1">
+                {(Array.isArray(portfolioSummaryLines) ? portfolioSummaryLines : []).map((line, index) => (
+                  <p
+                    key={`daily-summary-${index}`}
+                    className="text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            </article>
+
+            <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <h3 className="text-sm font-bold text-ink dark:text-white">오늘 먼저 확인할 종목 TOP 3</h3>
+              <div className="mt-2 grid gap-2">
+                {(Array.isArray(todayPriorityItems) ? todayPriorityItems : []).map((item) => (
+                  <article
+                    key={`daily-priority-${item.id}`}
+                    className="rounded-md border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-ink dark:text-white">
+                          {item.stockName}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          {item.symbol}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex rounded-md border px-2 py-1 text-xs font-bold ${judgementClass(
+                          item.judgement
+                        )}`}
+                      >
+                        {item.judgement}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      수익률: <span className={changeColorClass(item.returnRate)}>{formatPercent(item.returnRate)}</span>
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      핵심 판단 이유: {item.coreReason}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      다음 확인 조건: {item.nextCheck}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </article>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <h3 className="text-sm font-bold text-ink dark:text-white">유지 관찰 종목</h3>
+                {(Array.isArray(keepObservationItems) ? keepObservationItems : []).length === 0 ? (
+                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                    현재 유지 관찰 종목은 없습니다.
+                  </p>
+                ) : (
+                  <div className="mt-2 grid gap-2">
+                    {(Array.isArray(keepObservationItems) ? keepObservationItems : []).map((item) => (
+                      <article
+                        key={`keep-observation-${item.id}`}
+                        className="rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-dark-panel"
+                      >
+                        <p className="text-xs font-bold text-ink dark:text-white">
+                          {item.stockName} · {item.symbol}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                          수익률: <span className={changeColorClass(item.returnRate)}>{formatPercent(item.returnRate)}</span>
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </article>
+
+              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+                <h3 className="text-sm font-bold text-ink dark:text-white">리스크 관리 필요 종목</h3>
+                {(Array.isArray(riskManagementItems) ? riskManagementItems : []).length === 0 ? (
+                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                    현재 리스크 관리가 필요한 종목은 없습니다.
+                  </p>
+                ) : (
+                  <div className="mt-2 grid gap-2">
+                    {(Array.isArray(riskManagementItems) ? riskManagementItems : []).map((item) => (
+                      <article
+                        key={`risk-needed-${item.id}`}
+                        className="rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-dark-panel"
+                      >
+                        <p className="text-xs font-bold text-ink dark:text-white">
+                          {item.stockName} · {item.symbol}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                          핵심 판단 이유: {item.coreReason}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </article>
+            </div>
+
+            <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <h3 className="text-sm font-bold text-ink dark:text-white">내일 확인 조건</h3>
+              <ul className="mt-2 grid gap-1">
+                {(Array.isArray(tomorrowCheckItems) ? tomorrowCheckItems : []).map((item, index) => (
+                  <li
+                    key={`tomorrow-check-${index}`}
+                    className="text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300"
+                  >
+                    - {item}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </div>
+        )}
+      </section>
+
       <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
           <p className="text-xs font-bold text-slate-400">총 보유 종목 수</p>
@@ -1456,6 +1853,7 @@ export function PortfolioPageClient() {
 
       <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
         <form
+          id="portfolio-add-entry"
           onSubmit={addPortfolioEntry}
           className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
         >
