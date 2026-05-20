@@ -110,6 +110,36 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+function getCoreJudgementReason(diagnosis: PortfolioDiagnosis | undefined) {
+  if (!diagnosis) {
+    return "일별 데이터와 현재가를 확인한 뒤 핵심 판단 이유를 제공합니다.";
+  }
+
+  const addReasons = Array.isArray(diagnosis.addReasons) ? diagnosis.addReasons : [];
+  const cautionReasons = Array.isArray(diagnosis.cautionReasons) ? diagnosis.cautionReasons : [];
+  const riskReasons = Array.isArray(diagnosis.riskManagementReasons)
+    ? diagnosis.riskManagementReasons
+    : [];
+
+  if (diagnosis.judgement === "추가 관찰 가능") {
+    return addReasons[0] ?? "추세와 지표 흐름이 상대적으로 안정적이라 추가 관찰 여지가 있습니다.";
+  }
+
+  if (diagnosis.judgement === "유지 관찰") {
+    return cautionReasons[0] ?? addReasons[0] ?? "추세 유지 여부를 중심으로 확인이 필요한 구간입니다.";
+  }
+
+  if (diagnosis.judgement === "대기 / 확인 필요") {
+    return cautionReasons[0] ?? "추세 재확인 전까지 신중한 관찰이 필요한 구간입니다.";
+  }
+
+  if (diagnosis.judgement === "비중 조절 검토 구간") {
+    return riskReasons[0] ?? cautionReasons[0] ?? "리스크 지표가 높아 비중 조절 관찰이 필요한 구간입니다.";
+  }
+
+  return riskReasons[0] ?? "변동성 확대 가능성이 있어 리스크 관리 관찰이 필요한 구간입니다.";
+}
+
 export function PortfolioPageClient() {
   const { entries, addEntry, removeEntry } = usePortfolio();
   const [diagnoses, setDiagnoses] = useState<PortfolioDiagnosis[]>([]);
@@ -502,6 +532,7 @@ export function PortfolioPageClient() {
                 const quoteLabel = diagnosis?.quoteSource === "KIS" ? "현재가" : "최근 종가";
                 const displayName = safeText(diagnosis?.stockName, safeText(entry.stockName, entry.symbol));
                 const displayMarket = safeText(diagnosis?.market, safeText(entry.market, "시장 확인 필요"));
+                const coreReason = getCoreJudgementReason(diagnosis);
                 return (
                   <article
                     key={entry.id}
@@ -567,6 +598,9 @@ export function PortfolioPageClient() {
                         {judgement}
                       </span>
                     </div>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      핵심 판단 이유: {coreReason}
+                    </p>
 
                     {isExpanded && (
                       <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
