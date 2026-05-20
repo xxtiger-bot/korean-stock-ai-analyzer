@@ -64,6 +64,16 @@ export type Candle = {
   volume: number;
 };
 
+export type RealtimeQuote = {
+  symbol: string;
+  price: number;
+  change: number;
+  changeRate: number;
+  volume: number;
+  source: "kis";
+  asOf: string;
+};
+
 export type TechnicalPoint = Candle & {
   ma5: number | null;
   ma20: number | null;

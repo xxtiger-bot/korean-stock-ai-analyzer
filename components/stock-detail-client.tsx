@@ -22,24 +22,41 @@ import {
   formatNumber,
   formatPercent
 } from "@/lib/format";
-import type { Candle, Stock } from "@/lib/types";
+import type { Candle, RealtimeQuote, Stock } from "@/lib/types";
 import { useMemo } from "react";
 
 export function StockDetailClient({
   stock,
-  candles
+  candles,
+  realtimeQuote
 }: {
   stock: Stock;
   candles: Candle[];
+  realtimeQuote?: RealtimeQuote | null;
 }) {
   const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
   const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
   const latest = technicalSeries[technicalSeries.length - 1];
   const previous = technicalSeries[technicalSeries.length - 2];
   const dayRange = latest ? `${formatKRW(latest.low)} - ${formatKRW(latest.high)}` : "-";
-  const tone = stock.change > 0 ? "up" : stock.change < 0 ? "down" : "neutral";
+  const hasRealtimeQuote = Boolean(
+    realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
+  );
+  const headlinePrice = hasRealtimeQuote ? realtimeQuote!.price : stock.price;
+  const headlineChange =
+    hasRealtimeQuote && Number.isFinite(realtimeQuote?.change)
+      ? realtimeQuote!.change
+      : stock.change;
+  const headlineChangeRate =
+    hasRealtimeQuote && Number.isFinite(realtimeQuote?.changeRate)
+      ? realtimeQuote!.changeRate
+      : stock.changeRate;
+  const headlineLabel = hasRealtimeQuote ? "현재가" : "최근 종가";
+  const headlineSource = hasRealtimeQuote ? "KIS 기준" : "data.go.kr 일별 종가 기준";
+  const tone = headlineChange > 0 ? "up" : headlineChange < 0 ? "down" : "neutral";
   const tags = Array.isArray(stock.tags) ? stock.tags : [];
   const dataSource = tags.find((tag) => tag.toLowerCase() === "data.go.kr") ?? "mock";
+  const chartSource = dataSource === "mock" ? "mock" : "data.go.kr";
   const detailTags = tags.filter(
     (tag) => tag.toLowerCase() !== "data.go.kr" && tag !== stock.market
   );
@@ -51,6 +68,20 @@ export function StockDetailClient({
     stock.name && stock.name !== stock.koreanName ? stock.name : undefined;
   const dataDate = stock.date ?? latest?.date;
   const dataDateLabel = dataDate ? `${dataDate} 기준` : "일별 종가 기준";
+  const sourceMeta = hasRealtimeQuote
+    ? ([
+        ["시장", stock.market],
+        ["코드", stock.symbol],
+        ["시세", "KIS"],
+        ["차트", chartSource],
+        ["기준일", dataDateLabel]
+      ] as const)
+    : ([
+        ["시장", stock.market],
+        ["코드", stock.symbol],
+        ["데이터", dataSource],
+        ["기준일", dataDateLabel]
+      ] as const);
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -69,12 +100,7 @@ export function StockDetailClient({
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <div className="flex max-w-full flex-wrap items-center gap-2">
-              {[
-                ["시장", stock.market],
-                ["코드", stock.symbol],
-                ["데이터", dataSource],
-                ["기준일", dataDateLabel]
-              ].map(([label, value]) => (
+              {sourceMeta.map(([label, value]) => (
                 <span
                   key={label}
                   className="inline-flex max-w-full items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
@@ -97,17 +123,20 @@ export function StockDetailClient({
             )}
           </div>
           <div className="min-w-0 max-w-full text-left lg:text-right">
-            <p className="mb-1 text-xs font-bold text-slate-400">최근 종가</p>
+            <p className="mb-1 text-xs font-bold text-slate-400">{headlineLabel}</p>
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
-              {formatKRW(stock.price)}
+              {formatKRW(headlinePrice)}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {headlineSource}
             </p>
             <div
               className={`mt-3 inline-flex max-w-full flex-wrap rounded-md border px-3 py-2 text-sm font-bold ${changeBgClass(
-                stock.change
+                headlineChange
               )}`}
             >
-              {stock.change > 0 ? "+" : ""}
-              {formatKRW(stock.change)} · {formatPercent(stock.changeRate)}
+              {headlineChange > 0 ? "+" : ""}
+              {formatKRW(headlineChange)} · {formatPercent(headlineChangeRate)}
             </div>
           </div>
         </div>

@@ -19,6 +19,7 @@ import {
   getStockDetailFromKrx,
   searchStocksFromKrx
 } from "@/lib/providers/krx";
+import { getRealtimeQuote as getRealtimeQuoteFromKis } from "@/lib/providers/kis";
 import { buildTechnicalSeries } from "@/lib/indicators";
 import {
   DATA_UPDATED_AT,
@@ -28,7 +29,7 @@ import {
   getWatchlistPriority as buildWatchlistPriority
 } from "@/lib/insights";
 import type { DangerWarningItem, OpportunityRadarItem, PotentialRadarItem, RiskLevel } from "@/lib/insights";
-import type { Candle, MarketIndex, MarketSignal, Stock, TechnicalPoint } from "@/lib/types";
+import type { Candle, MarketIndex, MarketSignal, RealtimeQuote, Stock, TechnicalPoint } from "@/lib/types";
 
 export type StockDataProviderMode = "mock" | "real";
 export type KoreaStockApiSource = "data_go_kr" | "krx";
@@ -850,6 +851,10 @@ function provider() {
   return getProviderMode() === "real" ? realProvider : mockProvider;
 }
 
+function getRealtimeProvider() {
+  return process.env.REALTIME_STOCK_PROVIDER === "kis" ? "kis" : null;
+}
+
 export function getMarketOverview() {
   return provider().getMarketOverview();
 }
@@ -896,6 +901,34 @@ export function getNewsSentiment(code: string) {
 
 export function getInvestorFlow(code: string) {
   return provider().getInvestorFlow(code);
+}
+
+export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | null> {
+  if (getRealtimeProvider() !== "kis") {
+    return null;
+  }
+
+  try {
+    const quote = await getRealtimeQuoteFromKis(code);
+
+    if (!quote) {
+      warnOnce(
+        `kis-fallback:${code}`,
+        `[stock-provider] KIS realtime unavailable for ${code}. Fallback to daily close data.`
+      );
+      return null;
+    }
+
+    return quote;
+  } catch (error) {
+    warnOnce(
+      `kis-fallback-error:${code}`,
+      `[stock-provider] KIS realtime quote failed for ${code}. ${
+        error instanceof Error ? error.message : "request failed"
+      }`
+    );
+    return null;
+  }
 }
 
 export function getStockDataProviderMode() {
