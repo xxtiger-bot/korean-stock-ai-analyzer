@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
@@ -41,6 +41,17 @@ type DraftState = {
   investmentHorizon: InvestmentHorizon;
   riskProfile: RiskProfile;
   memo: string;
+};
+
+type PortfolioRiskAlert = {
+  key: string;
+  id: string;
+  symbol: string;
+  stockName: string;
+  riskType: string;
+  reason: string;
+  nextCheck: string;
+  priority: number;
 };
 
 function safeNumber(value: unknown, fallback = 0) {
@@ -147,6 +158,136 @@ function getCoreJudgementReason(diagnosis: PortfolioDiagnosis | undefined) {
   }
 
   return "데이터 확인 후 보유 상태를 재평가할 필요가 있습니다.";
+}
+
+function hasKeyword(items: string[], keyword: string) {
+  const safeItems = Array.isArray(items) ? items : [];
+  return safeItems.some((item) => typeof item === "string" && item.includes(keyword));
+}
+
+function buildPortfolioRiskAlerts(
+  entries: PortfolioPositionInput[],
+  diagnoses: PortfolioDiagnosis[]
+) {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const safeDiagnoses = Array.isArray(diagnoses) ? diagnoses : [];
+  const diagnosisMap = new Map<string, PortfolioDiagnosis>();
+
+  for (const item of safeDiagnoses) {
+    if (typeof item?.id === "string") {
+      diagnosisMap.set(item.id, item);
+    }
+  }
+
+  const alerts: PortfolioRiskAlert[] = [];
+
+  for (const entry of safeEntries) {
+    const diagnosis = diagnosisMap.get(entry.id);
+    if (!diagnosis) continue;
+
+    const stockName = safeText(diagnosis.stockName, safeText(entry.stockName, entry.symbol));
+    const symbol = safeText(diagnosis.symbol, entry.symbol);
+    const cautionReasons = Array.isArray(diagnosis.cautionReasons) ? diagnosis.cautionReasons : [];
+    const riskReasons = Array.isArray(diagnosis.riskManagementReasons)
+      ? diagnosis.riskManagementReasons
+      : [];
+    const nextChecks = Array.isArray(diagnosis.nextChecks) ? diagnosis.nextChecks : [];
+    const firstNextCheck = nextChecks[0] ?? "다음 종가와 거래량 변화를 확인 필요";
+    const currentPrice = safeNumber(diagnosis.currentPrice, safeNumber(entry.buyPrice));
+    const buyPrice = safeNumber(entry.buyPrice);
+    const returnRate = safeNumber(diagnosis.returnRate, 0);
+
+    const isMa20Below = hasKeyword(cautionReasons, "MA20 아래");
+    const isNearOrBelowBuyPrice =
+      (Number.isFinite(currentPrice) && Number.isFinite(buyPrice) && currentPrice <= buyPrice) ||
+      (Number.isFinite(currentPrice) &&
+        Number.isFinite(buyPrice) &&
+        buyPrice > 0 &&
+        Math.abs(((currentPrice - buyPrice) / buyPrice) * 100) <= 1.2);
+    const isLossExpanded = returnRate <= -5;
+    const isRsiOverheat = hasKeyword(cautionReasons, "RSI") && hasKeyword(cautionReasons, "과열");
+    const isNearLow20 = hasKeyword(riskReasons, "20일 저점") || hasKeyword(nextChecks, "20일 저점");
+    const isRiskManagementJudgement = diagnosis.judgement === "리스크 관리 관찰";
+    const isKisUnavailable = diagnosis.quoteSource !== "KIS";
+
+    const pushAlert = (riskType: string, reason: string, priority: number, nextCheck: string) => {
+      alerts.push({
+        key: `${entry.id}-${riskType}`,
+        id: entry.id,
+        symbol,
+        stockName,
+        riskType,
+        reason,
+        nextCheck,
+        priority
+      });
+    };
+
+    if (isRiskManagementJudgement) {
+      pushAlert(
+        "리스크 관리 필요",
+        "AI 판단 결과가 리스크 관리 관찰 구간으로 분류되어 재평가가 필요합니다.",
+        100,
+        firstNextCheck
+      );
+    }
+
+    if (isLossExpanded) {
+      pushAlert(
+        "손실 확대 리스크",
+        `수익률이 ${formatPercent(returnRate)}로 손실 확대 구간 진입 여부를 신중하게 확인해야 합니다.`,
+        96,
+        "손실 폭 확대 여부와 종가 회복 가능성을 우선 확인 필요"
+      );
+    }
+
+    if (isMa20Below) {
+      pushAlert(
+        "MA20 이탈 확인 필요",
+        "현재가가 MA20 아래 구간에 있어 추세 약화 지속 여부를 관찰해야 합니다.",
+        92,
+        firstNextCheck
+      );
+    }
+
+    if (isNearLow20) {
+      pushAlert(
+        "20일 저점 이탈 확인 필요",
+        "20일 저점 부근 접근 신호가 있어 지지선 반응 재확인이 필요합니다.",
+        88,
+        "20일 저점 지지 유지 여부와 거래량 변화를 확인 필요"
+      );
+    }
+
+    if (isNearOrBelowBuyPrice) {
+      pushAlert(
+        "손익 전환 리스크 확인",
+        "현재가가 매입가 부근 또는 하회 구간이라 손익 전환 가능성을 신중히 관찰해야 합니다.",
+        82,
+        "매입가 재돌파 여부와 종가 유지 흐름을 확인 필요"
+      );
+    }
+
+    if (isRsiOverheat) {
+      pushAlert(
+        "단기 과열 주의",
+        "RSI 과열 신호가 확인되어 단기 변동성 확대 가능성에 대한 재평가가 필요합니다.",
+        76,
+        "RSI 과열 완화 여부와 고점권 거래량을 확인 필요"
+      );
+    }
+
+    if (isKisUnavailable) {
+      pushAlert(
+        "시세 기준 참고 정보",
+        "현재가는 data.go.kr 최근 종가 기준입니다. 실시간 시세 확인은 참고 정보로 보완이 필요합니다.",
+        55,
+        "KIS 현재가 확인 가능 시점에 가격 괴리 여부를 재확인"
+      );
+    }
+  }
+
+  return alerts.sort((left, right) => right.priority - left.priority);
 }
 
 export function PortfolioPageClient() {
@@ -335,6 +476,14 @@ export function PortfolioPageClient() {
 
   const summary = useMemo(() => summarize(diagnoses), [diagnoses]);
   const riskUpCount = useMemo(() => toRiskCount(diagnoses), [diagnoses]);
+  const riskAlerts = useMemo(
+    () => buildPortfolioRiskAlerts(safeEntries, diagnoses),
+    [safeEntries, diagnoses]
+  );
+  const topRiskAlerts = useMemo(
+    () => (Array.isArray(riskAlerts) ? riskAlerts.slice(0, 3) : []),
+    [riskAlerts]
+  );
 
   function onDraftChange<K extends keyof DraftState>(key: K, value: DraftState[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -378,6 +527,61 @@ export function PortfolioPageClient() {
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
           KIS 현재가와 data.go.kr 일별 종가 데이터를 기반으로 보유 상태를 관찰하고, 확인 필요 구간을 정리하는 참고 정보입니다.
         </p>
+      </section>
+
+      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">Risk Alert</p>
+            <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
+              보유종목 리스크 알림
+            </h2>
+          </div>
+          <span className="inline-flex items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <ShieldAlert className="h-3.5 w-3.5" />
+            오늘 리스크 알림 {Array.isArray(riskAlerts) ? riskAlerts.length : 0}건
+          </span>
+        </div>
+
+        {topRiskAlerts.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              compact
+              icon={AlertTriangle}
+              title="현재 특별한 리스크 알림이 없습니다."
+              description="보유종목은 유지 관찰 구간입니다."
+            />
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            {topRiskAlerts.map((alert) => (
+              <article
+                key={alert.key}
+                className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-ink dark:text-white">
+                      {alert.stockName}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      {alert.symbol}
+                    </p>
+                  </div>
+                  <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+                    {alert.riskType}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                  이유: {alert.reason}
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                  다음 확인 조건: {alert.nextCheck}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
