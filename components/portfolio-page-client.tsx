@@ -786,6 +786,7 @@ export function PortfolioPageClient() {
     useState<NotificationPermissionState>("default");
   const [isBrowserNotificationEnabled, setIsBrowserNotificationEnabled] = useState(false);
   const [browserNotificationNotice, setBrowserNotificationNotice] = useState("");
+  const setNotificationStatusMessage = setBrowserNotificationNotice;
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -947,6 +948,12 @@ export function PortfolioPageClient() {
       setIsBrowserNotificationEnabled(false);
     }
     if (permission === "denied") {
+      setIsBrowserNotificationEnabled(false);
+      try {
+        window.localStorage.setItem(BROWSER_NOTIFICATION_ENABLED_KEY, "false");
+      } catch {
+        // localStorage may be blocked in restricted contexts.
+      }
       setBrowserNotificationNotice(
         "브라우저 알림 권한이 차단되었습니다. 브라우저 설정에서 알림 권한을 허용해주세요."
       );
@@ -1195,12 +1202,25 @@ export function PortfolioPageClient() {
     }));
   }
 
-  async function enableBrowserNotification() {
+  async function handleToggleBrowserNotification() {
+    console.log("[portfolio-notification] button clicked");
     if (typeof window === "undefined") return;
+
+    if (isBrowserNotificationEnabled) {
+      setIsBrowserNotificationEnabled(false);
+      setNotificationStatusMessage("브라우저 알림이 꺼졌습니다.");
+      try {
+        window.localStorage.setItem(BROWSER_NOTIFICATION_ENABLED_KEY, "false");
+      } catch {
+        // localStorage may be blocked in restricted contexts.
+      }
+      return;
+    }
+
     if (!("Notification" in window)) {
       setNotificationPermission("unsupported");
       setIsBrowserNotificationEnabled(false);
-      setBrowserNotificationNotice("이 브라우저에서는 알림 기능을 사용할 수 없습니다.");
+      setNotificationStatusMessage("이 브라우저에서는 알림 기능을 사용할 수 없습니다.");
       return;
     }
 
@@ -1213,7 +1233,7 @@ export function PortfolioPageClient() {
 
       if (nextPermission === "granted") {
         setIsBrowserNotificationEnabled(true);
-        setBrowserNotificationNotice("브라우저 알림이 켜졌습니다.");
+        setNotificationStatusMessage("브라우저 알림이 켜졌습니다.");
         try {
           window.localStorage.setItem(BROWSER_NOTIFICATION_ENABLED_KEY, "true");
         } catch {
@@ -1224,7 +1244,7 @@ export function PortfolioPageClient() {
             body: "브라우저 알림이 정상적으로 켜졌습니다."
           });
         } catch {
-          setBrowserNotificationNotice(
+          setNotificationStatusMessage(
             "브라우저 알림은 켜졌지만 테스트 알림 전송 중 문제가 발생했습니다."
           );
         }
@@ -1238,7 +1258,7 @@ export function PortfolioPageClient() {
         } catch {
           // localStorage may be blocked in restricted contexts.
         }
-        setBrowserNotificationNotice(
+        setNotificationStatusMessage(
           "브라우저 알림 권한이 차단되었습니다. 브라우저 설정에서 알림 권한을 허용해주세요."
         );
         return;
@@ -1250,11 +1270,11 @@ export function PortfolioPageClient() {
       } catch {
         // localStorage may be blocked in restricted contexts.
       }
-      setBrowserNotificationNotice(
+      setNotificationStatusMessage(
         "브라우저 알림 권한 허용이 필요합니다. 브라우저 설정에서 권한 상태를 확인해주세요."
       );
     } catch {
-      setBrowserNotificationNotice(
+      setNotificationStatusMessage(
         "브라우저 알림 설정 중 문제가 발생했습니다. 브라우저 권한 상태를 확인해주세요."
       );
     }
@@ -1273,11 +1293,11 @@ export function PortfolioPageClient() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => void enableBrowserNotification()}
+            onClick={handleToggleBrowserNotification}
             className="inline-flex h-8 items-center gap-1 rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
           >
             <Bell className="h-3.5 w-3.5" />
-            브라우저 알림 켜기
+            {isBrowserNotificationEnabled ? "브라우저 알림 끄기" : "브라우저 알림 켜기"}
           </button>
           <span
             className={`rounded-md border px-2 py-1 text-[11px] font-bold ${
