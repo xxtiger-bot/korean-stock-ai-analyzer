@@ -78,10 +78,25 @@ type PortfolioRiskAlert = {
 
 type TriggeredUserAlert = {
   key: string;
+  id: string;
   symbol: string;
   stockName: string;
+  conditionType: AlertConditionType;
+  priority: number;
   message: string;
   nextCheck: string;
+};
+
+type UserAlertSummary = {
+  key: string;
+  id: string;
+  symbol: string;
+  stockName: string;
+  triggerCount: number;
+  triggerMessages: string[];
+  coreSummary: string;
+  nextCheck: string;
+  topPriority: number;
 };
 
 const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
@@ -266,6 +281,53 @@ function isMa20BelowByDiagnosis(diagnosis: PortfolioDiagnosis) {
   return cautionReasons.some((reason) => typeof reason === "string" && reason.includes("MA20 아래"));
 }
 
+function alertPriorityByType(type: AlertConditionType) {
+  if (type === "ma20_below") return 100;
+  if (type === "price_lte") return 90;
+  if (type === "return_lte") return 80;
+  if (type === "price_gte") return 70;
+  if (type === "return_gte") return 60;
+  if (type === "rsi_lte_30") return 50;
+  if (type === "rsi_gte_70") return 40;
+  return 30;
+}
+
+function buildUserAlertCoreSummary(
+  judgement: string,
+  options: {
+    hasMa20Below: boolean;
+    hasPriceLower: boolean;
+    hasReturnLower: boolean;
+    hasRsiOverheat: boolean;
+  }
+) {
+  let prefix = "현재 보유 상태는 대기·확인 필요 구간이며,";
+  if (judgement === "유지 관찰") {
+    prefix = "현재 보유 상태는 유지 관찰 구간이지만,";
+  } else if (judgement === "추가 관찰 가능") {
+    prefix = "현재 보유 상태는 추가 관찰 가능 구간이지만,";
+  } else if (judgement === "리스크 관리 관찰" || judgement === "비중 조절 검토 구간") {
+    prefix = "현재 보유 상태는 리스크 관리 관찰 구간이며,";
+  }
+
+  if (options.hasMa20Below && (options.hasPriceLower || options.hasReturnLower)) {
+    return `${prefix} 사용자가 설정한 가격 조건과 MA20 기준을 함께 확인할 필요가 있습니다.`;
+  }
+  if (options.hasMa20Below) {
+    return `${prefix} MA20 이탈 여부를 신중하게 확인하고 재평가가 필요합니다.`;
+  }
+  if (options.hasPriceLower) {
+    return `${prefix} 설정한 가격 하단 조건 접근 여부를 관찰하며 리스크 관리가 필요합니다.`;
+  }
+  if (options.hasReturnLower) {
+    return `${prefix} 수익률 하락 조건 발동 여부를 확인하며 재평가가 필요합니다.`;
+  }
+  if (options.hasRsiOverheat) {
+    return `${prefix} RSI 과열 조건이 감지되어 신중한 관찰이 필요합니다.`;
+  }
+  return `${prefix} 설정된 알림 조건을 참고 정보로 점검할 필요가 있습니다.`;
+}
+
 function buildTriggeredUserAlerts(
   entries: PortfolioPositionInput[],
   diagnoses: PortfolioDiagnosis[],
@@ -352,8 +414,11 @@ function buildTriggeredUserAlerts(
       if (triggered) {
         results.push({
           key: `${entry.id}-${condition.id}`,
+          id: entry.id,
           symbol,
           stockName,
+          conditionType: condition.type,
+          priority: alertPriorityByType(condition.type),
           message,
           nextCheck: nextCheckText
         });
@@ -362,6 +427,77 @@ function buildTriggeredUserAlerts(
   }
 
   return results;
+}
+
+function buildTriggeredUserAlertSummaries(
+  alerts: TriggeredUserAlert[],
+  diagnosisMap: Map<string, PortfolioDiagnosis>
+) {
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const grouped = new Map<
+    string,
+    {
+      id: string;
+      symbol: string;
+      stockName: string;
+      items: TriggeredUserAlert[];
+    }
+  >();
+
+  for (const alert of safeAlerts) {
+    const groupKey = `${alert.id}:${alert.symbol}`;
+    const existing = grouped.get(groupKey);
+    if (existing) {
+      existing.items.push(alert);
+      continue;
+    }
+    grouped.set(groupKey, {
+      id: alert.id,
+      symbol: alert.symbol,
+      stockName: alert.stockName,
+      items: [alert]
+    });
+  }
+
+  const summaries: UserAlertSummary[] = [];
+  grouped.forEach((group) => {
+    const sortedItems = (Array.isArray(group.items) ? [...group.items] : []).sort(
+      (left, right) => right.priority - left.priority
+    );
+    if (sortedItems.length === 0) return;
+
+    const triggerMessages = sortedItems.map((item) => safeText(item.message)).filter(Boolean);
+    const topItem = sortedItems[0];
+    const diagnosis = diagnosisMap.get(group.id);
+    const judgement = safeText(diagnosis?.judgement, "대기 / 확인 필요");
+    const hasMa20Below = sortedItems.some((item) => item.conditionType === "ma20_below");
+    const hasPriceLower = sortedItems.some((item) => item.conditionType === "price_lte");
+    const hasReturnLower = sortedItems.some((item) => item.conditionType === "return_lte");
+    const hasRsiOverheat = sortedItems.some((item) => item.conditionType === "rsi_gte_70");
+
+    summaries.push({
+      key: `${group.id}-${group.symbol}`,
+      id: group.id,
+      symbol: group.symbol,
+      stockName: group.stockName,
+      triggerCount: sortedItems.length,
+      triggerMessages,
+      coreSummary: buildUserAlertCoreSummary(judgement, {
+        hasMa20Below,
+        hasPriceLower,
+        hasReturnLower,
+        hasRsiOverheat
+      }),
+      nextCheck: safeText(topItem.nextCheck, "다음 종가와 MA20 유지 여부를 확인하세요."),
+      topPriority: safeNumber(topItem.priority, 0)
+    });
+  });
+
+  return summaries.sort((left, right) => {
+    if (right.topPriority !== left.topPriority) return right.topPriority - left.topPriority;
+    if (right.triggerCount !== left.triggerCount) return right.triggerCount - left.triggerCount;
+    return left.symbol.localeCompare(right.symbol);
+  });
 }
 
 function hasKeyword(items: string[], keyword: string) {
@@ -739,6 +875,10 @@ export function PortfolioPageClient() {
     () => buildTriggeredUserAlerts(safeEntries, diagnoses, alertConditionsByEntry),
     [safeEntries, diagnoses, alertConditionsByEntry]
   );
+  const triggeredUserAlertSummaries = useMemo(
+    () => buildTriggeredUserAlertSummaries(triggeredUserAlerts, diagnosisMap),
+    [triggeredUserAlerts, diagnosisMap]
+  );
 
   function getAlertDraft(entryId: string): ConditionDraft {
     const draft = alertDraftByEntry[entryId];
@@ -918,27 +1058,42 @@ export function PortfolioPageClient() {
 
         <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
           <h3 className="text-sm font-bold text-ink dark:text-white">사용자 알림 발동</h3>
-          {triggeredUserAlerts.length === 0 ? (
+          {triggeredUserAlertSummaries.length === 0 ? (
             <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               현재 설정된 알림 조건 중 발동된 항목이 없습니다.
             </p>
           ) : (
             <div className="mt-2 grid gap-2">
-              {(Array.isArray(triggeredUserAlerts) ? triggeredUserAlerts : [])
+              {(Array.isArray(triggeredUserAlertSummaries) ? triggeredUserAlertSummaries : [])
                 .slice(0, 3)
-                .map((alert) => (
+                .map((summary) => (
                   <article
-                    key={alert.key}
+                    key={summary.key}
                     className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
                   >
                     <p className="text-sm font-bold text-ink dark:text-white">
-                      {alert.stockName} · {alert.symbol}
+                      {summary.stockName} · {summary.symbol}
                     </p>
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
-                      사용자 알림: {alert.message}
+                      사용자 알림 {formatNumber(summary.triggerCount)}개 발동
+                    </p>
+                    <ul className="mt-2 grid gap-1">
+                      {(Array.isArray(summary.triggerMessages) ? summary.triggerMessages : []).map(
+                        (message, index) => (
+                          <li
+                            key={`${summary.key}-${index}`}
+                            className="text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300"
+                          >
+                            - {message}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                      핵심 요약: {summary.coreSummary}
                     </p>
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
-                      확인 조건: {alert.nextCheck}
+                      확인 조건: {summary.nextCheck}
                     </p>
                   </article>
                 ))}
