@@ -11,6 +11,7 @@
     "check:mobile": "tsx scripts/check-mobile.ts",
     "test:data-go-kr": "tsx scripts/test-data-go-kr.ts",
     "test:data-go-kr-index": "tsx scripts/test-data-go-kr-index.ts",
+    "test:kis": "tsx scripts/test-kis-quote.ts",
     "test:kis-foreign": "tsx scripts/test-kis-foreign.ts"
   },
   "dependencies": {
