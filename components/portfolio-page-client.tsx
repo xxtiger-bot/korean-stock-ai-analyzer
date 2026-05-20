@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
+import { PORTFOLIO_DIAGNOSIS_STORAGE_KEY } from "@/lib/storage-keys";
 import type {
   InvestmentHorizon,
   PortfolioDiagnosis,
@@ -227,6 +228,17 @@ export function PortfolioPageClient() {
         if (!cancelled) {
           setDiagnoses(items);
           setFailures(failureMap);
+          try {
+            window.localStorage.setItem(
+              PORTFOLIO_DIAGNOSIS_STORAGE_KEY,
+              JSON.stringify({
+                savedAt: new Date().toISOString(),
+                items
+              })
+            );
+          } catch {
+            // localStorage may be blocked in restricted contexts.
+          }
         }
       } catch {
         if (!cancelled) {

@@ -8,6 +8,7 @@ import {
   useMemo,
   useState
 } from "react";
+import { PORTFOLIO_ENTRIES_STORAGE_KEY } from "@/lib/storage-keys";
 import type { InvestmentHorizon, PortfolioPositionInput, RiskProfile } from "@/lib/types";
 
 type PortfolioDraftInput = {
@@ -29,7 +30,6 @@ type PortfolioContextValue = {
   updateEntry: (id: string, patch: Partial<PortfolioDraftInput>) => void;
 };
 
-const storageKey = "krx-insight-portfolio";
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
 
 function safeNumber(value: unknown, fallback = 0) {
@@ -97,7 +97,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(storageKey);
+      const raw = window.localStorage.getItem(PORTFOLIO_ENTRIES_STORAGE_KEY);
       if (!raw) {
         setIsReady(true);
         return;
@@ -121,7 +121,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isReady) return;
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify(entries));
+      window.localStorage.setItem(PORTFOLIO_ENTRIES_STORAGE_KEY, JSON.stringify(entries));
     } catch {
       // Storage can be unavailable in restricted browser contexts.
     }
