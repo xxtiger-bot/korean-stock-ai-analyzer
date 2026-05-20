@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Activity, ArrowLeft, BarChart3, Gauge, Wallet } from "lucide-react";
 import { AiReportCard } from "@/components/ai-report-card";
 import { AiTradingJudgementCard } from "@/components/ai-trading-judgement-card";
+import { CandlestickAiExpertCard } from "@/components/candlestick-ai-expert-card";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { DangerWarningCard } from "@/components/danger-warning-card";
 import { EntryRiskScoreCard } from "@/components/entry-risk-score-card";
@@ -221,6 +222,14 @@ export function StockDetailClient({
               />
             </section>
           )}
+        </div>
+        <div className="min-w-0 max-w-full xl:col-span-8">
+          <CandlestickAiExpertCard
+            stock={stock}
+            candles={safeCandles}
+            technicalSeries={technicalSeries}
+            realtimeQuote={realtimeQuote}
+          />
         </div>
         <div className="min-w-0 max-w-full xl:col-span-8">
           <AiTradingJudgementCard
