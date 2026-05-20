@@ -4,7 +4,8 @@ import { useState } from "react";
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
-import type { AiReport, ForeignOwnershipData, Stock } from "@/lib/types";
+import { formatKRW } from "@/lib/format";
+import type { AiReport, ForeignOwnershipData, RealtimeQuote, Stock } from "@/lib/types";
 
 type AnalysisResponse = {
   source: "openai" | "local";
@@ -90,14 +91,23 @@ function formatForeignOwnershipRatio(data?: ForeignOwnershipData | null) {
 
 export function AiReportCard({
   stock,
-  foreignOwnership
+  foreignOwnership,
+  realtimeQuote
 }: {
   stock: Stock;
   foreignOwnership?: ForeignOwnershipData | null;
+  realtimeQuote?: RealtimeQuote | null;
 }) {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const hasRealtimePrice = Boolean(
+    realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
+  );
+  const currentPrice = hasRealtimePrice ? realtimeQuote!.price : stock.price;
+  const reportSourceText = hasRealtimePrice
+    ? "본 분석의 현재가는 KIS 기준이며, K선과 기술지표는 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다."
+    : "현재가 대신 data.go.kr 최근 종가를 기준으로 표시합니다. K선과 기술지표는 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.";
 
   async function generateReport() {
     setIsLoading(true);
@@ -145,7 +155,10 @@ export function AiReportCard({
             </p>
           )}
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-            본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.
+            {reportSourceText}
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+            현재가 {formatKRW(currentPrice)} · {hasRealtimePrice ? "KIS 기준" : "data.go.kr 최근 종가 기준"}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
             수급 참고: 외국인 보유율 {formatForeignOwnershipRatio(foreignOwnership)} (KIS 기준)
@@ -193,7 +206,7 @@ export function AiReportCard({
                   {formatGeneratedAt(data.generatedAt)}
                 </p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-                  본 분석은 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.
+                  {reportSourceText}
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">

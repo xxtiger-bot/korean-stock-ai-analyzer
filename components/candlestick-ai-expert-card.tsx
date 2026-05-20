@@ -86,6 +86,7 @@ export function CandlestickAiExpertCard({
   );
   const currentPrice = hasRealtimePrice ? safeNumber(realtimeQuote?.price) : safeNumber(latest?.close, safeNumber(stock.price));
   const recentClose = safeNumber(latest?.close, safeNumber(stock.price));
+  const chartBaseDate = typeof latest?.date === "string" && latest.date ? latest.date : stock.date ?? "확인 필요";
   const ma5 = safeNumber(latest?.ma5, safeNumber(stock.ma5, recentClose));
   const ma20 = safeNumber(latest?.ma20, safeNumber(stock.ma20, recentClose));
   const ma60 = safeNumber(latest?.ma60, safeNumber(stock.ma60, ma20 || recentClose));
@@ -156,6 +157,14 @@ export function CandlestickAiExpertCard({
       <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
         KIS 현재가와 data.go.kr 일별 종가 데이터를 함께 참고한 캔들차트 해석입니다.
       </p>
+      <div className="mt-3 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+        <p>
+          현재가: {formatKRW(currentPrice)} ·{" "}
+          {hasRealtimePrice ? "KIS 기준" : "현재가 대신 data.go.kr 최근 종가를 기준으로 표시합니다."}
+        </p>
+        <p>최근 종가: {formatKRW(recentClose)} · data.go.kr 일별 종가 기준</p>
+        <p>차트 기준일: {chartBaseDate}</p>
+      </div>
 
       <div className="mt-4 grid gap-4">
         <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">

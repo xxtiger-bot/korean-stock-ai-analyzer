@@ -26,6 +26,7 @@ type TradingJudgement = {
   nextChecks: string[];
   realtimeSourceText: string;
   closeSourceText: string;
+  technicalSourceText: string;
   foreignOwnershipText: string;
 };
 
@@ -242,8 +243,10 @@ function computeJudgement(
   const realtimeSourceText =
     realtimePrice !== null
       ? `현재가 ${formatKRW(currentPrice)} (KIS 기준)`
-      : `현재가 정보는 KIS 확인이 필요하며 최근 종가 ${formatKRW(recentClose)}를 참고합니다.`;
+      : "현재가 대신 data.go.kr 최근 종가를 기준으로 표시합니다.";
   const closeSourceText = `최근 종가 ${formatKRW(recentClose)} (data.go.kr 일별 종가 기준)`;
+  const technicalSourceText =
+    "기술지표(MA5/MA20/MA60, RSI, MACD)는 data.go.kr 일별 종가 데이터 기준으로 계산됩니다.";
   const foreignOwnershipText =
     foreignOwnershipRatio !== null
       ? `외국인 보유율 ${foreignOwnershipRatio.toFixed(2)}% (KIS 기준)도 수급 참고 요소로 반영했습니다.`
@@ -259,6 +262,7 @@ function computeJudgement(
     nextChecks,
     realtimeSourceText,
     closeSourceText,
+    technicalSourceText,
     foreignOwnershipText
   };
 }
@@ -355,6 +359,7 @@ export function AiTradingJudgementCard({
         <p className="mt-1">{judgement.why}</p>
         <p className="mt-2">{judgement.realtimeSourceText}</p>
         <p>{judgement.closeSourceText}</p>
+        <p>{judgement.technicalSourceText}</p>
         <p>{judgement.foreignOwnershipText}</p>
       </div>
 

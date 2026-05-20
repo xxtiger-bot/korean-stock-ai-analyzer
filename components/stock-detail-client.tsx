@@ -209,7 +209,11 @@ export function StockDetailClient({
           <CandlestickChart series={technicalSeries} />
         </div>
         <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-span-4">
-          <AiReportCard stock={stock} foreignOwnership={foreignOwnership} />
+          <AiReportCard
+            stock={stock}
+            foreignOwnership={foreignOwnership}
+            realtimeQuote={realtimeQuote}
+          />
           <EntryRiskScoreCard stock={stock} />
           {latest && previous ? (
             <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />
