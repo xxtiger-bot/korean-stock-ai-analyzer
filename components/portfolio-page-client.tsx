@@ -703,6 +703,85 @@ function buildTomorrowCheckItems(options: {
   return checks.slice(0, 5);
 }
 
+function buildDailyPortfolioReportText(options: {
+  dateText: string;
+  portfolioStatusLabel: string;
+  totalCount: number;
+  totalValue: number;
+  totalPnL: number;
+  avgReturn: number;
+  todayPriorityItems: DailyPortfolioReportItem[];
+  keepObservationItems: DailyPortfolioReportItem[];
+  riskManagementItems: DailyPortfolioReportItem[];
+  tomorrowCheckItems: string[];
+}) {
+  const safeTop = Array.isArray(options.todayPriorityItems) ? options.todayPriorityItems : [];
+  const safeKeep = Array.isArray(options.keepObservationItems) ? options.keepObservationItems : [];
+  const safeRisk = Array.isArray(options.riskManagementItems) ? options.riskManagementItems : [];
+  const safeChecks = Array.isArray(options.tomorrowCheckItems) ? options.tomorrowCheckItems : [];
+
+  const topLines =
+    safeTop.length === 0
+      ? ["- 우선 확인 종목 데이터가 없습니다."]
+      : safeTop.map((item, index) => {
+          const lineIndex = index + 1;
+          return `${lineIndex}. ${safeText(item.stockName)} (${safeText(item.symbol)}) | 수익률 ${formatPercent(
+            safeNumber(item.returnRate)
+          )} | ${safeText(item.judgement)} | 핵심 이유: ${safeText(item.coreReason)} | 다음 확인: ${safeText(
+            item.nextCheck
+          )}`;
+        });
+
+  const keepLines =
+    safeKeep.length === 0
+      ? ["- 현재 유지 관찰 종목은 없습니다."]
+      : safeKeep.map(
+          (item, index) =>
+            `${index + 1}. ${safeText(item.stockName)} (${safeText(item.symbol)}) | 수익률 ${formatPercent(
+              safeNumber(item.returnRate)
+            )} | ${safeText(item.judgement)}`
+        );
+
+  const riskLines =
+    safeRisk.length === 0
+      ? ["- 현재 리스크 관리가 필요한 종목은 없습니다."]
+      : safeRisk.map(
+          (item, index) =>
+            `${index + 1}. ${safeText(item.stockName)} (${safeText(item.symbol)}) | 수익률 ${formatPercent(
+              safeNumber(item.returnRate)
+            )} | 핵심 이유: ${safeText(item.coreReason)} | 다음 확인: ${safeText(item.nextCheck)}`
+        );
+
+  const checkLines =
+    safeChecks.length === 0
+      ? ["- 다음 종가와 MA20 유지 여부를 확인하며 재평가가 필요합니다."]
+      : safeChecks.map((item, index) => `${index + 1}. ${safeText(item)}`);
+
+  return [
+    `날짜: ${safeText(options.dateText)}`,
+    `전체 포트폴리오 상태: ${safeText(options.portfolioStatusLabel)}`,
+    `총 보유 종목 수: ${formatNumber(safeNumber(options.totalCount))}`,
+    `총 평가금액: ${formatKRW(safeNumber(options.totalValue))}`,
+    `총 평가손익: ${formatKRW(safeNumber(options.totalPnL))}`,
+    `평균 수익률: ${formatPercent(safeNumber(options.avgReturn))}`,
+    "",
+    "오늘 먼저 확인할 종목 TOP 3",
+    ...topLines,
+    "",
+    "유지 관찰 종목",
+    ...keepLines,
+    "",
+    "리스크 관리 필요 종목",
+    ...riskLines,
+    "",
+    "내일 확인 조건",
+    ...checkLines,
+    "",
+    "면책 문구",
+    "본 내용은 관찰과 확인 필요 사항을 정리한 참고 정보이며 투자 조언이 아닙니다. 최종 판단과 책임은 사용자에게 있습니다."
+  ].join("\n");
+}
+
 function buildPortfolioNotificationItems(
   riskAlerts: PortfolioRiskAlert[],
   userAlertSummaries: UserAlertSummary[]
@@ -954,6 +1033,7 @@ export function PortfolioPageClient() {
   const [isBrowserNotificationEnabled, setIsBrowserNotificationEnabled] = useState(false);
   const [browserNotificationNotice, setBrowserNotificationNotice] = useState("");
   const setNotificationStatusMessage = setBrowserNotificationNotice;
+  const [dailyReportCopyNotice, setDailyReportCopyNotice] = useState("");
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -1281,6 +1361,13 @@ export function PortfolioPageClient() {
     if (summary.avgReturn >= 0) return "수익 관찰 구간";
     return "변동성 관찰 구간";
   }, [safeEntries.length, riskUpCount, summary.avgReturn]);
+  const dailyReportDateText = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = `${now.getMonth() + 1}`.padStart(2, "0");
+    const day = `${now.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1503,6 +1590,45 @@ export function PortfolioPageClient() {
     }
   }
 
+  async function handleCopyDailyReport() {
+    if (typeof window === "undefined") return;
+
+    try {
+      if (safeEntries.length === 0) {
+        const emptyText = "보유종목을 추가하면 오늘의 AI 리포트를 생성할 수 있습니다.";
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(emptyText);
+          setDailyReportCopyNotice("리포트가 클립보드에 복사되었습니다.");
+          return;
+        }
+        throw new Error("clipboard unavailable");
+      }
+
+      const reportText = buildDailyPortfolioReportText({
+        dateText: dailyReportDateText,
+        portfolioStatusLabel,
+        totalCount: safeEntries.length,
+        totalValue: summary.totalValue,
+        totalPnL: summary.totalPnL,
+        avgReturn: summary.avgReturn,
+        todayPriorityItems,
+        keepObservationItems,
+        riskManagementItems,
+        tomorrowCheckItems
+      });
+
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(reportText);
+        setDailyReportCopyNotice("리포트가 클립보드에 복사되었습니다.");
+        return;
+      }
+
+      throw new Error("clipboard unavailable");
+    } catch {
+      setDailyReportCopyNotice("리포트 복사에 실패했습니다. 다시 시도해주세요.");
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
@@ -1656,10 +1782,24 @@ export function PortfolioPageClient() {
               오늘의 내 보유종목 AI 리포트
             </h2>
           </div>
-          <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
-            전체 포트폴리오 상태: {portfolioStatusLabel}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCopyDailyReport()}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+            >
+              리포트 복사
+            </button>
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              전체 포트폴리오 상태: {portfolioStatusLabel}
+            </span>
+          </div>
         </div>
+        {dailyReportCopyNotice && (
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+            {dailyReportCopyNotice}
+          </p>
+        )}
 
         {safeEntries.length === 0 ? (
           <div className="mt-3 rounded-md border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50">
