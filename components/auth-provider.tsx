@@ -10,10 +10,12 @@ import {
   useState
 } from "react";
 import {
+  type SupabaseUrlValidationStatus,
   isSupabaseConfigured,
   supabase,
   supabaseConfigMessage,
   supabasePublicUrl,
+  supabaseUrlValidationStatus,
   supabaseUrlError
 } from "@/lib/supabase";
 
@@ -28,12 +30,31 @@ type AuthContextValue = {
   isLoading: boolean;
   isSupabaseReady: boolean;
   supabaseUrl: string;
+  supabaseUrlStatus: SupabaseUrlValidationStatus;
   supabaseNotice: string;
   signInWithMagicLink: (email: string, redirectTo?: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+const NETWORK_BLOCKED_MESSAGE =
+  "Supabase 서버에 연결할 수 없습니다. 현재 네트워크 또는 DNS 환경에서 Supabase 접속이 차단되었을 수 있습니다.";
+
+function mapAuthErrorMessage(rawMessage: string): string {
+  const message = typeof rawMessage === "string" ? rawMessage : "";
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("err_name_not_resolved") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("fetch failed")
+  ) {
+    return NETWORK_BLOCKED_MESSAGE;
+  }
+
+  return message || "로그인 링크 전송에 실패했습니다.";
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -114,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) {
           return {
             ok: false,
-            message: error.message || "매직 링크 전송에 실패했습니다."
+            message: mapAuthErrorMessage(error.message ?? "")
           };
         }
 
@@ -122,10 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ok: true,
           message: "로그인 링크를 이메일로 보냈습니다."
         };
-      } catch {
+      } catch (error) {
+        const fallbackMessage =
+          error instanceof Error ? mapAuthErrorMessage(error.message) : NETWORK_BLOCKED_MESSAGE;
         return {
           ok: false,
-          message: "Supabase 연결에 실패했습니다. 네트워크 또는 브라우저 차단을 확인해주세요."
+          message: fallbackMessage
         };
       }
     },
@@ -155,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isSupabaseReady: isSupabaseConfigured,
       supabaseUrl: supabasePublicUrl,
+      supabaseUrlStatus: supabaseUrlValidationStatus,
       supabaseNotice: supabaseConfigMessage || "",
       signInWithMagicLink,
       signOut

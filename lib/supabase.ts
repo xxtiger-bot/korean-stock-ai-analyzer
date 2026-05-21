@@ -3,34 +3,82 @@ import { createClient } from "@supabase/supabase-js";
 const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
 const rawSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
 
-function validateSupabaseUrl(url: string) {
-  if (!url) return "Supabase URL 설정을 확인해주세요.";
+export type SupabaseUrlValidationStatus =
+  | "ok"
+  | "missing"
+  | "contains-rest-v1"
+  | "example-url"
+  | "invalid-format";
+
+type SupabaseUrlValidationResult = {
+  status: SupabaseUrlValidationStatus;
+  error: string | null;
+};
+
+function validateSupabaseUrl(url: string): SupabaseUrlValidationResult {
+  if (!url) {
+    return {
+      status: "missing",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
+  }
 
   const lower = url.toLowerCase();
-  if (lower.includes("abcde")) return "Supabase URL 설정을 확인해주세요.";
-  if (lower.includes("/rest/v1/")) return "Supabase URL 설정을 확인해주세요.";
+  if (lower.includes("abcde")) {
+    return {
+      status: "example-url",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
+  }
+  if (lower.includes("/rest/v1/")) {
+    return {
+      status: "contains-rest-v1",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
+  }
 
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return "Supabase URL 설정을 확인해주세요.";
+    return {
+      status: "invalid-format",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
   }
 
-  if (parsed.protocol !== "https:") return "Supabase URL 설정을 확인해주세요.";
+  if (parsed.protocol !== "https:") {
+    return {
+      status: "invalid-format",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
+  }
   if (parsed.pathname && parsed.pathname !== "/") {
-    return "Supabase URL 설정을 확인해주세요.";
+    return {
+      status: "invalid-format",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
   }
 
   const isSupabaseHost = /^[a-z0-9-]+\.supabase\.co$/i.test(parsed.hostname);
-  if (!isSupabaseHost) return "Supabase URL 설정을 확인해주세요.";
+  if (!isSupabaseHost) {
+    return {
+      status: "invalid-format",
+      error: "Supabase URL 설정을 확인해주세요."
+    };
+  }
 
-  return null;
+  return {
+    status: "ok",
+    error: null
+  };
 }
 
 export const supabasePublicUrl = rawSupabaseUrl;
 export const supabasePublicAnonKey = rawSupabaseAnonKey;
-export const supabaseUrlError = validateSupabaseUrl(rawSupabaseUrl);
+const supabaseUrlValidationResult = validateSupabaseUrl(rawSupabaseUrl);
+export const supabaseUrlValidationStatus = supabaseUrlValidationResult.status;
+export const supabaseUrlError = supabaseUrlValidationResult.error;
 export const hasSupabaseAnonKey = Boolean(rawSupabaseAnonKey);
 
 export const isSupabaseConfigured = Boolean(!supabaseUrlError && hasSupabaseAnonKey);

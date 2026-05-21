@@ -12,6 +12,7 @@ export function SiteHeader() {
     isSupabaseReady,
     isLoading,
     supabaseUrl,
+    supabaseUrlStatus,
     supabaseNotice,
     signInWithMagicLink,
     signOut
@@ -23,16 +24,29 @@ export function SiteHeader() {
   const [modalNotice, setModalNotice] = useState("");
 
   const email = typeof user?.email === "string" ? user.email : "";
+  const isLocalMode = !user;
+
+  const supabaseUrlStatusLabel =
+    supabaseUrlStatus === "ok"
+      ? "URL 정상"
+      : supabaseUrlStatus === "missing"
+        ? "URL 미설정"
+        : supabaseUrlStatus === "contains-rest-v1"
+          ? "URL 포함 /rest/v1/"
+          : supabaseUrlStatus === "example-url"
+            ? "URL 예시 aBcDe"
+            : "URL 형식 오류";
 
   function handleOpenLogin() {
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
     setIsLoginModalOpen(true);
-    if (!isSupabaseReady) {
-      setAuthNotice(supabaseNotice || "클라우드 동기화 미설정");
-      setModalNotice(supabaseNotice || "클라우드 동기화 미설정");
-      return;
-    }
     setModalNotice("");
+  }
+
+  function handleContinueLocalMode() {
+    setIsLoginModalOpen(false);
+    setModalNotice("");
+    setAuthNotice("로컬 모드로 계속 사용합니다.");
   }
 
   async function handleSendMagicLink() {
@@ -109,7 +123,6 @@ export function SiteHeader() {
               <button
                 type="button"
                 onClick={handleOpenLogin}
-                disabled={isLoading}
                 className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 dark:disabled:text-slate-500"
               >
                 로그인
@@ -139,6 +152,11 @@ export function SiteHeader() {
           </p>
         </div>
       )}
+      {isLocalMode && (
+        <div className="mx-auto flex max-w-7xl items-center justify-end px-4 pb-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:px-6 lg:px-8">
+          <p className="truncate">현재 모드：로컬 모드 · 로그인 후 클라우드 동기화를 사용할 수 있습니다.</p>
+        </div>
+      )}
       {isLoginModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-sm rounded-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
@@ -159,6 +177,11 @@ export function SiteHeader() {
             <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
               로그인 링크를 받을 이메일을 입력해주세요.
             </p>
+            <div className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300">
+              <p>현재 모드：로컬 모드</p>
+              <p className="mt-1">로그인 후 클라우드 동기화를 사용할 수 있습니다.</p>
+              <p className="mt-1">Supabase URL 상태：{supabaseUrlStatusLabel}</p>
+            </div>
             <label className="mt-3 block">
               <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
                 이메일
@@ -184,6 +207,13 @@ export function SiteHeader() {
             >
               <Mail className="h-4 w-4" />
               {isSendingLink ? "전송 중..." : "로그인 링크 보내기"}
+            </button>
+            <button
+              type="button"
+              onClick={handleContinueLocalMode}
+              className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+            >
+              클라우드 로그인 없이 계속 사용
             </button>
           </div>
         </div>
