@@ -20,6 +20,7 @@
 - 관심종목：使用浏览器 `localStorage` 保存，支持添加、删除、刷新保留。
 - 관심종목 우선순위：基于自选股真实日별 종가数据和技术指标排序。
 - 오늘의 관심종목 리포트：生成韩文自选股日报。
+- Supabase 로그인 및 클라우드 동기화(기초)：로그인 후 `/portfolio` 보유종목을 클라우드에 저장하고, 로컬 데이터를 클라우드로 동기화 가능。
 - 暗色模式和移动端适配：桌面端和移动端均避免横向滚动。
 
 ## 技术栈
@@ -61,6 +62,7 @@ OPENAI_MODEL=gpt-4o-mini
 - `KOREA_STOCK_API_SOURCE=krx`：保留 KRX 适配器骨架，当前仍 fallback。
 - `DATA_GO_KR_API_KEY`：只在服务端读取，不会暴露到浏览器前端。
 - `OPENAI_API_KEY`：存在时调用 OpenAI 生成报告；不存在时使用真实日별 종가行情上下文生成本地 fallback 报告。
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`：Supabase 로그인과 `/portfolio` 클라우드 동기화에 사용됩니다。
 
 `.env.local` 已在 `.gitignore` 中排除，不要提交真实 API Key。
 
@@ -161,6 +163,7 @@ lib/providers/krx.ts
 - 新闻情绪：当前为 mock 或占位字段。
 - KRX API：已预留适配器骨架，尚未正式接入。
 - Supabase：当前只保留客户端配置，自选股仍使用 `localStorage`。
+- Supabase：未配置环境变量时自动退回 `localStorage`，并显示“클라우드 동기화는 아직 설정되지 않았습니다.”。
 - 全市场热门榜：当前基于代表股票池计算，不是全市场排名。
 
 如果真实 API 无 Key、请求失败、返回空数据或字段缺失，系统会自动 fallback 到 mock data，避免页面崩溃。

@@ -1059,7 +1059,17 @@ function buildPortfolioRiskAlerts(
 }
 
 export function PortfolioPageClient() {
-  const { entries, addEntry, removeEntry } = usePortfolio();
+  const {
+    entries,
+    addEntry,
+    removeEntry,
+    canSyncLocalToCloud,
+    syncLocalToCloud,
+    isCloudSyncEnabled,
+    isCloudSyncing,
+    cloudSyncNotice,
+    isSupabaseReady
+  } = usePortfolio();
   const [diagnoses, setDiagnoses] = useState<PortfolioDiagnosis[]>([]);
   const [failures, setFailures] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -1077,6 +1087,7 @@ export function PortfolioPageClient() {
   const setNotificationStatusMessage = setBrowserNotificationNotice;
   const [dailyReportCopyNotice, setDailyReportCopyNotice] = useState("");
   const [dailyReportImageNotice, setDailyReportImageNotice] = useState("");
+  const [cloudSyncActionNotice, setCloudSyncActionNotice] = useState("");
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -1103,6 +1114,17 @@ export function PortfolioPageClient() {
     () => (Array.isArray(entries) ? entries : []),
     [entries]
   );
+
+  useEffect(() => {
+    if (cloudSyncNotice) {
+      setCloudSyncActionNotice(cloudSyncNotice);
+    }
+  }, [cloudSyncNotice]);
+
+  async function handleSyncLocalToCloud() {
+    const result = await syncLocalToCloud();
+    setCloudSyncActionNotice(result.message);
+  }
   const entryKey = useMemo(
     () =>
       safeEntries
@@ -1856,6 +1878,37 @@ export function PortfolioPageClient() {
           <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
             {browserNotificationNotice}
           </p>
+        )}
+        {!isSupabaseReady && (
+          <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            클라우드 동기화는 아직 설정되지 않았습니다.
+          </p>
+        )}
+        {isCloudSyncEnabled && (
+          <div className="mt-3 rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-bold text-ink dark:text-white">클라우드 동기화</p>
+              {canSyncLocalToCloud ? (
+                <button
+                  type="button"
+                  onClick={() => void handleSyncLocalToCloud()}
+                  disabled={isCloudSyncing}
+                  className="inline-flex h-8 items-center justify-center rounded-md bg-brand px-3 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {isCloudSyncing ? "동기화 중..." : "로컬 보유종목을 클라우드에 동기화"}
+                </button>
+              ) : (
+                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  동기화 상태 양호
+                </span>
+              )}
+            </div>
+            {cloudSyncActionNotice && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                {cloudSyncActionNotice}
+              </p>
+            )}
+          </div>
         )}
       </section>
 
