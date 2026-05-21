@@ -31,6 +31,8 @@ type SyncResult = {
   syncedCount: number;
 };
 
+type CloudSyncStatus = "local" | "synced" | "failed";
+
 type PortfolioContextValue = {
   entries: PortfolioPositionInput[];
   addEntry: (draft: PortfolioDraftInput) => void;
@@ -41,6 +43,7 @@ type PortfolioContextValue = {
   isCloudSyncEnabled: boolean;
   isCloudSyncing: boolean;
   cloudSyncNotice: string;
+  cloudSyncStatus: CloudSyncStatus;
   isSupabaseReady: boolean;
 };
 
@@ -185,6 +188,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncNotice, setCloudSyncNotice] = useState("");
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>("local");
   const [localSyncDismissed, setLocalSyncDismissed] = useState(false);
 
   const isCloudSyncEnabled = Boolean(isSupabaseConfigured && supabase && user?.id);
@@ -218,6 +222,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     if (!isCloudSyncEnabled || !user?.id || !supabase) {
       setEntries(localEntries);
+      setCloudSyncStatus("local");
       if (!isSupabaseConfigured) {
         setCloudSyncNotice(supabaseConfigMessage || "클라우드 동기화 미설정");
       } else {
@@ -241,8 +246,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (error) {
           setEntries(localEntries);
+          setCloudSyncStatus("failed");
           setCloudSyncNotice(
-            "클라우드 보유종목을 불러오지 못해 로컬 데이터를 표시하고 있습니다."
+            "클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다."
           );
           return;
         }
@@ -253,11 +259,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           .filter((item): item is PortfolioPositionInput => Boolean(item));
 
         setEntries(normalized);
+        setCloudSyncStatus("synced");
         setCloudSyncNotice("");
       } catch {
         if (cancelled) return;
         setEntries(localEntries);
-        setCloudSyncNotice("클라우드 동기화 중 문제가 발생해 로컬 데이터를 표시합니다.");
+        setCloudSyncStatus("failed");
+        setCloudSyncNotice("클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다.");
       } finally {
         if (!cancelled) setIsCloudSyncing(false);
       }
@@ -281,6 +289,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const syncLocalToCloud = useCallback(async (): Promise<SyncResult> => {
     if (!isCloudSyncEnabled || !user?.id || !supabase) {
+      setCloudSyncStatus("local");
       return {
         ok: false,
         message: supabaseConfigMessage || "클라우드 동기화 미설정",
@@ -322,8 +331,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setIsCloudSyncing(false);
 
     if (error) {
-      const message =
-        "클라우드 동기화에 실패했습니다. 잠시 후 다시 시도해주세요.";
+      const message = "클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다.";
+      setCloudSyncStatus("failed");
       setCloudSyncNotice(message);
       return {
         ok: false,
@@ -334,6 +343,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     setEntries(merged);
     setLocalEntries(merged);
+    setCloudSyncStatus("synced");
     setLocalSyncDismissed(true);
     const message = `${localOnly.length}개의 로컬 보유종목을 클라우드에 동기화했습니다.`;
     setCloudSyncNotice(message);
@@ -351,7 +361,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         .from("portfolio_holdings")
         .upsert([entryToRow(entry, user.id)], { onConflict: "user_id,id" });
       if (error) {
-        setCloudSyncNotice("클라우드 저장 중 문제가 발생했습니다. 로컬 데이터는 유지됩니다.");
+        setCloudSyncStatus("failed");
+        setCloudSyncNotice("클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다.");
+      } else {
+        setCloudSyncStatus("synced");
       }
     },
     [isCloudSyncEnabled, user?.id]
@@ -401,9 +414,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           .eq("id", id)
           .then(({ error }) => {
             if (error) {
+              setCloudSyncStatus("failed");
               setCloudSyncNotice(
-                "클라우드 삭제 중 문제가 발생했습니다. 새로고침 후 다시 확인해주세요."
+                "클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다."
               );
+            } else {
+              setCloudSyncStatus("synced");
             }
           });
         return;
@@ -493,6 +509,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       isCloudSyncEnabled,
       isCloudSyncing,
       cloudSyncNotice,
+      cloudSyncStatus,
       isSupabaseReady: isSupabaseConfigured
     }),
     [
@@ -504,7 +521,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       syncLocalToCloud,
       isCloudSyncEnabled,
       isCloudSyncing,
-      cloudSyncNotice
+      cloudSyncNotice,
+      cloudSyncStatus
     ]
   );
 

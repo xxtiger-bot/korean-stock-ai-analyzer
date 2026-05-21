@@ -12,7 +12,6 @@ import {
 import {
   isSupabaseConfigured,
   supabase,
-  supabasePublicAnonKey,
   supabaseConfigMessage,
   supabasePublicUrl,
   supabaseUrlError
@@ -30,7 +29,7 @@ type AuthContextValue = {
   isSupabaseReady: boolean;
   supabaseUrl: string;
   supabaseNotice: string;
-  signInWithMagicLink: (email: string) => Promise<AuthActionResult>;
+  signInWithMagicLink: (email: string, redirectTo?: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 };
 
@@ -77,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithMagicLink = useCallback(
-    async (email: string): Promise<AuthActionResult> => {
+    async (email: string, redirectTo?: string): Promise<AuthActionResult> => {
       if (supabaseUrlError) {
         return {
           ok: false,
@@ -99,51 +98,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: "이메일을 확인해주세요."
         };
       }
-
-      const settingsUrl = `${supabasePublicUrl}/auth/v1/settings`;
       try {
-        const settingsResponse = await fetch(settingsUrl, {
-          method: "GET",
-          headers: {
-            apikey: supabasePublicAnonKey,
-            Authorization: `Bearer ${supabasePublicAnonKey}`
-          },
-          cache: "no-store"
+        const emailRedirectTo =
+          typeof redirectTo === "string" && redirectTo.trim()
+            ? redirectTo.trim()
+            : `${window.location.origin}/auth/callback`;
+
+        const { error } = await supabase.auth.signInWithOtp({
+          email: safeEmail,
+          options: {
+            emailRedirectTo
+          }
         });
 
-        if (!settingsResponse.ok) {
+        if (error) {
           return {
             ok: false,
-            message:
-              "Supabase Auth 서버에 연결할 수 없습니다. 네트워크, DNS 또는 브라우저 차단을 확인해주세요."
+            message: error.message || "매직 링크 전송에 실패했습니다."
           };
         }
+
+        return {
+          ok: true,
+          message: "로그인 링크를 이메일로 보냈습니다."
+        };
       } catch {
         return {
           ok: false,
-          message:
-            "Supabase Auth 서버에 연결할 수 없습니다. 네트워크, DNS 또는 브라우저 차단을 확인해주세요."
+          message: "Supabase 연결에 실패했습니다. 네트워크 또는 브라우저 차단을 확인해주세요."
         };
       }
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email: safeEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) {
-        return {
-          ok: false,
-          message: error.message || "매직 링크 전송에 실패했습니다."
-        };
-      }
-
-      return {
-        ok: true,
-        message: "로그인 링크를 이메일로 보냈습니다."
-      };
     },
     []
   );

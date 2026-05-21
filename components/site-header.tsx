@@ -26,21 +26,22 @@ export function SiteHeader() {
 
   function handleOpenLogin() {
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
+    setIsLoginModalOpen(true);
     if (!isSupabaseReady) {
       setAuthNotice(supabaseNotice || "클라우드 동기화 미설정");
       setModalNotice(supabaseNotice || "클라우드 동기화 미설정");
-      setIsLoginModalOpen(false);
       return;
     }
     setModalNotice("");
-    setIsLoginModalOpen(true);
   }
 
   async function handleSendMagicLink() {
+    const redirectTo = `${window.location.origin}/auth/callback`;
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
+    console.log(`[auth] redirectTo: ${redirectTo}`);
     setIsSendingLink(true);
     try {
-      const result = await signInWithMagicLink(loginEmail);
+      const result = await signInWithMagicLink(loginEmail, redirectTo);
       if (!result.ok) {
         const message = result.message ?? "로그인 링크 요청에 실패했습니다.";
         setModalNotice(message);
