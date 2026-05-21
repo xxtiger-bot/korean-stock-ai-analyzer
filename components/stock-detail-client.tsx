@@ -13,6 +13,7 @@ import { IndicatorSummary } from "@/components/indicator-summary";
 import { IndicatorTranslator } from "@/components/indicator-translator";
 import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
 import { MetricCard } from "@/components/metric-card";
+import { MobileSectionNav } from "@/components/mobile-section-nav";
 import { PotentialScoreCard } from "@/components/potential-score-card";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { WatchlistButton } from "@/components/watchlist-button";
@@ -127,15 +128,29 @@ export function StockDetailClient({
         </Link>
         <WatchlistButton symbol={stock.symbol} />
       </div>
+      <MobileSectionNav
+        items={[
+          { id: "detail-overview", label: "개요" },
+          { id: "detail-chart", label: "차트" },
+          { id: "detail-ai", label: "AI분석" },
+          { id: "detail-candle", label: "캔들" },
+          { id: "detail-flow", label: "수급" },
+          { id: "detail-risk", label: "리스크" }
+        ]}
+        topClassName="top-[72px]"
+      />
 
-      <section className="min-w-0 max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <section
+        id="detail-overview"
+        className="min-w-0 max-w-full scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+      >
+        <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <div className="flex max-w-full flex-wrap items-center gap-2">
               {sourceMeta.map(([label, value]) => (
                 <span
                   key={label}
-                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+                  className="inline-flex w-full max-w-full items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300 sm:w-auto"
                 >
                   <span className="text-slate-400">{label}:</span>
                   <span className="break-words text-ink dark:text-white">{value}</span>
@@ -159,11 +174,11 @@ export function StockDetailClient({
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
               {formatKRW(headlinePrice)}
             </p>
-            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <p className="mt-1 break-words text-xs font-semibold text-slate-500 dark:text-slate-400">
               {headlineSource}
             </p>
             <div
-              className={`mt-3 inline-flex max-w-full flex-wrap rounded-md border px-3 py-2 text-sm font-bold ${changeBgClass(
+              className={`mt-3 inline-flex max-w-full flex-wrap break-words rounded-md border px-3 py-2 text-sm font-bold ${changeBgClass(
                 headlineChange
               )}`}
             >
@@ -186,7 +201,10 @@ export function StockDetailClient({
         )}
       </section>
 
-      <section className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section
+        id="detail-flow"
+        className="mt-5 grid min-w-0 max-w-full scroll-mt-32 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"
+      >
         <MetricCard
           label="거래량"
           value={formatNumber(stock.volume)}
@@ -204,11 +222,20 @@ export function StockDetailClient({
         <ForeignOwnershipCard data={foreignOwnership} />
       </section>
 
-      <div className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-5 xl:grid-cols-12">
-        <div className="min-w-0 max-w-full xl:col-span-8">
+      <div className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-12">
+        <div id="detail-risk" className="order-1 min-w-0 max-w-full scroll-mt-32 xl:order-5 xl:col-span-8">
+          <AiTradingJudgementCard
+            stock={stock}
+            candles={safeCandles}
+            technicalSeries={technicalSeries}
+            realtimeQuote={realtimeQuote}
+            foreignOwnership={foreignOwnership}
+          />
+        </div>
+        <div id="detail-chart" className="order-2 min-w-0 max-w-full scroll-mt-32 xl:order-1 xl:col-span-8">
           <CandlestickChart series={technicalSeries} />
         </div>
-        <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-span-4">
+        <div id="detail-ai" className="order-3 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 xl:order-2 xl:col-span-4">
           <AiReportCard
             stock={stock}
             foreignOwnership={foreignOwnership}
@@ -227,7 +254,7 @@ export function StockDetailClient({
             </section>
           )}
         </div>
-        <div className="min-w-0 max-w-full xl:col-span-8">
+        <div id="detail-candle" className="order-4 min-w-0 max-w-full scroll-mt-32 xl:order-3 xl:col-span-8">
           <CandlestickAiExpertCard
             stock={stock}
             candles={safeCandles}
@@ -235,35 +262,56 @@ export function StockDetailClient({
             realtimeQuote={realtimeQuote}
           />
         </div>
-        <div className="min-w-0 max-w-full xl:col-span-8">
-          <AiTradingJudgementCard
-            stock={stock}
-            candles={safeCandles}
-            technicalSeries={technicalSeries}
-            realtimeQuote={realtimeQuote}
-            foreignOwnership={foreignOwnership}
-          />
-        </div>
-        <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-span-4">
+        <div className="order-5 grid min-w-0 max-w-full content-start gap-5 xl:order-6 xl:col-span-4">
           <TradingPlanHelper stock={stock} />
           <PotentialScoreCard stock={stock} />
           <DangerWarningCard stock={stock} />
         </div>
-        <div className="min-w-0 max-w-full xl:col-span-8">
-          {latest ? (
-            <IndicatorTranslator stock={stock} latest={latest} />
-          ) : (
-            <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-              <EmptyState
-                compact
-                title="지표 해석 없음"
-                description="해석할 기술 지표 데이터가 없습니다."
-              />
-            </section>
-          )}
+        <div className="order-6 min-w-0 max-w-full xl:hidden xl:col-span-8">
+          <details className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+            <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
+              상세 지표 해석 펼치기
+            </summary>
+            <div className="mt-3">
+              {latest ? (
+                <IndicatorTranslator stock={stock} latest={latest} />
+              ) : (
+                <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+                  <EmptyState
+                    compact
+                    title="지표 해석 없음"
+                    description="해석할 기술 지표 데이터가 없습니다."
+                  />
+                </section>
+              )}
+            </div>
+          </details>
         </div>
-        <div className="min-w-0 max-w-full xl:col-span-8">
-          <IndicatorSummary series={technicalSeries} />
+        <div className="order-7 min-w-0 max-w-full xl:col-span-8 xl:order-4">
+          <div className="hidden xl:block">
+            {latest ? (
+              <IndicatorTranslator stock={stock} latest={latest} />
+            ) : (
+              <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+                <EmptyState
+                  compact
+                  title="지표 해석 없음"
+                  description="해석할 기술 지표 데이터가 없습니다."
+                />
+              </section>
+            )}
+          </div>
+          <details className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 xl:hidden">
+            <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
+              상세 차트 지표 펼치기
+            </summary>
+            <div className="mt-3">
+              <IndicatorSummary series={technicalSeries} />
+            </div>
+          </details>
+          <div className="hidden xl:block">
+            <IndicatorSummary series={technicalSeries} />
+          </div>
         </div>
       </div>
     </main>

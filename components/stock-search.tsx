@@ -73,6 +73,40 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     }
   }
 
+  function getQuoteMeta(stock: Stock) {
+    if (stock.quoteSource === "KIS") {
+      return {
+        label: "현재가",
+        sourceText: "시세: KIS",
+        hasPrice: Number.isFinite(stock.price) && stock.price > 0
+      };
+    }
+
+    if (stock.quoteSource === "data.go.kr") {
+      return {
+        label: "최근 종가",
+        sourceText: "최근 종가: data.go.kr",
+        hasPrice: Number.isFinite(stock.price) && stock.price > 0
+      };
+    }
+
+    if (stock.quoteSource === "none") {
+      return {
+        label: "데이터 없음",
+        sourceText: "데이터 없음",
+        hasPrice: false
+      };
+    }
+
+    const tags = Array.isArray(stock.tags) ? stock.tags : [];
+    const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
+    return {
+      label: isDataGo ? "최근 종가" : "데이터 없음",
+      sourceText: isDataGo ? "최근 종가: data.go.kr" : "데이터 없음",
+      hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
+    };
+  }
+
   return (
     <section className="rounded-lg border border-brand/20 bg-white p-3 shadow-soft dark:border-brand/30 dark:bg-dark-panel sm:p-4">
       <div className="flex items-center justify-between gap-3">
@@ -118,22 +152,43 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-ink dark:text-white">
-                    {stock.koreanName}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {stock.symbol} · {stock.market}
-                    {stock.date ? ` · ${stock.date} 기준` : ""}
-                  </p>
+                  {(() => {
+                    const quote = getQuoteMeta(stock);
+                    return (
+                      <>
+                        <p className="truncate text-sm font-bold text-ink dark:text-white">
+                          {stock.koreanName}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          {stock.symbol} · {stock.market}
+                          {stock.date ? ` · ${stock.date} 기준` : ""}
+                        </p>
+                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          {quote.sourceText}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="mb-1 text-[11px] font-bold text-slate-400">최근 종가</p>
-                  <p className="text-sm font-bold text-ink dark:text-white">
-                    {formatKRW(stock.price)}
-                  </p>
-                  <p className={`mt-1 text-xs font-bold ${changeColorClass(stock.change)}`}>
-                    {formatPercent(stock.changeRate)}
-                  </p>
+                  {(() => {
+                    const quote = getQuoteMeta(stock);
+                    return (
+                      <>
+                        <p className="mb-1 text-[11px] font-bold text-slate-400">{quote.label}</p>
+                        <p className="text-sm font-bold text-ink dark:text-white">
+                          {quote.hasPrice ? formatKRW(stock.price) : "데이터 없음"}
+                        </p>
+                        {quote.hasPrice ? (
+                          <p className={`mt-1 text-xs font-bold ${changeColorClass(stock.change)}`}>
+                            {formatPercent(stock.changeRate)}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs font-bold text-slate-400">확인 필요</p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </Link>

@@ -88,8 +88,8 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur dark:border-dark-line dark:bg-slate-950/88">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-6 lg:px-8">
+        <Link href="/" className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white">
             <BarChart3 className="h-5 w-5" />
           </span>
@@ -102,7 +102,7 @@ export function SiteHeader() {
             </span>
           </span>
         </Link>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
           <div className="hidden items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 sm:flex">
             <Star className="h-4 w-4 text-amber-500" />
             관심종목
@@ -147,14 +147,16 @@ export function SiteHeader() {
       </div>
       {(authNotice || !isSupabaseReady) && (
         <div className="mx-auto flex max-w-7xl items-center justify-end px-4 pb-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:px-6 lg:px-8">
-          <p className="truncate">
+          <p className="max-w-full break-words text-right">
             {authNotice || supabaseNotice || "클라우드 동기화 미설정"}
           </p>
         </div>
       )}
       {isLocalMode && (
         <div className="mx-auto flex max-w-7xl items-center justify-end px-4 pb-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:px-6 lg:px-8">
-          <p className="truncate">현재 모드：로컬 모드 · 로그인 후 클라우드 동기화를 사용할 수 있습니다.</p>
+          <p className="max-w-full break-words text-right">
+            현재 모드：로컬 모드 · 로그인 후 클라우드 동기화를 사용할 수 있습니다.
+          </p>
         </div>
       )}
       {isLoginModalOpen && (

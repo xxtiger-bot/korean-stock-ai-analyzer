@@ -17,7 +17,19 @@ type WatchlistPriorityResponse = {
   }>;
 };
 
-export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
+type WatchlistPanelSectionIds = {
+  root?: string;
+  portfolio?: string;
+  alerts?: string;
+};
+
+export function WatchlistPanel({
+  stocks,
+  sectionIds
+}: {
+  stocks: Stock[];
+  sectionIds?: WatchlistPanelSectionIds;
+}) {
   const { symbols, remove } = useWatchlist();
   const [liveStocks, setLiveStocks] = useState<Stock[]>([]);
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
@@ -68,8 +80,15 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
     };
   }, [symbolKey]);
 
+  const rootId = sectionIds?.root;
+  const portfolioId = sectionIds?.portfolio;
+  const alertsId = sectionIds?.alerts;
+
   return (
-    <aside className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+    <aside
+      id={rootId}
+      className="scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel"
+    >
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-normal text-slate-400">관심종목</p>
@@ -122,8 +141,12 @@ export function WatchlistPanel({ stocks }: { stocks: Stock[] }) {
           ))
         )}
       </div>
-      <WatchlistDangerWarnings stocks={selected} />
-      <PortfolioRiskSummary />
+      <div id={alertsId} className="scroll-mt-32">
+        <WatchlistDangerWarnings stocks={selected} />
+      </div>
+      <div id={portfolioId} className="scroll-mt-32">
+        <PortfolioRiskSummary />
+      </div>
       <WatchlistPriority stocks={safeStocks} />
     </aside>
   );

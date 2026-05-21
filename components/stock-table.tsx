@@ -22,6 +22,28 @@ type StockTableProps = {
 export function StockTable({ title, stocks }: StockTableProps) {
   const safeStocks = Array.isArray(stocks) ? stocks : [];
 
+  function getQuoteMeta(stock: Stock) {
+    if (stock.quoteSource === "KIS") {
+      return { label: "시세: KIS", hasPrice: Number.isFinite(stock.price) && stock.price > 0 };
+    }
+    if (stock.quoteSource === "data.go.kr") {
+      return {
+        label: "최근 종가: data.go.kr",
+        hasPrice: Number.isFinite(stock.price) && stock.price > 0
+      };
+    }
+    if (stock.quoteSource === "none") {
+      return { label: "데이터 없음", hasPrice: false };
+    }
+
+    const tags = Array.isArray(stock.tags) ? stock.tags : [];
+    const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
+    return {
+      label: isDataGo ? "최근 종가: data.go.kr" : "데이터 없음",
+      hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
+    };
+  }
+
   return (
     <section className="min-w-0 rounded-lg border border-line bg-white shadow-soft dark:border-dark-line dark:bg-dark-panel">
       <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 dark:border-dark-line">
@@ -39,7 +61,72 @@ export function StockTable({ title, stocks }: StockTableProps) {
           />
         </div>
       ) : (
-      <div className="overflow-x-auto">
+      <>
+      <div className="grid gap-2 p-3 md:hidden">
+        {safeStocks.map((stock) => (
+          <article
+            key={`mobile-${stock.symbol}`}
+            className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-ink dark:text-white">
+                  {stock.koreanName}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {stock.symbol} · {stock.sector}
+                </p>
+                <p className="mt-1 text-[11px] font-bold text-slate-400">
+                  {getQuoteMeta(stock).label}
+                  {stock.date ? ` · ${stock.date} 기준` : ""}
+                </p>
+              </div>
+              <WatchlistButton symbol={stock.symbol} compact />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-semibold">
+              <p className="text-slate-600 dark:text-slate-300">
+                가격{" "}
+                <span className="font-bold text-ink dark:text-white">
+                  {getQuoteMeta(stock).hasPrice ? formatKRW(stock.price) : "데이터 없음"}
+                </span>
+              </p>
+              <p className="text-slate-600 dark:text-slate-300">
+                등락{" "}
+                {getQuoteMeta(stock).hasPrice ? (
+                  <span className={`font-bold ${changeColorClass(stock.change)}`}>
+                    {formatPercent(stock.changeRate)}
+                  </span>
+                ) : (
+                  <span className="font-bold text-slate-400">확인 필요</span>
+                )}
+              </p>
+              <p className="text-slate-600 dark:text-slate-300">
+                거래량{" "}
+                <span className="font-bold text-ink dark:text-white">{formatNumber(stock.volume)}</span>
+              </p>
+              <p className="text-slate-600 dark:text-slate-300">
+                시가총액{" "}
+                <span className="font-bold text-ink dark:text-white">
+                  {formatCompactKRW(stock.marketCap)}
+                </span>
+              </p>
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Link
+                href={`/stocks/${stock.symbol}`}
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-white transition hover:border-brand dark:border-dark-line dark:bg-dark-panel ${changeColorClass(
+                  stock.change
+                )}`}
+                aria-label={`${stock.koreanName} 상세`}
+                title={`${stock.koreanName} 상세`}
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[760px] border-collapse text-left">
           <thead>
             <tr className="border-b border-line bg-slate-50 text-xs font-bold uppercase tracking-normal text-slate-400 dark:border-dark-line dark:bg-slate-900/60">
@@ -71,20 +158,29 @@ export function StockTable({ title, stocks }: StockTableProps) {
                         {stock.symbol} · {stock.sector}
                         {stock.date ? ` · ${stock.date} 기준` : ""}
                       </p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-400">
+                        {getQuoteMeta(stock).label}
+                      </p>
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-right text-sm font-bold text-ink dark:text-white">
-                  {formatKRW(stock.price)}
+                  {getQuoteMeta(stock).hasPrice ? formatKRW(stock.price) : "데이터 없음"}
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span
-                    className={`inline-flex rounded-md border px-2 py-1 text-xs font-bold ${changeBgClass(
-                      stock.change
-                    )}`}
-                  >
-                    {formatPercent(stock.changeRate)}
-                  </span>
+                  {getQuoteMeta(stock).hasPrice ? (
+                    <span
+                      className={`inline-flex rounded-md border px-2 py-1 text-xs font-bold ${changeBgClass(
+                        stock.change
+                      )}`}
+                    >
+                      {formatPercent(stock.changeRate)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
+                      확인 필요
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-right text-sm font-semibold text-slate-600 dark:text-slate-300">
                   {formatNumber(stock.volume)}
@@ -112,6 +208,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
           </tbody>
         </table>
       </div>
+      </>
       )}
     </section>
   );

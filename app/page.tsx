@@ -1,5 +1,6 @@
 import { DangerWarningList } from "@/components/danger-warning-list";
 import { MarketBriefing } from "@/components/market-briefing";
+import { MobileSectionNav } from "@/components/mobile-section-nav";
 import { OpportunityRadar } from "@/components/opportunity-radar";
 import { PotentialRadar } from "@/components/potential-radar";
 import { StockCardGrid } from "@/components/stock-card-grid";
@@ -12,6 +13,7 @@ import {
   getOpportunityRadar,
   getPotentialRadar,
   getPopularStocks,
+  getStocksWithPreferredQuote,
   searchStocks
 } from "@/lib/stock-provider";
 
@@ -20,8 +22,8 @@ export const revalidate = 0;
 
 export default async function Home() {
   const [
-    allStocks,
-    popularStocks,
+    fetchedAllStocks,
+    fetchedPopularStocks,
     marketOverview,
     opportunityRadar,
     potentialRadar,
@@ -34,6 +36,11 @@ export default async function Home() {
     getPotentialRadar(),
     getDangerWarnings()
   ]);
+  const [allStocks, popularStocks] = await Promise.all([
+    getStocksWithPreferredQuote(Array.isArray(fetchedAllStocks) ? fetchedAllStocks : []),
+    getStocksWithPreferredQuote(Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : [])
+  ]);
+
   const safeAllStocks = Array.isArray(allStocks) ? allStocks : [];
   const safePopularStocks = Array.isArray(popularStocks) ? popularStocks : [];
   const safeOpportunityRadar = Array.isArray(opportunityRadar) ? opportunityRadar : [];
@@ -45,8 +52,18 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
+      <MobileSectionNav
+        items={[
+          { id: "home-market", label: "시장" },
+          { id: "home-search", label: "검색" },
+          { id: "home-interest", label: "관심" },
+          { id: "home-portfolio", label: "보유" },
+          { id: "home-alerts", label: "알림" }
+        ]}
+        topClassName="top-[72px]"
+      />
       <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
-        <div className="grid min-w-0 gap-3">
+        <div id="home-market" className="grid min-w-0 gap-3 scroll-mt-32">
           <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
@@ -84,7 +101,7 @@ export default async function Home() {
           </div>
           <MarketBriefing signals={signals} />
         </div>
-        <div className="min-w-0">
+        <div id="home-search" className="min-w-0 scroll-mt-32">
           <StockSearch stocks={safeAllStocks} />
         </div>
       </section>
@@ -100,7 +117,14 @@ export default async function Home() {
       </section>
 
       <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
-        <WatchlistPanel stocks={safeAllStocks} />
+        <WatchlistPanel
+          stocks={safeAllStocks}
+          sectionIds={{
+            root: "home-interest",
+            portfolio: "home-portfolio",
+            alerts: "home-alerts"
+          }}
+        />
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">
           <StockTable title="KOSPI 주요 종목" stocks={kospiStocks} />
           <StockTable title="KOSDAQ 관심 종목" stocks={kosdaqStocks} />

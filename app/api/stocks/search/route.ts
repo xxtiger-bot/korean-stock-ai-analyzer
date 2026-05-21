@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { searchStocks } from "@/lib/stock-provider";
+import { getStocksWithPreferredQuote, searchStocks } from "@/lib/stock-provider";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const keyword = searchParams.get("keyword") ?? "";
   const results = await searchStocks(keyword);
+  const normalizedResults = await getStocksWithPreferredQuote(
+    Array.isArray(results) ? results : []
+  );
 
   return NextResponse.json({
-    results: results.slice(0, 12)
+    results: normalizedResults.slice(0, 12)
   });
 }

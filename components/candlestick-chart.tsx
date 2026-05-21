@@ -29,13 +29,13 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
     return () => observer.disconnect();
   }, []);
 
-  const height = 390;
+  const height = width < 480 ? 320 : width < 768 ? 352 : 390;
   const left = 12;
-  const right = width < 420 ? 44 : 72;
-  const top = 18;
-  const priceHeight = 258;
-  const volumeTop = 308;
-  const volumeHeight = 54;
+  const right = width < 420 ? 48 : 72;
+  const top = width < 480 ? 14 : 18;
+  const priceHeight = Math.round(height * 0.66);
+  const volumeTop = top + priceHeight + (width < 480 ? 28 : 32);
+  const volumeHeight = Math.max(44, height - volumeTop - 20);
   const plotWidth = width - left - right;
   const step = visible.length > 0 ? plotWidth / visible.length : plotWidth;
   const candleWidth = Math.max(4, Math.min(10, step * 0.55));
@@ -100,7 +100,7 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
       </div>
       <div
         ref={wrapperRef}
-        className="relative mt-4 h-[390px] w-full overflow-hidden rounded-lg border border-line bg-slate-50 dark:border-dark-line dark:bg-slate-900/50"
+        className="relative mt-4 h-[320px] w-full overflow-hidden rounded-lg border border-line bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 sm:h-[352px] lg:h-[390px]"
       >
         {visible.length === 0 ? (
           <div className="flex h-full items-center justify-center p-4">
@@ -132,7 +132,7 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
               <g key={ratio}>
                 <line
                   x1={left}
-                  x2={width - right + 42}
+                  x2={width - right + (width < 420 ? 18 : 42)}
                   y1={lineY}
                   y2={lineY}
                   stroke="#dfe6ee"
@@ -230,7 +230,7 @@ export function CandlestickChart({ series }: CandlestickChartProps) {
         </svg>
         )}
         {active && (
-          <div className="absolute left-3 top-3 min-w-[184px] rounded-lg border border-line bg-white/95 p-3 text-xs shadow-soft dark:border-dark-line dark:bg-slate-950/90">
+          <div className="absolute left-3 top-3 w-[min(184px,calc(100%-1.5rem))] min-w-0 rounded-lg border border-line bg-white/95 p-3 text-xs shadow-soft dark:border-dark-line dark:bg-slate-950/90">
             <p className="font-bold text-ink dark:text-white">{active.date}</p>
             <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 font-semibold text-slate-500">
               <span>시가</span>

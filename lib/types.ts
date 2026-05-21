@@ -53,6 +53,8 @@ export type Stock = {
   institutionFlow: number;
   newsSentiment: "positive" | "neutral" | "negative";
   date?: string;
+  quoteSource?: "KIS" | "data.go.kr" | "none";
+  quoteLabel?: "현재가" | "최근 종가" | "데이터 없음";
 };
 
 export type Candle = {

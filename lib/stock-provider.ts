@@ -866,6 +866,100 @@ function getRealtimeProvider() {
   return process.env.REALTIME_STOCK_PROVIDER === "kis" ? "kis" : null;
 }
 
+function hasDataGoTag(stock: Stock) {
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  return tags.some((tag) => typeof tag === "string" && tag.toLowerCase() === "data.go.kr");
+}
+
+function hasValidStockPrice(stock: Stock) {
+  return Number.isFinite(stock.price) && stock.price > 0;
+}
+
+function withFallbackQuoteSource(stock: Stock): Stock {
+  if (hasDataGoTag(stock) && hasValidStockPrice(stock)) {
+    return {
+      ...stock,
+      quoteSource: "data.go.kr",
+      quoteLabel: "최근 종가"
+    };
+  }
+
+  return {
+    ...stock,
+    quoteSource: "none",
+    quoteLabel: "데이터 없음",
+    change: Number.isFinite(stock.change) ? stock.change : 0,
+    changeRate: Number.isFinite(stock.changeRate) ? stock.changeRate : 0
+  };
+}
+
+export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
+  const symbol = typeof stock.symbol === "string" ? stock.symbol.trim() : "";
+  if (!symbol) {
+    return withFallbackQuoteSource(stock);
+  }
+
+  const quote = await getRealtimeQuote(symbol);
+  if (quote && Number.isFinite(quote.price) && quote.price > 0) {
+    return {
+      ...stock,
+      price: quote.price,
+      change: Number.isFinite(quote.change) ? quote.change : 0,
+      changeRate: Number.isFinite(quote.changeRate) ? quote.changeRate : 0,
+      volume: Number.isFinite(quote.volume) && quote.volume > 0 ? quote.volume : stock.volume,
+      quoteSource: "KIS",
+      quoteLabel: "현재가"
+    };
+  }
+
+  if (process.env.DATA_GO_KR_API_KEY) {
+    try {
+      const dataGoStock = await getStockDetailFromDataGoKr(symbol);
+      if (dataGoStock && Number.isFinite(dataGoStock.price) && dataGoStock.price > 0) {
+        return {
+          ...stock,
+          price: dataGoStock.price,
+          change: Number.isFinite(dataGoStock.change) ? dataGoStock.change : 0,
+          changeRate: Number.isFinite(dataGoStock.changeRate) ? dataGoStock.changeRate : 0,
+          volume: Number.isFinite(dataGoStock.volume) && dataGoStock.volume > 0
+            ? dataGoStock.volume
+            : stock.volume,
+          date: dataGoStock.date ?? stock.date,
+          tags: Array.from(new Set([...(Array.isArray(stock.tags) ? stock.tags : []), "data.go.kr"])),
+          quoteSource: "data.go.kr",
+          quoteLabel: "최근 종가"
+        };
+      }
+    } catch {
+      // Fallback is handled below.
+    }
+  }
+
+  return withFallbackQuoteSource(stock);
+}
+
+export async function getStocksWithPreferredQuote(inputStocks: Stock[]): Promise<Stock[]> {
+  const safeStocks = Array.isArray(inputStocks) ? inputStocks.filter(Boolean) : [];
+  if (safeStocks.length === 0) return [];
+
+  const stocksBySymbol = new Map<string, Stock>();
+  for (const stock of safeStocks) {
+    if (typeof stock.symbol === "string" && stock.symbol.trim()) {
+      stocksBySymbol.set(stock.symbol, stock);
+    }
+  }
+
+  const quotedMap = new Map<string, Stock>();
+  await Promise.all(
+    Array.from(stocksBySymbol.entries()).map(async ([symbol, stock]) => {
+      const quoted = await getStockWithPreferredQuote(stock);
+      quotedMap.set(symbol, quoted);
+    })
+  );
+
+  return safeStocks.map((stock) => quotedMap.get(stock.symbol) ?? withFallbackQuoteSource(stock));
+}
+
 export function getMarketOverview() {
   return provider().getMarketOverview();
 }

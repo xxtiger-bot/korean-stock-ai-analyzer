@@ -17,6 +17,39 @@ function getDataSource(stock: Stock) {
   return tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
 }
 
+function getQuoteMeta(stock: Stock) {
+  if (stock.quoteSource === "KIS") {
+    return {
+      label: "현재가",
+      sourceText: "시세: KIS",
+      hasPrice: Number.isFinite(stock.price) && stock.price > 0
+    };
+  }
+
+  if (stock.quoteSource === "data.go.kr") {
+    return {
+      label: "최근 종가",
+      sourceText: "최근 종가: data.go.kr",
+      hasPrice: Number.isFinite(stock.price) && stock.price > 0
+    };
+  }
+
+  if (stock.quoteSource === "none") {
+    return {
+      label: "데이터 없음",
+      sourceText: "데이터 없음",
+      hasPrice: false
+    };
+  }
+
+  const tagSource = getDataSource(stock);
+  return {
+    label: "최근 종가",
+    sourceText: tagSource === "data.go.kr" ? "최근 종가: data.go.kr" : "데이터 없음",
+    hasPrice: tagSource === "data.go.kr" && Number.isFinite(stock.price) && stock.price > 0
+  };
+}
+
 export function StockCardGrid({
   title,
   stocks
@@ -53,6 +86,8 @@ export function StockCardGrid({
           const positive = stock.change >= 0;
           const TrendIcon = positive ? TrendingUp : TrendingDown;
           const dataSource = getDataSource(stock);
+          const quoteMeta = getQuoteMeta(stock);
+          const canShowChange = quoteMeta.hasPrice;
           const tags = Array.isArray(stock.tags) ? stock.tags : [];
           const visibleTags = tags.filter(
             (tag) => tag.toLowerCase() !== "data.go.kr" && tag !== stock.market
@@ -91,18 +126,24 @@ export function StockCardGrid({
 
               <div className="mt-3 flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold text-slate-400">최근 종가</p>
+                  <p className="text-xs font-bold text-slate-400">{quoteMeta.label}</p>
                   <p className="text-lg font-bold text-ink dark:text-white">
-                    {formatKRW(stock.price)}
+                    {quoteMeta.hasPrice ? formatKRW(stock.price) : "데이터 없음"}
                   </p>
-                  <span
-                    className={`mt-2 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold ${changeBgClass(
-                      stock.change
-                    )}`}
-                  >
-                    <TrendIcon className="h-3.5 w-3.5" />
-                    {formatPercent(stock.changeRate)}
-                  </span>
+                  {canShowChange ? (
+                    <span
+                      className={`mt-2 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold ${changeBgClass(
+                        stock.change
+                      )}`}
+                    >
+                      <TrendIcon className="h-3.5 w-3.5" />
+                      {formatPercent(stock.changeRate)}
+                    </span>
+                  ) : (
+                    <span className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
+                      확인 필요
+                    </span>
+                  )}
                 </div>
                 <Link
                   href={`/stocks/${stock.symbol}`}
@@ -137,7 +178,7 @@ export function StockCardGrid({
                   {sectorLabel}
                 </span>
                 <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
-                  데이터: {dataSource}
+                  {quoteMeta.sourceText}
                   {stock.date ? ` · ${stock.date} 기준` : ""}
                 </span>
                 {visibleTags.slice(0, 1).map((tag) => (

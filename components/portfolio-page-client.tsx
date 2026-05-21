@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Bell, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { MobileSectionNav } from "@/components/mobile-section-nav";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
@@ -2008,7 +2009,20 @@ export function PortfolioPageClient() {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+      <MobileSectionNav
+        items={[
+          { id: "portfolio-summary", label: "요약" },
+          { id: "portfolio-risk", label: "리스크" },
+          { id: "portfolio-holdings", label: "보유종목" },
+          { id: "portfolio-alerts", label: "알림" },
+          { id: "portfolio-report", label: "리포트" }
+        ]}
+        topClassName="top-[72px]"
+      />
+      <section
+        id="portfolio-summary"
+        className="scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+      >
         <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio</p>
         <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
           내 보유종목 AI 진단
@@ -2016,11 +2030,11 @@ export function PortfolioPageClient() {
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
           KIS 현재가와 data.go.kr 일별 종가 데이터를 기반으로 보유 상태를 관찰하고, 확인 필요 구간을 정리하는 참고 정보입니다.
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button
             type="button"
             onClick={handleToggleBrowserNotification}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 sm:h-8 sm:justify-start"
           >
             <Bell className="h-3.5 w-3.5" />
             {isBrowserNotificationEnabled ? "브라우저 알림 끄기" : "브라우저 알림 켜기"}
@@ -2072,7 +2086,7 @@ export function PortfolioPageClient() {
                   type="button"
                   onClick={() => void handleSyncLocalToCloud()}
                   disabled={isCloudSyncing}
-                  className="inline-flex h-8 items-center justify-center rounded-md bg-brand px-3 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className="inline-flex min-h-9 w-full items-center justify-center rounded-md bg-brand px-3 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400 sm:h-8 sm:w-auto"
                 >
                   {isCloudSyncing ? "동기화 중..." : "로컬 보유종목을 클라우드에 동기화"}
                 </button>
@@ -2091,15 +2105,18 @@ export function PortfolioPageClient() {
         )}
       </section>
 
-      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-        <div className="flex items-start justify-between gap-3">
+      <section
+        id="portfolio-risk"
+        className="mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-normal text-brand">Risk Alert</p>
             <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
               보유종목 리스크 알림
             </h2>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+          <span className="inline-flex w-fit items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
             <ShieldAlert className="h-3.5 w-3.5" />
             오늘 리스크 알림 {Array.isArray(riskAlerts) ? riskAlerts.length : 0}건
           </span>
@@ -2145,7 +2162,7 @@ export function PortfolioPageClient() {
           </div>
         )}
 
-        <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
+        <div id="portfolio-alerts" className="mt-4 scroll-mt-32 border-t border-line pt-3 dark:border-dark-line">
           <h3 className="text-sm font-bold text-ink dark:text-white">사용자 알림 발동</h3>
           {triggeredUserAlertSummaries.length === 0 ? (
             <div className="mt-2 grid gap-2">
@@ -2198,26 +2215,29 @@ export function PortfolioPageClient() {
         </div>
       </section>
 
-      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+      <section
+        id="portfolio-report"
+        className="mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-normal text-brand">Daily Report</p>
             <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
               오늘의 내 보유종목 AI 리포트
             </h2>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={() => void handleCopyDailyReport()}
-              className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 sm:h-8"
             >
               리포트 복사
             </button>
             <button
               type="button"
               onClick={() => void handleSaveDailyReportImage()}
-              className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 sm:h-8"
             >
               리포트 이미지 저장
             </button>
@@ -2427,7 +2447,10 @@ export function PortfolioPageClient() {
         </article>
       </section>
 
-      <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
+      <section
+        id="portfolio-holdings"
+        className="mt-4 grid min-w-0 scroll-mt-32 gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]"
+      >
         <form
           id="portfolio-add-entry"
           onSubmit={addPortfolioEntry}
