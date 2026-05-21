@@ -51,11 +51,7 @@ export function SiteHeader() {
             <Star className="h-4 w-4 text-amber-500" />
             관심종목
           </div>
-          {isLoading ? (
-            <span className="hidden rounded-lg border border-line bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-400 sm:inline-flex">
-              로그인 확인 중
-            </span>
-          ) : user ? (
+          {user ? (
             <div className="inline-flex max-w-[260px] items-center gap-2 rounded-lg border border-line bg-slate-50 px-2.5 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 sm:px-3">
               <span className="hidden truncate sm:inline">{email || "로그인 사용자"}</span>
               <button
@@ -67,13 +63,21 @@ export function SiteHeader() {
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleSignIn}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
-            >
-              로그인
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleSignIn}
+                disabled={!isSupabaseReady || isLoading}
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 dark:disabled:text-slate-500"
+              >
+                로그인
+              </button>
+              {isLoading && (
+                <span className="hidden rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-400 sm:inline-flex">
+                  확인 중
+                </span>
+              )}
+            </>
           )}
           <Link
             href="/portfolio"
@@ -89,7 +93,7 @@ export function SiteHeader() {
       {(authNotice || !isSupabaseReady) && (
         <div className="mx-auto flex max-w-7xl items-center justify-end px-4 pb-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:px-6 lg:px-8">
           <p className="truncate">
-            {authNotice || "클라우드 동기화는 아직 설정되지 않았습니다."}
+            {authNotice || "클라우드 동기화 미설정"}
           </p>
         </div>
       )}

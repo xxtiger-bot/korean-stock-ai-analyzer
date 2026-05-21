@@ -1881,7 +1881,7 @@ export function PortfolioPageClient() {
         )}
         {!isSupabaseReady && (
           <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
-            클라우드 동기화는 아직 설정되지 않았습니다.
+            클라우드 동기화 미설정
           </p>
         )}
         {isCloudSyncEnabled && (

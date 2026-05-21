@@ -219,7 +219,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!isCloudSyncEnabled || !user?.id || !supabase) {
       setEntries(localEntries);
       if (!isSupabaseConfigured) {
-        setCloudSyncNotice("클라우드 동기화는 아직 설정되지 않았습니다.");
+        setCloudSyncNotice("클라우드 동기화 미설정");
       } else {
         setCloudSyncNotice("");
       }
@@ -283,7 +283,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!isCloudSyncEnabled || !user?.id || !supabase) {
       return {
         ok: false,
-        message: "클라우드 동기화는 아직 설정되지 않았습니다.",
+        message: "클라우드 동기화 미설정",
         syncedCount: 0
       };
     }

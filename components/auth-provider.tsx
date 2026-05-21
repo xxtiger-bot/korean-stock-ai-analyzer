@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
       return {
         ok: false,
-        message: "클라우드 동기화는 아직 설정되지 않았습니다."
+        message: "클라우드 동기화 미설정"
       };
     }
 
@@ -84,6 +84,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
+      const message = typeof error.message === "string" ? error.message : "";
+      if (
+        message.toLowerCase().includes("provider") &&
+        message.toLowerCase().includes("not enabled")
+      ) {
+        return {
+          ok: false,
+          message: "Supabase OAuth 설정이 필요합니다."
+        };
+      }
       return {
         ok: false,
         message: "로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요."
@@ -98,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
         return {
           ok: false,
-          message: "클라우드 동기화는 아직 설정되지 않았습니다."
+          message: "클라우드 동기화 미설정"
         };
       }
 
