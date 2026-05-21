@@ -782,6 +782,48 @@ function buildDailyPortfolioReportText(options: {
   ].join("\n");
 }
 
+function wrapCanvasTextLines(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+) {
+  const safeTextValue = safeText(text);
+  if (!safeTextValue) return [""];
+
+  const words = safeTextValue.split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (context.measureText(candidate).width <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = word;
+      continue;
+    }
+
+    let chunk = "";
+    for (const char of word) {
+      const chunkCandidate = `${chunk}${char}`;
+      if (context.measureText(chunkCandidate).width <= maxWidth) {
+        chunk = chunkCandidate;
+      } else {
+        if (chunk) lines.push(chunk);
+        chunk = char;
+      }
+    }
+    current = chunk;
+  }
+
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [""];
+}
+
 function buildPortfolioNotificationItems(
   riskAlerts: PortfolioRiskAlert[],
   userAlertSummaries: UserAlertSummary[]
@@ -1034,6 +1076,7 @@ export function PortfolioPageClient() {
   const [browserNotificationNotice, setBrowserNotificationNotice] = useState("");
   const setNotificationStatusMessage = setBrowserNotificationNotice;
   const [dailyReportCopyNotice, setDailyReportCopyNotice] = useState("");
+  const [dailyReportImageNotice, setDailyReportImageNotice] = useState("");
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -1629,6 +1672,155 @@ export function PortfolioPageClient() {
     }
   }
 
+  async function handleSaveDailyReportImage() {
+    if (typeof window === "undefined") return;
+    try {
+      const reportText =
+        safeEntries.length === 0
+          ? "보유종목을 추가하면 오늘의 AI 리포트를 생성할 수 있습니다."
+          : buildDailyPortfolioReportText({
+              dateText: dailyReportDateText,
+              portfolioStatusLabel,
+              totalCount: safeEntries.length,
+              totalValue: summary.totalValue,
+              totalPnL: summary.totalPnL,
+              avgReturn: summary.avgReturn,
+              todayPriorityItems,
+              keepObservationItems,
+              riskManagementItems,
+              tomorrowCheckItems
+            });
+
+      const rawLines = reportText.split("\n");
+      const canvas = document.createElement("canvas");
+      const width = 1080;
+      const padding = 56;
+      const contentWidth = width - padding * 2;
+      const lineHeight = 36;
+      const sectionHeadingSet = new Set([
+        "오늘 먼저 확인할 종목 TOP 3",
+        "유지 관찰 종목",
+        "리스크 관리 필요 종목",
+        "내일 확인 조건",
+        "면책 문구"
+      ]);
+
+      canvas.width = width;
+      canvas.height = 2000;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        setDailyReportImageNotice("이미지 저장에 실패했습니다. 다시 시도해주세요.");
+        return;
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, canvas.height);
+      context.textBaseline = "top";
+
+      const preparedLines: Array<{ text: string; type: "normal" | "heading" | "spacer" }> = [];
+      for (const line of rawLines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          preparedLines.push({ text: "", type: "spacer" });
+          continue;
+        }
+
+        const type: "normal" | "heading" =
+          sectionHeadingSet.has(trimmed) || trimmed.startsWith("날짜:") || trimmed.startsWith("전체 포트폴리오 상태:")
+            ? "heading"
+            : "normal";
+
+        context.font =
+          type === "heading"
+            ? "700 25px 'Noto Sans KR', 'Segoe UI', sans-serif"
+            : "500 23px 'Noto Sans KR', 'Segoe UI', sans-serif";
+        const wrapped = wrapCanvasTextLines(context, trimmed, contentWidth);
+        for (const wrappedLine of wrapped) {
+          preparedLines.push({ text: wrappedLine, type });
+        }
+      }
+
+      const contentHeight =
+        64 +
+        52 +
+        44 +
+        preparedLines.reduce((sum, line) => sum + (line.type === "spacer" ? 20 : lineHeight), 0) +
+        80;
+      const height = Math.max(620, contentHeight);
+      canvas.height = height;
+
+      context.fillStyle = "#f8fafc";
+      context.fillRect(0, 0, width, height);
+
+      const cardX = 26;
+      const cardY = 20;
+      const cardWidth = width - 52;
+      const cardHeight = height - 40;
+      const radius = 22;
+      context.beginPath();
+      context.moveTo(cardX + radius, cardY);
+      context.lineTo(cardX + cardWidth - radius, cardY);
+      context.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + radius);
+      context.lineTo(cardX + cardWidth, cardY + cardHeight - radius);
+      context.quadraticCurveTo(
+        cardX + cardWidth,
+        cardY + cardHeight,
+        cardX + cardWidth - radius,
+        cardY + cardHeight
+      );
+      context.lineTo(cardX + radius, cardY + cardHeight);
+      context.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - radius);
+      context.lineTo(cardX, cardY + radius);
+      context.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+      context.closePath();
+      context.fillStyle = "#ffffff";
+      context.fill();
+
+      let currentY = cardY + 34;
+      const textStartX = cardX + 32;
+      context.fillStyle = "#1d4ed8";
+      context.font = "700 36px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText("KRX Insight", textStartX, currentY);
+      currentY += 54;
+
+      context.fillStyle = "#0f172a";
+      context.font = "700 32px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText("오늘의 내 보유종목 AI 리포트", textStartX, currentY);
+      currentY += 46;
+
+      context.fillStyle = "#334155";
+      context.font = "600 24px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText(`날짜: ${dailyReportDateText}`, textStartX, currentY);
+      currentY += 44;
+
+      for (const line of preparedLines) {
+        if (line.type === "spacer") {
+          currentY += 20;
+          continue;
+        }
+
+        if (line.type === "heading") {
+          context.fillStyle = "#0f172a";
+          context.font = "700 25px 'Noto Sans KR', 'Segoe UI', sans-serif";
+        } else {
+          context.fillStyle = "#1e293b";
+          context.font = "500 23px 'Noto Sans KR', 'Segoe UI', sans-serif";
+        }
+        context.fillText(line.text, textStartX, currentY);
+        currentY += lineHeight;
+      }
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `krx-insight-portfolio-report-${dailyReportDateText}.png`;
+      link.click();
+      setDailyReportImageNotice("리포트 이미지가 저장되었습니다.");
+    } catch {
+      setDailyReportImageNotice("이미지 저장에 실패했습니다. 다시 시도해주세요.");
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
@@ -1790,6 +1982,13 @@ export function PortfolioPageClient() {
             >
               리포트 복사
             </button>
+            <button
+              type="button"
+              onClick={() => void handleSaveDailyReportImage()}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+            >
+              리포트 이미지 저장
+            </button>
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               전체 포트폴리오 상태: {portfolioStatusLabel}
             </span>
@@ -1798,6 +1997,11 @@ export function PortfolioPageClient() {
         {dailyReportCopyNotice && (
           <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
             {dailyReportCopyNotice}
+          </p>
+        )}
+        {dailyReportImageNotice && (
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+            {dailyReportImageNotice}
           </p>
         )}
 
