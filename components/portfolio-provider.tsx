@@ -9,7 +9,7 @@ import {
   useState
 } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase, supabaseConfigMessage } from "@/lib/supabase";
 import { PORTFOLIO_ENTRIES_STORAGE_KEY } from "@/lib/storage-keys";
 import type { InvestmentHorizon, PortfolioPositionInput, RiskProfile } from "@/lib/types";
 
@@ -219,7 +219,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!isCloudSyncEnabled || !user?.id || !supabase) {
       setEntries(localEntries);
       if (!isSupabaseConfigured) {
-        setCloudSyncNotice("클라우드 동기화 미설정");
+        setCloudSyncNotice(supabaseConfigMessage || "클라우드 동기화 미설정");
       } else {
         setCloudSyncNotice("");
       }
@@ -283,7 +283,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!isCloudSyncEnabled || !user?.id || !supabase) {
       return {
         ok: false,
-        message: "클라우드 동기화 미설정",
+        message: supabaseConfigMessage || "클라우드 동기화 미설정",
         syncedCount: 0
       };
     }

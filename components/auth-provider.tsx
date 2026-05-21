@@ -9,7 +9,14 @@ import {
   useMemo,
   useState
 } from "react";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+  isSupabaseConfigured,
+  supabase,
+  supabasePublicAnonKey,
+  supabaseConfigMessage,
+  supabasePublicUrl,
+  supabaseUrlError
+} from "@/lib/supabase";
 
 type AuthActionResult = {
   ok: boolean;
@@ -21,7 +28,8 @@ type AuthContextValue = {
   session: Session | null;
   isLoading: boolean;
   isSupabaseReady: boolean;
-  signInWithGoogle: () => Promise<AuthActionResult>;
+  supabaseUrl: string;
+  supabaseNotice: string;
   signInWithMagicLink: (email: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 };
@@ -68,43 +76,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signInWithGoogle = useCallback(async (): Promise<AuthActionResult> => {
-    if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
-      return {
-        ok: false,
-        message: "클라우드 동기화 미설정"
-      };
-    }
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/portfolio`
-      }
-    });
-
-    if (error) {
-      const message = typeof error.message === "string" ? error.message : "";
-      if (
-        message.toLowerCase().includes("provider") &&
-        message.toLowerCase().includes("not enabled")
-      ) {
-        return {
-          ok: false,
-          message: "Supabase OAuth 설정이 필요합니다."
-        };
-      }
-      return {
-        ok: false,
-        message: "로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요."
-      };
-    }
-
-    return { ok: true };
-  }, []);
-
   const signInWithMagicLink = useCallback(
     async (email: string): Promise<AuthActionResult> => {
+      if (supabaseUrlError) {
+        return {
+          ok: false,
+          message: "Supabase URL 설정을 확인해주세요."
+        };
+      }
+
       if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
         return {
           ok: false,
@@ -120,23 +100,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      const settingsUrl = `${supabasePublicUrl}/auth/v1/settings`;
+      try {
+        const settingsResponse = await fetch(settingsUrl, {
+          method: "GET",
+          headers: {
+            apikey: supabasePublicAnonKey,
+            Authorization: `Bearer ${supabasePublicAnonKey}`
+          },
+          cache: "no-store"
+        });
+
+        if (!settingsResponse.ok) {
+          return {
+            ok: false,
+            message:
+              "Supabase Auth 서버에 연결할 수 없습니다. 네트워크, DNS 또는 브라우저 차단을 확인해주세요."
+          };
+        }
+      } catch {
+        return {
+          ok: false,
+          message:
+            "Supabase Auth 서버에 연결할 수 없습니다. 네트워크, DNS 또는 브라우저 차단을 확인해주세요."
+        };
+      }
+
       const { error } = await supabase.auth.signInWithOtp({
         email: safeEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/portfolio`
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
 
       if (error) {
         return {
           ok: false,
-          message: "매직 링크 전송에 실패했습니다. 이메일을 다시 확인해주세요."
+          message: error.message || "매직 링크 전송에 실패했습니다."
         };
       }
 
       return {
         ok: true,
-        message: "이메일로 로그인 링크를 보냈습니다."
+        message: "로그인 링크를 이메일로 보냈습니다."
       };
     },
     []
@@ -164,11 +170,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       isLoading,
       isSupabaseReady: isSupabaseConfigured,
-      signInWithGoogle,
+      supabaseUrl: supabasePublicUrl,
+      supabaseNotice: supabaseConfigMessage || "",
       signInWithMagicLink,
       signOut
     }),
-    [isLoading, session, signInWithGoogle, signInWithMagicLink, signOut, user]
+    [isLoading, session, signInWithMagicLink, signOut, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

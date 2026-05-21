@@ -1,24 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BriefcaseBusiness, Star } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Mail, Star, X } from "lucide-react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/components/auth-provider";
 
 export function SiteHeader() {
-  const { user, isSupabaseReady, isLoading, signInWithGoogle, signOut } = useAuth();
+  const {
+    user,
+    isSupabaseReady,
+    isLoading,
+    supabaseUrl,
+    supabaseNotice,
+    signInWithMagicLink,
+    signOut
+  } = useAuth();
   const [authNotice, setAuthNotice] = useState("");
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [isSendingLink, setIsSendingLink] = useState(false);
+  const [modalNotice, setModalNotice] = useState("");
 
   const email = typeof user?.email === "string" ? user.email : "";
 
-  async function handleSignIn() {
-    const result = await signInWithGoogle();
-    if (!result.ok) {
-      setAuthNotice(result.message ?? "로그인을 시작할 수 없습니다.");
+  function handleOpenLogin() {
+    console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
+    if (!isSupabaseReady) {
+      setAuthNotice(supabaseNotice || "클라우드 동기화 미설정");
+      setModalNotice(supabaseNotice || "클라우드 동기화 미설정");
+      setIsLoginModalOpen(false);
       return;
     }
-    setAuthNotice("");
+    setModalNotice("");
+    setIsLoginModalOpen(true);
+  }
+
+  async function handleSendMagicLink() {
+    console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
+    setIsSendingLink(true);
+    try {
+      const result = await signInWithMagicLink(loginEmail);
+      if (!result.ok) {
+        const message = result.message ?? "로그인 링크 요청에 실패했습니다.";
+        setModalNotice(message);
+        setAuthNotice(message);
+        return;
+      }
+
+      const successMessage = result.message ?? "로그인 링크를 이메일로 보냈습니다.";
+      setModalNotice(successMessage);
+      setAuthNotice(successMessage);
+      setIsLoginModalOpen(false);
+      setLoginEmail("");
+    } catch {
+      const message = "로그인 링크 요청 중 문제가 발생했습니다. 다시 시도해주세요.";
+      setModalNotice(message);
+      setAuthNotice(message);
+    } finally {
+      setIsSendingLink(false);
+    }
   }
 
   async function handleSignOut() {
@@ -66,8 +107,8 @@ export function SiteHeader() {
             <>
               <button
                 type="button"
-                onClick={handleSignIn}
-                disabled={!isSupabaseReady || isLoading}
+                onClick={handleOpenLogin}
+                disabled={isLoading}
                 className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 dark:disabled:text-slate-500"
               >
                 로그인
@@ -93,8 +134,57 @@ export function SiteHeader() {
       {(authNotice || !isSupabaseReady) && (
         <div className="mx-auto flex max-w-7xl items-center justify-end px-4 pb-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:px-6 lg:px-8">
           <p className="truncate">
-            {authNotice || "클라우드 동기화 미설정"}
+            {authNotice || supabaseNotice || "클라우드 동기화 미설정"}
           </p>
+        </div>
+      )}
+      {isLoginModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">Auth</p>
+                <h3 className="mt-1 text-base font-bold text-ink dark:text-white">이메일 로그인</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLoginModalOpen(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-slate-50 text-slate-500 hover:text-slate-700 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
+                aria-label="닫기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              로그인 링크를 받을 이메일을 입력해주세요.
+            </p>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                이메일
+              </span>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+                placeholder="you@example.com"
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+            {modalNotice && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                {modalNotice}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleSendMagicLink()}
+              disabled={isSendingLink}
+              className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              <Mail className="h-4 w-4" />
+              {isSendingLink ? "전송 중..." : "로그인 링크 보내기"}
+            </button>
+          </div>
         </div>
       )}
     </header>
