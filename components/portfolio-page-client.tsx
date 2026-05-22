@@ -140,6 +140,46 @@ type DailyPortfolioReportItem = {
   priority: number;
 };
 
+type PortfolioReportPayloadItem = {
+  stockName: string;
+  symbol: string;
+  returnRate: number;
+  judgement: string;
+  coreReason: string;
+  nextCheck: string;
+};
+
+type PortfolioReportPayload = {
+  totalHoldings: number;
+  totalEvaluation: number;
+  totalProfitLoss: number;
+  averageReturnRate: number;
+  riskCount: number;
+  holdCount: number;
+  topWatchItems: PortfolioReportPayloadItem[];
+  maintainItems: PortfolioReportPayloadItem[];
+  riskItems: PortfolioReportPayloadItem[];
+  nextCheckConditions: string[];
+  createdAt: string;
+};
+
+type PortfolioReportRow = {
+  id?: string;
+  user_id?: string;
+  report_date?: string;
+  summary?: string;
+  payload?: unknown;
+  created_at?: string;
+};
+
+type PortfolioReportHistoryItem = {
+  id: string;
+  reportDate: string;
+  summary: string;
+  payload: PortfolioReportPayload | null;
+  createdAt: string;
+};
+
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -161,6 +201,66 @@ function extractSupabaseErrorMessage(error: unknown) {
     }
   }
   return "알 수 없는 오류";
+}
+
+function normalizePortfolioReportPayloadItem(value: unknown): PortfolioReportPayloadItem | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const stockName = safeText(raw.stockName);
+  const symbol = safeText(raw.symbol);
+  if (!stockName && !symbol) return null;
+
+  return {
+    stockName: stockName || symbol,
+    symbol: symbol || stockName,
+    returnRate: safeNumber(raw.returnRate, 0),
+    judgement: safeText(raw.judgement, "대기 / 확인 필요"),
+    coreReason: safeText(raw.coreReason),
+    nextCheck: safeText(raw.nextCheck)
+  };
+}
+
+function normalizePortfolioReportPayload(value: unknown): PortfolioReportPayload | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const normalizeItems = (key: string) => {
+    const source = raw[key];
+    if (!Array.isArray(source)) return [] as PortfolioReportPayloadItem[];
+    return source
+      .map(normalizePortfolioReportPayloadItem)
+      .filter((item): item is PortfolioReportPayloadItem => Boolean(item));
+  };
+
+  const nextCheckConditions = Array.isArray(raw.nextCheckConditions)
+    ? raw.nextCheckConditions
+        .map((item) => safeText(item))
+        .filter((item) => Boolean(item))
+    : [];
+
+  return {
+    totalHoldings: safeNumber(raw.totalHoldings, 0),
+    totalEvaluation: safeNumber(raw.totalEvaluation, 0),
+    totalProfitLoss: safeNumber(raw.totalProfitLoss, 0),
+    averageReturnRate: safeNumber(raw.averageReturnRate, 0),
+    riskCount: safeNumber(raw.riskCount, 0),
+    holdCount: safeNumber(raw.holdCount, 0),
+    topWatchItems: normalizeItems("topWatchItems"),
+    maintainItems: normalizeItems("maintainItems"),
+    riskItems: normalizeItems("riskItems"),
+    nextCheckConditions,
+    createdAt: safeText(raw.createdAt)
+  };
+}
+
+function reportItemToPayloadItem(item: DailyPortfolioReportItem): PortfolioReportPayloadItem {
+  return {
+    stockName: safeText(item.stockName, safeText(item.symbol, "-")),
+    symbol: safeText(item.symbol),
+    returnRate: safeNumber(item.returnRate, 0),
+    judgement: safeText(item.judgement, "대기 / 확인 필요"),
+    coreReason: safeText(item.coreReason),
+    nextCheck: safeText(item.nextCheck)
+  };
 }
 
 function toRiskCount(items: PortfolioDiagnosis[]) {
@@ -1227,6 +1327,12 @@ export function PortfolioPageClient() {
   const setNotificationStatusMessage = setBrowserNotificationNotice;
   const [dailyReportCopyNotice, setDailyReportCopyNotice] = useState("");
   const [dailyReportImageNotice, setDailyReportImageNotice] = useState("");
+  const [dailyReportCloudNotice, setDailyReportCloudNotice] = useState("");
+  const [isSavingDailyReport, setIsSavingDailyReport] = useState(false);
+  const [recentSavedReports, setRecentSavedReports] = useState<PortfolioReportHistoryItem[]>([]);
+  const [isRecentReportsLoading, setIsRecentReportsLoading] = useState(false);
+  const [recentReportsNotice, setRecentReportsNotice] = useState("");
+  const [expandedSavedReportId, setExpandedSavedReportId] = useState<string | null>(null);
   const [cloudSyncActionNotice, setCloudSyncActionNotice] = useState("");
   const [alertRuleSyncNotice, setAlertRuleSyncNotice] = useState("");
   const [localAlertConditionsSnapshot, setLocalAlertConditionsSnapshot] = useState<
@@ -1662,6 +1768,112 @@ export function PortfolioPageClient() {
     const day = `${now.getDate()}`.padStart(2, "0");
     return `${year}-${month}-${day}`;
   }, []);
+  const dailyReportSummaryText = useMemo(() => {
+    const safeLines = Array.isArray(portfolioSummaryLines) ? portfolioSummaryLines : [];
+    if (safeLines.length === 0) {
+      return "보유종목을 추가하면 오늘의 AI 리포트를 생성할 수 있습니다.";
+    }
+    return safeLines.join(" ").trim();
+  }, [portfolioSummaryLines]);
+  const dailyReportPayload = useMemo<PortfolioReportPayload>(
+    () => ({
+      totalHoldings: safeEntries.length,
+      totalEvaluation: safeNumber(summary.totalValue, 0),
+      totalProfitLoss: safeNumber(summary.totalPnL, 0),
+      averageReturnRate: safeNumber(summary.avgReturn, 0),
+      riskCount: safeNumber(riskUpCount, 0),
+      holdCount: safeNumber(keepObservationCount, 0),
+      topWatchItems: (Array.isArray(todayPriorityItems) ? todayPriorityItems : []).map(
+        reportItemToPayloadItem
+      ),
+      maintainItems: (Array.isArray(keepObservationItems) ? keepObservationItems : []).map(
+        reportItemToPayloadItem
+      ),
+      riskItems: (Array.isArray(riskManagementItems) ? riskManagementItems : []).map(
+        reportItemToPayloadItem
+      ),
+      nextCheckConditions: (Array.isArray(tomorrowCheckItems) ? tomorrowCheckItems : [])
+        .map((item) => safeText(item))
+        .filter((item) => Boolean(item)),
+      createdAt: new Date().toISOString()
+    }),
+    [
+      keepObservationCount,
+      keepObservationItems,
+      riskManagementItems,
+      riskUpCount,
+      safeEntries.length,
+      summary.avgReturn,
+      summary.totalPnL,
+      summary.totalValue,
+      todayPriorityItems,
+      tomorrowCheckItems
+    ]
+  );
+
+  const fetchRecentSavedReports = useCallback(async () => {
+    if (!isSupabaseReady || !supabase || !user?.id) {
+      setRecentSavedReports([]);
+      setRecentReportsNotice(
+        isSupabaseReady
+          ? "로그인하면 저장한 AI 리포트를 확인할 수 있습니다."
+          : "리포트 클라우드 저장을 사용할 수 없습니다."
+      );
+      return;
+    }
+
+    setIsRecentReportsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("portfolio_reports")
+        .select("id,user_id,report_date,summary,payload,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) {
+        throw error;
+      }
+
+      const safeRows = Array.isArray(data) ? data : [];
+      const normalized = safeRows
+        .map((row): PortfolioReportHistoryItem | null => {
+          const raw = row as PortfolioReportRow;
+          const id = safeText(raw.id);
+          const reportDate = safeText(raw.report_date);
+          const summary = safeText(raw.summary);
+          const createdAt = safeText(raw.created_at);
+          if (!id || !reportDate) return null;
+          return {
+            id,
+            reportDate,
+            summary,
+            createdAt,
+            payload: normalizePortfolioReportPayload(raw.payload)
+          };
+        })
+        .filter((item): item is PortfolioReportHistoryItem => Boolean(item));
+
+      setRecentSavedReports(normalized);
+      setRecentReportsNotice("");
+    } catch {
+      setRecentSavedReports([]);
+      setRecentReportsNotice("리포트 클라우드 저장을 사용할 수 없습니다.");
+    } finally {
+      setIsRecentReportsLoading(false);
+    }
+  }, [isSupabaseReady, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setRecentSavedReports([]);
+      setExpandedSavedReportId(null);
+      setRecentReportsNotice("로그인하면 저장한 AI 리포트를 확인할 수 있습니다.");
+      return;
+    }
+
+    void fetchRecentSavedReports();
+  }, [fetchRecentSavedReports, user?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2298,6 +2510,45 @@ export function PortfolioPageClient() {
     }
   }
 
+  async function handleSaveDailyReportToCloud() {
+    if (!user?.id) {
+      setDailyReportCloudNotice("로그인 후 리포트를 클라우드에 저장할 수 있습니다.");
+      return;
+    }
+    if (!isSupabaseReady || !supabase) {
+      setDailyReportCloudNotice("리포트 클라우드 저장을 사용할 수 없습니다.");
+      return;
+    }
+
+    setIsSavingDailyReport(true);
+    try {
+      const reportId = `report-${dailyReportDateText.replace(/-/g, "")}-${Date.now()}`;
+      const payload = {
+        ...dailyReportPayload,
+        createdAt: new Date().toISOString()
+      };
+      const { error } = await supabase.from("portfolio_reports").insert({
+        user_id: user.id,
+        id: reportId,
+        report_date: dailyReportDateText,
+        summary: dailyReportSummaryText,
+        payload
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setDailyReportCloudNotice("오늘의 AI 리포트를 저장했습니다.");
+      await fetchRecentSavedReports();
+    } catch (error) {
+      const message = extractSupabaseErrorMessage(error);
+      setDailyReportCloudNotice(`AI 리포트 저장에 실패했습니다: ${message}`);
+    } finally {
+      setIsSavingDailyReport(false);
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <MobileSectionNav
@@ -2552,6 +2803,14 @@ export function PortfolioPageClient() {
             </button>
             <button
               type="button"
+              onClick={() => void handleSaveDailyReportToCloud()}
+              disabled={isSavingDailyReport}
+              className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 sm:h-8"
+            >
+              {isSavingDailyReport ? "저장 중..." : "리포트 저장"}
+            </button>
+            <button
+              type="button"
               onClick={() => void handleSaveDailyReportImage()}
               className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 sm:h-8"
             >
@@ -2570,6 +2829,11 @@ export function PortfolioPageClient() {
         {dailyReportImageNotice && (
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
             {dailyReportImageNotice}
+          </p>
+        )}
+        {dailyReportCloudNotice && (
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+            {dailyReportCloudNotice}
           </p>
         )}
 
@@ -2732,6 +2996,106 @@ export function PortfolioPageClient() {
             </article>
           </div>
         )}
+
+        <article className="mt-4 rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+          <h3 className="text-sm font-bold text-ink dark:text-white">최근 저장한 리포트</h3>
+          {!user?.id ? (
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+              로그인하면 저장한 AI 리포트를 확인할 수 있습니다.
+            </p>
+          ) : !isSupabaseReady || !supabase ? (
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+              리포트 클라우드 저장을 사용할 수 없습니다.
+            </p>
+          ) : isRecentReportsLoading ? (
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+              최근 저장한 리포트를 불러오고 있습니다.
+            </p>
+          ) : recentReportsNotice ? (
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+              {recentReportsNotice}
+            </p>
+          ) : (Array.isArray(recentSavedReports) ? recentSavedReports : []).length === 0 ? (
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+              아직 저장된 리포트가 없습니다.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-2">
+              {(Array.isArray(recentSavedReports) ? recentSavedReports : []).slice(0, 5).map((report) => {
+                const savedAtText = report.createdAt
+                  ? new Date(report.createdAt).toLocaleString("ko-KR")
+                  : "-";
+                const safePayload = report.payload;
+                const topWatch = Array.isArray(safePayload?.topWatchItems)
+                  ? safePayload?.topWatchItems
+                  : [];
+                const topWatchText =
+                  topWatch.length > 0
+                    ? topWatch
+                        .slice(0, 3)
+                        .map((item) => `${safeText(item.stockName)}(${safeText(item.symbol)})`)
+                        .join(", ")
+                    : "데이터 없음";
+                const isExpanded = expandedSavedReportId === report.id;
+                return (
+                  <article
+                    key={report.id}
+                    className="rounded-md border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-ink dark:text-white">
+                          {report.reportDate}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                          {safeText(report.summary, "요약 데이터 없음")}
+                        </p>
+                        <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          저장 시간: {savedAtText}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSavedReportId((current) =>
+                            current === report.id ? null : report.id
+                          )
+                        }
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-slate-50 px-2 text-[11px] font-bold text-slate-700 hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+                      >
+                        간단 보기
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="mt-2 rounded-md border border-line bg-slate-50 p-2 dark:border-dark-line dark:bg-slate-900/50">
+                        {safePayload ? (
+                          <div className="grid gap-1">
+                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                              총 보유 종목 수: {formatNumber(safeNumber(safePayload.totalHoldings))}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                              평균 수익률: {formatPercent(safeNumber(safePayload.averageReturnRate))}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                              리스크 종목 수: {formatNumber(safeNumber(safePayload.riskCount))}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                              오늘 먼저 확인할 종목: {topWatchText}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            리포트 payload를 확인할 수 없습니다.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </article>
       </section>
 
       <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
