@@ -27,6 +27,18 @@ function safeValue(value: number | null | undefined) {
   return Number.isFinite(value ?? NaN) ? (value as number) : null;
 }
 
+function getTokenThrottleRemainingSeconds(snapshot: MarketDataDebugSnapshot) {
+  const baseRemaining = snapshot.kisEndpointDiagnosis.tokenThrottle.secondsUntilNextRequest;
+  const lastRequestAt = snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt;
+  if (!lastRequestAt) return Math.max(0, Math.ceil(baseRemaining));
+
+  const lastRequestMs = Date.parse(lastRequestAt);
+  if (!Number.isFinite(lastRequestMs)) return Math.max(0, Math.ceil(baseRemaining));
+  const elapsedMs = Date.now() - lastRequestMs;
+  const dynamicRemaining = Math.ceil((60_000 - elapsedMs) / 1000);
+  return Math.max(0, Math.min(Math.ceil(baseRemaining), dynamicRemaining));
+}
+
 function renderErrorInfo(result: SourceCheckResult) {
   if (result.success) {
     return <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">정상 응답</p>;
@@ -63,6 +75,14 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
   );
 
   const handleReload = async () => {
+    const remainingSeconds = getTokenThrottleRemainingSeconds(snapshot);
+    if (remainingSeconds > 0) {
+      setStatusMessage(
+        `KIS token 발급 제한을 피하기 위해 잠시 후 다시 시도해주세요. 남은 시간: ${remainingSeconds}초`
+      );
+      return;
+    }
+
     setLoading(true);
     setStatusMessage(null);
 
@@ -116,6 +136,36 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
       lines.push("[KIS Endpoint 진단]");
       lines.push(`endpoint 유형: ${snapshot.kisEndpointDiagnosis.endpointTypeLabel}`);
       lines.push(`모의 endpoint 여부: ${snapshot.kisEndpointDiagnosis.isMockEndpoint ? "예" : "아니오"}`);
+      lines.push(`token cache: ${snapshot.kisEndpointDiagnosis.tokenCache.tokenCache}`);
+      lines.push(`token reused: ${snapshot.kisEndpointDiagnosis.tokenCache.tokenReused ? "true" : "false"}`);
+      lines.push(
+        `본차수 token 요청 실행 여부: ${
+          snapshot.kisEndpointDiagnosis.tokenThrottle.requestedThisRun ? "true" : "false"
+        }`
+      );
+      lines.push(
+        `60초 제한으로 token 요청 생략 여부: ${
+          snapshot.kisEndpointDiagnosis.tokenThrottle.skippedByCooldown ? "true" : "false"
+        }`
+      );
+      lines.push(
+        `다음 token 요청 가능까지 남은 시간: ${snapshot.kisEndpointDiagnosis.tokenThrottle.secondsUntilNextRequest}초`
+      );
+      lines.push(
+        `token expiresAt: ${
+          snapshot.kisEndpointDiagnosis.tokenCache.expiresAt
+            ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.expiresAt)
+            : "확인 불가"
+        }`
+      );
+      lines.push(
+        `lastTokenRequestAt: ${
+          snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt
+            ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt)
+            : "확인 불가"
+        }`
+      );
+      lines.push(`lastTokenError: ${snapshot.kisEndpointDiagnosis.tokenCache.lastTokenError ?? "없음"}`);
       lines.push(
         `KIS token 상태: ${snapshot.kisEndpointDiagnosis.token.success ? "성공" : "실패"} (HTTP ${
           snapshot.kisEndpointDiagnosis.token.status ?? "N/A"
@@ -144,6 +194,30 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
           snapshot.kisEndpointDiagnosis.quoteProbe.status ?? "N/A"
         })`
       );
+      if (snapshot.kisEndpointDiagnosis.quoteProbeCache) {
+        lines.push(`KIS quote cache: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.quoteCache}`);
+        lines.push(
+          `KIS quote reused: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.quoteReused ? "true" : "false"}`
+        );
+        lines.push(
+          `KIS quote rate limited: ${
+            snapshot.kisEndpointDiagnosis.quoteProbeCache.quoteRateLimited ? "true" : "false"
+          }`
+        );
+        lines.push(
+          `KIS quote next request wait: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.secondsUntilNextQuoteRequest}초`
+        );
+        lines.push(
+          `KIS quote last request: ${
+            snapshot.kisEndpointDiagnosis.quoteProbeCache.lastQuoteRequestAt
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.quoteProbeCache.lastQuoteRequestAt)
+              : "확인 불가"
+          }`
+        );
+        lines.push(
+          `KIS quote last error: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.lastQuoteError ?? "없음"}`
+        );
+      }
       lines.push(
         `KIS quote rt_cd/msg_cd/msg1: ${snapshot.kisEndpointDiagnosis.quoteProbe.rtCd ?? "N/A"} / ${
           snapshot.kisEndpointDiagnosis.quoteProbe.msgCd ?? "N/A"
@@ -190,6 +264,22 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
           }`
         );
         lines.push(`  KIS 오류 분류: ${stock.kis.diagnosisCategory ?? "정상 응답"}`);
+        lines.push(`  KIS quote cache: ${stock.kis.quoteCache ?? "N/A"}`);
+        lines.push(`  KIS quote reused: ${stock.kis.quoteReused ? "true" : "false"}`);
+        lines.push(`  KIS quote rate limited: ${stock.kis.quoteRateLimited ? "true" : "false"}`);
+        lines.push(
+          `  KIS quote next request wait: ${
+            Number.isFinite(stock.kis.secondsUntilNextQuoteRequest ?? NaN)
+              ? stock.kis.secondsUntilNextQuoteRequest
+              : 0
+          }초`
+        );
+        lines.push(
+          `  KIS quote last request: ${
+            stock.kis.lastQuoteRequestAt ? formatDateTime(stock.kis.lastQuoteRequestAt) : "확인 불가"
+          }`
+        );
+        lines.push(`  KIS quote last error: ${stock.kis.lastQuoteError ?? "없음"}`);
         if (stock.kis.diagnosisDescription) {
           lines.push(`  KIS 오류 내용: ${stock.kis.diagnosisDescription}`);
         }
@@ -306,6 +396,53 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
             모의 endpoint 여부: {snapshot.kisEndpointDiagnosis.isMockEndpoint ? "예" : "아니오"}
           </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            token cache: {snapshot.kisEndpointDiagnosis.tokenCache.tokenCache}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            token reused: {snapshot.kisEndpointDiagnosis.tokenCache.tokenReused ? "true" : "false"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            본차수 token 요청 실행:{" "}
+            {snapshot.kisEndpointDiagnosis.tokenThrottle.requestedThisRun ? "true" : "false"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            60초 제한으로 생략:{" "}
+            {snapshot.kisEndpointDiagnosis.tokenThrottle.skippedByCooldown ? "true" : "false"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            다음 token 요청 가능: {snapshot.kisEndpointDiagnosis.tokenThrottle.secondsUntilNextRequest}초 후
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            token expiresAt:{" "}
+            {snapshot.kisEndpointDiagnosis.tokenCache.expiresAt
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.expiresAt)
+              : "확인 불가"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            quote cache(005930 probe): {snapshot.kisEndpointDiagnosis.quoteProbeCache?.quoteCache ?? "N/A"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            quote reused:{" "}
+            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.quoteReused ? "true" : "false"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            quote rate limited:{" "}
+            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.quoteRateLimited ? "true" : "false"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            quote next request 가능:{" "}
+            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.secondsUntilNextQuoteRequest ?? 0}초 후
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            lastTokenRequestAt:{" "}
+            {snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt)
+              : "확인 불가"}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50 sm:col-span-2">
+            lastTokenError: {snapshot.kisEndpointDiagnosis.tokenCache.lastTokenError ?? "없음"}
+          </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50 sm:col-span-2">
             KIS_BASE_URL 예시: 모의 https://openapivts.koreainvestment.com:29443 / 실전
             https://openapi.koreainvestment.com:9443
@@ -416,6 +553,24 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
                   </p>
                   <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     msg1: {result.kis.msg1 ?? "N/A"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    quote cache: {result.kis.quoteCache ?? "N/A"} / reused:{" "}
+                    {result.kis.quoteReused ? "true" : "false"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    quote rate limited: {result.kis.quoteRateLimited ? "true" : "false"} / next request:{" "}
+                    {Number.isFinite(result.kis.secondsUntilNextQuoteRequest ?? NaN)
+                      ? result.kis.secondsUntilNextQuoteRequest
+                      : 0}
+                    초
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    lastQuoteRequestAt:{" "}
+                    {result.kis.lastQuoteRequestAt ? formatDateTime(result.kis.lastQuoteRequestAt) : "확인 불가"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    lastQuoteError: {result.kis.lastQuoteError ?? "없음"}
                   </p>
                   {renderErrorInfo(result.kis)}
                 </div>

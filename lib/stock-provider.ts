@@ -998,12 +998,10 @@ export async function getStocksWithPreferredQuote(inputStocks: Stock[]): Promise
   }
 
   const quotedMap = new Map<string, Stock>();
-  await Promise.all(
-    Array.from(stocksBySymbol.entries()).map(async ([symbol, stock]) => {
-      const quoted = await getStockWithPreferredQuote(stock);
-      quotedMap.set(symbol, quoted);
-    })
-  );
+  for (const [symbol, stock] of Array.from(stocksBySymbol.entries())) {
+    const quoted = await getStockWithPreferredQuote(stock);
+    quotedMap.set(symbol, quoted);
+  }
 
   return safeStocks.map((stock) => quotedMap.get(stock.symbol) ?? withFallbackQuoteSource(stock));
 }

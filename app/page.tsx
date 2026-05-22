@@ -36,10 +36,12 @@ export default async function Home() {
     getPotentialRadar(),
     getDangerWarnings()
   ]);
-  const [allStocks, popularStocks] = await Promise.all([
-    getStocksWithPreferredQuote(Array.isArray(fetchedAllStocks) ? fetchedAllStocks : []),
-    getStocksWithPreferredQuote(Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : [])
-  ]);
+  const allStocks = await getStocksWithPreferredQuote(
+    Array.isArray(fetchedAllStocks) ? fetchedAllStocks : []
+  );
+  const popularStocks = await getStocksWithPreferredQuote(
+    Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : []
+  );
 
   const safeAllStocks = Array.isArray(allStocks) ? allStocks : [];
   const safePopularStocks = Array.isArray(popularStocks) ? popularStocks : [];

@@ -1,3 +1,12 @@
+import {
+  getKisAccessToken,
+  getKisQuoteCacheSnapshot,
+  getKisTokenCacheSnapshot,
+  getRealtimeQuote,
+  type KisQuoteCacheSnapshot,
+  type KisTokenCacheSnapshot
+} from "@/lib/providers/kis";
+
 export type DebugStockTarget = {
   code: string;
   name: string;
@@ -21,6 +30,12 @@ export type SourceCheckResult = {
   rtCd: string | null;
   msgCd: string | null;
   msg1: string | null;
+  quoteCache?: "있음" | "없음" | null;
+  quoteReused?: boolean;
+  quoteRateLimited?: boolean;
+  lastQuoteRequestAt?: string | null;
+  lastQuoteError?: string | null;
+  secondsUntilNextQuoteRequest?: number;
   diagnosisCategory: FailureCategory | null;
   diagnosisDescription: string | null;
   showFetchHint: boolean;
@@ -67,7 +82,15 @@ export type MarketDataDebugSnapshot = {
     isMockEndpoint: boolean;
     endpointTypeLabel: "모의 endpoint" | "실전 endpoint" | "사용자 지정 endpoint";
     token: KisEndpointStep;
+    tokenCache: KisTokenCacheSnapshot;
+    tokenThrottle: {
+      requestedThisRun: boolean;
+      reusedToken: boolean;
+      skippedByCooldown: boolean;
+      secondsUntilNextRequest: number;
+    };
     quoteProbe: KisEndpointStep;
+    quoteProbeCache: KisQuoteCacheSnapshot | null;
     endpointWarning: string | null;
   };
   stocks: MarketDataResult[];
@@ -85,10 +108,15 @@ type FetchJsonResult = {
 type KisTokenResult = {
   step: KisEndpointStep;
   accessToken: string | null;
+  tokenCacheSnapshot: KisTokenCacheSnapshot;
+  requestedThisRun: boolean;
+  skippedByCooldown: boolean;
+  secondsUntilNextRequest: number;
 };
 
 const DATA_GO_ENDPOINT =
   "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo";
+const TOKEN_REQUEST_COOLDOWN_MS = 60_000;
 
 const DEFAULT_TARGET_STOCKS: DebugStockTarget[] = [
   { code: "005930", name: "삼성전자" },
@@ -120,13 +148,6 @@ function formatBasDt(value: unknown) {
   const digits = value.trim();
   if (!/^\d{8}$/.test(digits)) return null;
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
-}
-
-function formatCntgHour(value: unknown) {
-  if (typeof value !== "string") return null;
-  const digits = value.trim();
-  if (!/^\d{6}$/.test(digits)) return null;
-  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4, 6)}`;
 }
 
 function encodeServiceKey(apiKey: string) {
@@ -230,6 +251,14 @@ function classifyFailure(
     };
   }
 
+  if (merged.includes("초당 거래건수") || merged.includes("초당 요청 제한")) {
+    return {
+      category: "API 응답 실패" as const,
+      description: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+      showFetchHint: false
+    };
+  }
+
   if (status === 401 || status === 403) {
     return {
       category: "API 응답 실패" as const,
@@ -299,87 +328,70 @@ function classifyFailure(
   };
 }
 
-function parseKisMeta(json: unknown) {
-  const obj = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
-  return {
-    rtCd: asString(obj?.rt_cd) ?? asString(obj?.rtCd),
-    msgCd: asString(obj?.msg_cd) ?? asString(obj?.msgCd) ?? asString(obj?.error_code),
-    msg1: asString(obj?.msg1) ?? asString(obj?.message) ?? asString(obj?.error_description)
-  };
-}
-
 async function checkKisToken(env: {
   appKey: string | undefined;
   appSecret: string | undefined;
   baseUrl: string | undefined;
   isMockEndpoint: boolean;
 }): Promise<KisTokenResult> {
-  if (!isNonEmpty(env.appKey) || !isNonEmpty(env.appSecret) || !isNonEmpty(env.baseUrl)) {
-    const base: SourceCheckResult = {
-      success: false,
-      price: null,
-      status: null,
-      updatedAt: null,
-      referenceDate: null,
-      errorMessage: "KIS 환경변수 미설정",
-      errorDetail: null,
-      rtCd: null,
-      msgCd: null,
-      msg1: null,
-      diagnosisCategory: null,
-      diagnosisDescription: null,
-      showFetchHint: false
-    };
-    const diagnosed = classifyFailure(base, { isKisVts: env.isMockEndpoint });
+  const beforeSnapshot = getKisTokenCacheSnapshot();
+  const accessToken = await getKisAccessToken();
+  const tokenCacheSnapshot = getKisTokenCacheSnapshot();
+  const success = typeof accessToken === "string" && accessToken.length > 0;
+  const requestedThisRun =
+    beforeSnapshot.lastTokenRequestAt !== tokenCacheSnapshot.lastTokenRequestAt;
+  const now = Date.now();
+  const lastRequestMs = tokenCacheSnapshot.lastTokenRequestAt
+    ? Date.parse(tokenCacheSnapshot.lastTokenRequestAt)
+    : NaN;
+  const secondsUntilNextRequest =
+    Number.isFinite(lastRequestMs) && lastRequestMs > 0
+      ? Math.max(
+          0,
+          Math.ceil((TOKEN_REQUEST_COOLDOWN_MS - (now - lastRequestMs)) / 1000)
+        )
+      : 0;
+  const skippedByCooldown =
+    !requestedThisRun &&
+    secondsUntilNextRequest > 0 &&
+    (tokenCacheSnapshot.lastTokenError ?? "").includes("1분 후 다시 시도");
+
+  const rawError =
+    tokenCacheSnapshot.lastTokenError ?? (success ? null : "token 발급 실패");
+  const rawMsgCd = tokenCacheSnapshot.lastTokenMsgCd;
+
+  if (rawMsgCd === "EGW00133" || (rawError ?? "").includes("1분 후 다시 시도")) {
     return {
-      accessToken: null,
+      accessToken,
+      tokenCacheSnapshot,
+      requestedThisRun,
+      skippedByCooldown,
+      secondsUntilNextRequest,
       step: {
-        success: false,
-        status: null,
-        rtCd: null,
-        msgCd: null,
-        msg1: null,
-        errorMessage: base.errorMessage,
-        errorDetail: base.errorDetail,
-        diagnosisCategory: diagnosed.category,
-        diagnosisDescription: diagnosed.description
+        success,
+        status: tokenCacheSnapshot.lastTokenHttpStatus,
+        rtCd: tokenCacheSnapshot.lastTokenRtCd,
+        msgCd: rawMsgCd,
+        msg1: tokenCacheSnapshot.lastTokenMsg1,
+        errorMessage: success ? null : "KIS token 발급 제한 중입니다. 1분 후 다시 시도해주세요.",
+        errorDetail: null,
+        diagnosisCategory: success ? null : "API 응답 실패",
+        diagnosisDescription: success ? null : "KIS token 발급 제한 중입니다. 1분 후 다시 시도해주세요."
       }
     };
   }
 
-  const baseUrl = env.baseUrl!.trim().replace(/\/+$/, "");
-  const tokenPayload = JSON.stringify({
-    grant_type: "client_credentials",
-    appkey: env.appKey!.trim(),
-    appsecret: env.appSecret!.trim()
-  });
-
-  const response = await fetchJson(`${baseUrl}/oauth2/tokenP`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: tokenPayload
-  });
-
-  const meta = parseKisMeta(response.json);
-  const responseObj =
-    response.json && typeof response.json === "object" ? (response.json as Record<string, unknown>) : null;
-  const accessToken = asString(responseObj?.access_token);
-
-  const success = !!response.status && response.status < 400 && isNonEmpty(accessToken ?? undefined);
-  const fallbackMessage =
-    meta.msg1 ?? response.errorMessage ?? response.errorDetail ?? response.text ?? "token 발급 실패";
-
   const baseFailure: SourceCheckResult = {
     success,
     price: null,
-    status: response.status,
+    status: tokenCacheSnapshot.lastTokenHttpStatus,
     updatedAt: null,
     referenceDate: null,
-    errorMessage: success ? null : fallbackMessage,
-    errorDetail: success ? null : response.errorDetail,
-    rtCd: meta.rtCd,
-    msgCd: meta.msgCd,
-    msg1: meta.msg1,
+    errorMessage: success ? null : rawError,
+    errorDetail: null,
+    rtCd: tokenCacheSnapshot.lastTokenRtCd,
+    msgCd: rawMsgCd,
+    msg1: tokenCacheSnapshot.lastTokenMsg1,
     diagnosisCategory: null,
     diagnosisDescription: null,
     showFetchHint: false
@@ -387,15 +399,19 @@ async function checkKisToken(env: {
   const diagnosed = classifyFailure(baseFailure, { isKisVts: env.isMockEndpoint });
 
   return {
-    accessToken: success ? accessToken : null,
+    accessToken,
+    tokenCacheSnapshot,
+    requestedThisRun,
+    skippedByCooldown,
+    secondsUntilNextRequest,
     step: {
       success,
-      status: response.status,
-      rtCd: meta.rtCd,
-      msgCd: meta.msgCd,
-      msg1: meta.msg1,
-      errorMessage: success ? null : fallbackMessage,
-      errorDetail: success ? null : response.errorDetail,
+      status: tokenCacheSnapshot.lastTokenHttpStatus,
+      rtCd: tokenCacheSnapshot.lastTokenRtCd,
+      msgCd: rawMsgCd,
+      msg1: tokenCacheSnapshot.lastTokenMsg1,
+      errorMessage: success ? null : rawError,
+      errorDetail: null,
       diagnosisCategory: diagnosed.category,
       diagnosisDescription: diagnosed.description
     }
@@ -412,6 +428,8 @@ async function checkKisQuote(
   },
   accessToken: string | null
 ): Promise<SourceCheckResult> {
+  const beforeQuoteSnapshot = getKisQuoteCacheSnapshot(code);
+
   if (!(typeof accessToken === "string" && isNonEmpty(accessToken))) {
     const baseFailure: SourceCheckResult = {
       success: false,
@@ -424,6 +442,12 @@ async function checkKisQuote(
       rtCd: null,
       msgCd: null,
       msg1: null,
+      quoteCache: beforeQuoteSnapshot.quoteCache,
+      quoteReused: beforeQuoteSnapshot.quoteReused,
+      quoteRateLimited: beforeQuoteSnapshot.quoteRateLimited,
+      lastQuoteRequestAt: beforeQuoteSnapshot.lastQuoteRequestAt,
+      lastQuoteError: beforeQuoteSnapshot.lastQuoteError,
+      secondsUntilNextQuoteRequest: beforeQuoteSnapshot.secondsUntilNextQuoteRequest,
       diagnosisCategory: null,
       diagnosisDescription: null,
       showFetchHint: false
@@ -449,6 +473,12 @@ async function checkKisQuote(
       rtCd: null,
       msgCd: null,
       msg1: null,
+      quoteCache: beforeQuoteSnapshot.quoteCache,
+      quoteReused: beforeQuoteSnapshot.quoteReused,
+      quoteRateLimited: beforeQuoteSnapshot.quoteRateLimited,
+      lastQuoteRequestAt: beforeQuoteSnapshot.lastQuoteRequestAt,
+      lastQuoteError: beforeQuoteSnapshot.lastQuoteError,
+      secondsUntilNextQuoteRequest: beforeQuoteSnapshot.secondsUntilNextQuoteRequest,
       diagnosisCategory: null,
       diagnosisDescription: null,
       showFetchHint: false
@@ -462,49 +492,35 @@ async function checkKisQuote(
     };
   }
 
-  const baseUrl = env.baseUrl!.trim().replace(/\/+$/, "");
-  const quoteUrl = `${baseUrl}/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${encodeURIComponent(
-    code
-  )}`;
-
-  const response = await fetchJson(quoteUrl, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      authorization: `Bearer ${accessToken}`,
-      appkey: env.appKey!.trim(),
-      appsecret: env.appSecret!.trim(),
-      tr_id: "FHKST01010100",
-      custtype: "P"
-    }
-  });
-
-  const meta = parseKisMeta(response.json);
-  const responseObj =
-    response.json && typeof response.json === "object" ? (response.json as Record<string, unknown>) : null;
-  const output =
-    responseObj && typeof responseObj.output === "object" && responseObj.output !== null
-      ? (responseObj.output as Record<string, unknown>)
-      : null;
-
-  const price = toNumber(output?.stck_prpr);
-  const updatedAt = formatCntgHour(output?.stck_cntg_hour);
-  const referenceDate = formatBasDt(output?.stck_bsop_date);
-  const success = !!response.status && response.status < 400 && Number.isFinite(price ?? NaN) && (price ?? 0) > 0;
+  const quote = await getRealtimeQuote(code);
+  const afterQuoteSnapshot = getKisQuoteCacheSnapshot(code);
+  const price = Number.isFinite(quote?.price ?? NaN) ? (quote?.price as number) : null;
+  const success = Number.isFinite(price ?? NaN) && (price ?? 0) > 0;
   const fallbackMessage =
-    meta.msg1 ?? response.errorMessage ?? response.errorDetail ?? response.text ?? "현재가 조회 실패";
+    afterQuoteSnapshot.lastQuoteError ??
+    afterQuoteSnapshot.lastQuoteMsg1 ??
+    "현재가 조회 실패";
+  const quoteAsOf = typeof quote?.asOf === "string" ? quote.asOf : null;
+  const referenceDateFromAsOf =
+    quoteAsOf && /^\d{4}-\d{2}-\d{2}/.test(quoteAsOf) ? quoteAsOf.slice(0, 10) : null;
 
   const baseResult: SourceCheckResult = {
     success,
     price: success ? price : null,
-    status: response.status,
-    updatedAt,
-    referenceDate,
+    status: afterQuoteSnapshot.lastQuoteHttpStatus,
+    updatedAt: quoteAsOf ?? afterQuoteSnapshot.updatedAt,
+    referenceDate: referenceDateFromAsOf,
     errorMessage: success ? null : fallbackMessage,
-    errorDetail: success ? null : response.errorDetail,
-    rtCd: meta.rtCd,
-    msgCd: meta.msgCd,
-    msg1: meta.msg1,
+    errorDetail: null,
+    rtCd: afterQuoteSnapshot.lastQuoteRtCd,
+    msgCd: afterQuoteSnapshot.lastQuoteMsgCd,
+    msg1: afterQuoteSnapshot.lastQuoteMsg1,
+    quoteCache: afterQuoteSnapshot.quoteCache,
+    quoteReused: afterQuoteSnapshot.quoteReused,
+    quoteRateLimited: afterQuoteSnapshot.quoteRateLimited,
+    lastQuoteRequestAt: afterQuoteSnapshot.lastQuoteRequestAt,
+    lastQuoteError: afterQuoteSnapshot.lastQuoteError,
+    secondsUntilNextQuoteRequest: afterQuoteSnapshot.secondsUntilNextQuoteRequest,
     diagnosisCategory: null,
     diagnosisDescription: null,
     showFetchHint: false
@@ -705,6 +721,21 @@ function getEndpointTypeLabel(baseUrl: string) {
 }
 
 function buildEndpointWarning(baseUrl: string, token: KisEndpointStep, quoteProbe: KisEndpointStep) {
+  if (
+    token.msgCd === "EGW00133" ||
+    (token.errorMessage ?? "").includes("1분 후 다시 시도")
+  ) {
+    return "KIS token 발급 제한 중입니다. 1분 후 다시 시도해주세요.";
+  }
+
+  if (
+    quoteProbe.msgCd === "EGW00201" ||
+    (quoteProbe.msg1 ?? "").includes("초당 거래건수") ||
+    (quoteProbe.errorMessage ?? "").includes("초당 요청 제한")
+  ) {
+    return "KIS 요청 빈도가 높아 초당 거래건수 제한에 걸렸습니다.";
+  }
+
   const isVts = baseUrl.includes("openapivts.koreainvestment.com:29443");
   const hasFailure = !token.success || !quoteProbe.success;
   if (isVts && hasFailure) {
@@ -738,9 +769,35 @@ export async function getMarketDataDebugSnapshot(
   });
 
   const safeTargets = Array.isArray(targets) ? targets : [];
-  const stocks = await Promise.all(
-    safeTargets.map(async (stock) => {
-      const kis = await checkKisQuote(
+  const stocks: MarketDataResult[] = [];
+  let skipRemainingKisQuotes = false;
+
+  for (const stock of safeTargets) {
+    let kis: SourceCheckResult;
+    if (skipRemainingKisQuotes) {
+      kis = {
+        success: false,
+        price: null,
+        status: null,
+        updatedAt: null,
+        referenceDate: null,
+        errorMessage: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+        errorDetail: null,
+        rtCd: null,
+        msgCd: "EGW00201",
+        msg1: "KIS 초당 요청 제한",
+        quoteCache: getKisQuoteCacheSnapshot(stock.code).quoteCache,
+        quoteReused: false,
+        quoteRateLimited: true,
+        lastQuoteRequestAt: getKisQuoteCacheSnapshot(stock.code).lastQuoteRequestAt,
+        lastQuoteError: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+        secondsUntilNextQuoteRequest: getKisQuoteCacheSnapshot(stock.code).secondsUntilNextQuoteRequest,
+        diagnosisCategory: "API 응답 실패",
+        diagnosisDescription: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+        showFetchHint: false
+      };
+    } else {
+      kis = await checkKisQuote(
         stock.code,
         {
           appKey: kisAppKey,
@@ -750,24 +807,36 @@ export async function getMarketDataDebugSnapshot(
         },
         tokenResult.accessToken
       );
-      const dataGo = await checkDataGoClose(stock.code, dataGoApiKey);
-      const gap = getGapInfo(kis, dataGo);
-      return {
-        code: stock.code,
-        name: stock.name,
-        kis,
-        dataGo,
-        finalSourceText: evaluateFinalSource(kis, dataGo),
-        userDisplayMessage: getUserDisplayMessage(kis, dataGo),
-        gapRate: gap.gapRate,
-        gapStatusText: gap.gapStatusText
-      } satisfies MarketDataResult;
-    })
-  );
+
+      if (
+        kis.msgCd === "EGW00201" ||
+        (kis.msg1 ?? "").includes("초당 거래건수") ||
+        (kis.errorMessage ?? "").includes("초당 요청 제한")
+      ) {
+        skipRemainingKisQuotes = true;
+      }
+    }
+
+    const dataGo = await checkDataGoClose(stock.code, dataGoApiKey);
+    const gap = getGapInfo(kis, dataGo);
+    stocks.push({
+      code: stock.code,
+      name: stock.name,
+      kis,
+      dataGo,
+      finalSourceText: evaluateFinalSource(kis, dataGo),
+      userDisplayMessage: getUserDisplayMessage(kis, dataGo),
+      gapRate: gap.gapRate,
+      gapStatusText: gap.gapStatusText
+    } satisfies MarketDataResult);
+  }
 
   const quoteProbeTarget = safeTargets[0];
   const probeQuote = quoteProbeTarget
     ? stocks.find((item) => item.code === quoteProbeTarget.code)?.kis
+    : null;
+  const quoteProbeCache = quoteProbeTarget
+    ? getKisQuoteCacheSnapshot(quoteProbeTarget.code)
     : null;
 
   const quoteProbe: KisEndpointStep = {
@@ -821,7 +890,15 @@ export async function getMarketDataDebugSnapshot(
       isMockEndpoint,
       endpointTypeLabel: getEndpointTypeLabel(kisBaseUrl),
       token: tokenResult.step,
+      tokenCache: tokenResult.tokenCacheSnapshot,
+      tokenThrottle: {
+        requestedThisRun: tokenResult.requestedThisRun,
+        reusedToken: tokenResult.tokenCacheSnapshot.tokenReused,
+        skippedByCooldown: tokenResult.skippedByCooldown,
+        secondsUntilNextRequest: tokenResult.secondsUntilNextRequest
+      },
       quoteProbe,
+      quoteProbeCache,
       endpointWarning
     },
     stocks: safeStocks,
