@@ -32,6 +32,7 @@ type AuthContextValue = {
   supabaseUrl: string;
   supabaseUrlStatus: SupabaseUrlValidationStatus;
   supabaseNotice: string;
+  refreshSession: () => Promise<Session | null>;
   signInWithMagicLink: (email: string, redirectTo?: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 };
@@ -61,6 +62,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const refreshSession = useCallback(async () => {
+    if (!supabase || !isSupabaseConfigured) {
+      setSession(null);
+      setUser(null);
+      setIsLoading(false);
+      return null;
+    }
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const nextSession = data.session ?? null;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      return nextSession;
+    } catch {
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) {
       setSession(null);
@@ -70,17 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     let mounted = true;
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (!mounted) return;
-        const nextSession = data.session ?? null;
-        setSession(nextSession);
-        setUser(nextSession?.user ?? null);
-      })
-      .finally(() => {
-        if (mounted) setIsLoading(false);
-      });
+    void refreshSession().finally(() => {
+      if (mounted) setIsLoading(false);
+    });
 
     const {
       data: { subscription }
@@ -94,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshSession]);
 
   const signInWithMagicLink = useCallback(
     async (email: string, redirectTo?: string): Promise<AuthActionResult> => {
@@ -180,10 +194,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabaseUrl: supabasePublicUrl,
       supabaseUrlStatus: supabaseUrlValidationStatus,
       supabaseNotice: supabaseConfigMessage || "",
+      refreshSession,
       signInWithMagicLink,
       signOut
     }),
-    [isLoading, session, signInWithMagicLink, signOut, user]
+    [isLoading, refreshSession, session, signInWithMagicLink, signOut, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

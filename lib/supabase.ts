@@ -90,5 +90,13 @@ export const supabaseConfigMessage = supabaseUrlError
 
 export const supabase =
   isSupabaseConfigured
-    ? createClient(rawSupabaseUrl, rawSupabaseAnonKey)
+    ? createClient(rawSupabaseUrl, rawSupabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: "pkce",
+          storageKey: "krx-insight-auth"
+        }
+      })
     : null;

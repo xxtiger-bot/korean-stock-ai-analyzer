@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { BarChart3, BriefcaseBusiness, Mail, Star, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/components/auth-provider";
 
@@ -36,6 +36,14 @@ export function SiteHeader() {
           : supabaseUrlStatus === "example-url"
             ? "URL 예시 aBcDe"
             : "URL 형식 오류";
+
+  useEffect(() => {
+    if (user) {
+      setAuthNotice("");
+      setModalNotice("");
+      setIsLoginModalOpen(false);
+    }
+  }, [user]);
 
   function handleOpenLogin() {
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
