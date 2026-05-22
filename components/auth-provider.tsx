@@ -22,6 +22,7 @@ import {
 type AuthActionResult = {
   ok: boolean;
   message?: string;
+  statusCode?: number;
 };
 
 type AuthContextValue = {
@@ -33,7 +34,8 @@ type AuthContextValue = {
   supabaseUrlStatus: SupabaseUrlValidationStatus;
   supabaseNotice: string;
   refreshSession: () => Promise<Session | null>;
-  signInWithMagicLink: (email: string, redirectTo?: string) => Promise<AuthActionResult>;
+  sendEmailOtpCode: (email: string) => Promise<AuthActionResult>;
+  verifyEmailOtpCode: (email: string, code: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 };
 
@@ -55,7 +57,7 @@ function mapAuthErrorMessage(rawMessage: string): string {
     return NETWORK_BLOCKED_MESSAGE;
   }
 
-  return message || "로그인 링크 전송에 실패했습니다.";
+  return message || "인증코드 전송에 실패했습니다.";
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -127,59 +129,133 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshSession]);
 
-  const signInWithMagicLink = useCallback(
-    async (email: string, redirectTo?: string): Promise<AuthActionResult> => {
+  const sendEmailOtpCode = useCallback(async (email: string): Promise<AuthActionResult> => {
+    if (supabaseUrlError) {
+      return {
+        ok: false,
+        message: "Supabase URL 설정을 확인해주세요.",
+        statusCode: 0
+      };
+    }
+
+    if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
+      return {
+        ok: false,
+        message: "클라우드 동기화 미설정",
+        statusCode: 0
+      };
+    }
+
+    const safeEmail = typeof email === "string" ? email.trim() : "";
+    if (!safeEmail) {
+      return {
+        ok: false,
+        message: "이메일을 확인해주세요.",
+        statusCode: 0
+      };
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: safeEmail,
+        options: {
+          shouldCreateUser: true
+        }
+      });
+
+      if (error) {
+        const statusCode =
+          typeof (error as { status?: unknown }).status === "number"
+            ? ((error as { status: number }).status ?? 0)
+            : 0;
+        return {
+          ok: false,
+          message: mapAuthErrorMessage(error.message ?? ""),
+          statusCode
+        };
+      }
+
+      return {
+        ok: true,
+        message: "인증코드를 이메일로 보냈습니다.",
+        statusCode: 200
+      };
+    } catch (error) {
+      const fallbackMessage =
+        error instanceof Error ? mapAuthErrorMessage(error.message) : NETWORK_BLOCKED_MESSAGE;
+      return {
+        ok: false,
+        message: fallbackMessage,
+        statusCode: 0
+      };
+    }
+  }, []);
+
+  const verifyEmailOtpCode = useCallback(
+    async (email: string, code: string): Promise<AuthActionResult> => {
       if (supabaseUrlError) {
         return {
           ok: false,
-          message: "Supabase URL 설정을 확인해주세요."
+          message: "Supabase URL 설정을 확인해주세요.",
+          statusCode: 0
         };
       }
 
       if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
         return {
           ok: false,
-          message: "클라우드 동기화 미설정"
+          message: "클라우드 동기화 미설정",
+          statusCode: 0
         };
       }
 
       const safeEmail = typeof email === "string" ? email.trim() : "";
+      const safeCode = typeof code === "string" ? code.trim() : "";
       if (!safeEmail) {
         return {
           ok: false,
-          message: "이메일을 확인해주세요."
+          message: "이메일을 확인해주세요.",
+          statusCode: 0
+        };
+      }
+      if (!safeCode) {
+        return {
+          ok: false,
+          message: "인증코드를 입력해주세요.",
+          statusCode: 0
         };
       }
       try {
-        const emailRedirectTo =
-          typeof redirectTo === "string" && redirectTo.trim()
-            ? redirectTo.trim()
-            : `${window.location.origin}/auth/callback`;
-
-        const { error } = await supabase.auth.signInWithOtp({
+        const { error } = await supabase.auth.verifyOtp({
           email: safeEmail,
-          options: {
-            emailRedirectTo
-          }
+          token: safeCode,
+          type: "email"
         });
 
         if (error) {
+          const statusCode =
+            typeof (error as { status?: unknown }).status === "number"
+              ? ((error as { status: number }).status ?? 0)
+              : 0;
           return {
             ok: false,
-            message: mapAuthErrorMessage(error.message ?? "")
+            message: mapAuthErrorMessage(error.message ?? ""),
+            statusCode
           };
         }
 
         return {
           ok: true,
-          message: "로그인 링크를 이메일로 보냈습니다."
+          message: "로그인되었습니다.",
+          statusCode: 200
         };
       } catch (error) {
         const fallbackMessage =
           error instanceof Error ? mapAuthErrorMessage(error.message) : NETWORK_BLOCKED_MESSAGE;
         return {
           ok: false,
-          message: fallbackMessage
+          message: fallbackMessage,
+          statusCode: 0
         };
       }
     },
@@ -212,10 +288,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabaseUrlStatus: supabaseUrlValidationStatus,
       supabaseNotice: supabaseConfigMessage || "",
       refreshSession,
-      signInWithMagicLink,
+      sendEmailOtpCode,
+      verifyEmailOtpCode,
       signOut
     }),
-    [isLoading, refreshSession, session, signInWithMagicLink, signOut, user]
+    [isLoading, refreshSession, sendEmailOtpCode, session, signOut, user, verifyEmailOtpCode]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
