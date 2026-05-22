@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 
 const AUTH_EMAIL_COOLDOWN_KEY = "authEmailCooldownUntil";
 const AUTH_EMAIL_COOLDOWN_SECONDS = 60;
-const AUTH_EMAIL_RATE_LIMIT_COOLDOWN_SECONDS = 600;
+const AUTH_EMAIL_RATE_LIMIT_COOLDOWN_SECONDS = 180;
 
 export function SiteHeader() {
   const {
@@ -140,7 +140,7 @@ export function SiteHeader() {
           lowerMessage.includes("email rate limit exceeded") ||
           lowerMessage.includes("rate limit");
         const message = isRateLimited
-          ? "로그인 이메일 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          ? "로그인 이메일 요청이 너무 많습니다. 3분 후 다시 시도해주세요."
           : rawMessage;
         setModalNotice(message);
         setAuthNotice(message);
