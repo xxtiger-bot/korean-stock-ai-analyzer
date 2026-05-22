@@ -5,6 +5,7 @@ import { DISCLAIMER } from "@/lib/insights";
 import type {
   Candle,
   ForeignOwnershipData,
+  PriceGuard,
   RealtimeQuote,
   Stock,
   TechnicalPoint
@@ -28,6 +29,7 @@ type TradingJudgement = {
   closeSourceText: string;
   technicalSourceText: string;
   foreignOwnershipText: string;
+  priceAnomalyNote: string;
 };
 
 function n(value: unknown, fallback = 0): number {
@@ -76,7 +78,8 @@ function computeJudgement(
   candles: Candle[],
   technicalSeries: TechnicalPoint[],
   realtimeQuote?: RealtimeQuote | null,
-  foreignOwnership?: ForeignOwnershipData | null
+  foreignOwnership?: ForeignOwnershipData | null,
+  priceGuard?: PriceGuard | null
 ): TradingJudgement | null {
   const safeCandles = Array.isArray(candles) ? candles : [];
   const safeSeries = Array.isArray(technicalSeries) ? technicalSeries : [];
@@ -98,6 +101,8 @@ function computeJudgement(
     realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
       ? n(realtimeQuote.price)
       : null;
+  const hasPriceAnomaly =
+    priceGuard?.status === "warning" || priceGuard?.status === "critical";
   const currentPrice = realtimePrice ?? recentClose;
 
   const ma5 = n(latest.ma5, n(stock.ma5, recentClose));
@@ -208,6 +213,9 @@ function computeJudgement(
       `외국인 보유율 ${foreignOwnershipRatio.toFixed(2)}%로 수급 변동성 확인이 필요합니다.`
     );
   }
+  if (hasPriceAnomaly) {
+    cautionReasons.push("현재가 데이터 차이가 커서 보수적으로 해석해야 합니다.");
+  }
 
   if (normalizedScore >= 76) {
     riskManagementReasons.push("판단 점수가 높아 리스크 관리 우선 관찰이 필요한 구간입니다.");
@@ -239,6 +247,9 @@ function computeJudgement(
       volumeChange
     )}) 변화 확인`
   );
+  if (hasPriceAnomaly) {
+    nextChecks.push("KIS 현재가와 data.go.kr 최근 종가의 차이 축소 여부를 재확인");
+  }
 
   const realtimeSourceText =
     realtimePrice !== null
@@ -251,6 +262,9 @@ function computeJudgement(
     foreignOwnershipRatio !== null
       ? `외국인 보유율 ${foreignOwnershipRatio.toFixed(2)}% (KIS 기준)도 수급 참고 요소로 반영했습니다.`
       : "외국인 보유율 데이터는 확인 필요 상태이며 판단 점수 계산에는 영향 없이 처리했습니다.";
+  const priceAnomalyNote = hasPriceAnomaly
+    ? "현재가 데이터 차이가 커서 보수적으로 해석해야 합니다."
+    : "";
 
   return {
     score: normalizedScore,
@@ -263,7 +277,8 @@ function computeJudgement(
     realtimeSourceText,
     closeSourceText,
     technicalSourceText,
-    foreignOwnershipText
+    foreignOwnershipText,
+    priceAnomalyNote
   };
 }
 
@@ -288,20 +303,23 @@ export function AiTradingJudgementCard({
   candles,
   technicalSeries,
   realtimeQuote,
-  foreignOwnership
+  foreignOwnership,
+  priceGuard
 }: {
   stock: Stock;
   candles: Candle[];
   technicalSeries: TechnicalPoint[];
   realtimeQuote?: RealtimeQuote | null;
   foreignOwnership?: ForeignOwnershipData | null;
+  priceGuard?: PriceGuard | null;
 }) {
   const judgement = computeJudgement(
     stock,
     candles,
     technicalSeries,
     realtimeQuote,
-    foreignOwnership
+    foreignOwnership,
+    priceGuard
   );
 
   if (!judgement) {
@@ -361,6 +379,7 @@ export function AiTradingJudgementCard({
         <p>{judgement.closeSourceText}</p>
         <p>{judgement.technicalSourceText}</p>
         <p>{judgement.foreignOwnershipText}</p>
+        {judgement.priceAnomalyNote ? <p>{judgement.priceAnomalyNote}</p> : null}
       </div>
 
       <div className="mt-4 grid gap-4">

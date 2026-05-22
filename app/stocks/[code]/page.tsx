@@ -4,7 +4,8 @@ import {
   getForeignOwnership,
   getRealtimeQuote,
   getStockCandles,
-  getStockDetail
+  getStockDetail,
+  validateQuoteAgainstClose
 } from "@/lib/stock-provider";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +28,16 @@ export default async function StockPage({ params }: { params: { code: string } }
   if (!stock || stock.symbol !== code) {
     notFound();
   }
+  const priceGuard = validateQuoteAgainstClose(realtimeQuote?.price, stock.price);
+  const safeRealtimeQuote = priceGuard.status === "critical" ? null : realtimeQuote;
 
   return (
     <StockDetailClient
       stock={stock}
       candles={candles}
-      realtimeQuote={realtimeQuote}
+      realtimeQuote={safeRealtimeQuote}
       foreignOwnership={foreignOwnership}
+      priceGuard={priceGuard}
     />
   );
 }

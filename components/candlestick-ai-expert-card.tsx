@@ -3,7 +3,7 @@
 import { AlertTriangle } from "lucide-react";
 import { formatKRW, formatPercent } from "@/lib/format";
 import { DISCLAIMER } from "@/lib/insights";
-import type { Candle, RealtimeQuote, Stock, TechnicalPoint } from "@/lib/types";
+import type { Candle, PriceGuard, RealtimeQuote, Stock, TechnicalPoint } from "@/lib/types";
 
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -50,12 +50,14 @@ export function CandlestickAiExpertCard({
   stock,
   candles,
   technicalSeries,
-  realtimeQuote
+  realtimeQuote,
+  priceGuard
 }: {
   stock: Stock;
   candles: Candle[];
   technicalSeries: TechnicalPoint[];
   realtimeQuote?: RealtimeQuote | null;
+  priceGuard?: PriceGuard | null;
 }) {
   const safeCandles = Array.isArray(candles) ? candles : [];
   const safeSeries = Array.isArray(technicalSeries) ? technicalSeries : [];
@@ -84,6 +86,8 @@ export function CandlestickAiExpertCard({
   const hasRealtimePrice = Boolean(
     realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
   );
+  const hasPriceAnomaly =
+    priceGuard?.status === "warning" || priceGuard?.status === "critical";
   const currentPrice = hasRealtimePrice ? safeNumber(realtimeQuote?.price) : safeNumber(latest?.close, safeNumber(stock.price));
   const recentClose = safeNumber(latest?.close, safeNumber(stock.price));
   const chartBaseDate = typeof latest?.date === "string" && latest.date ? latest.date : stock.date ?? "확인 필요";
@@ -143,6 +147,9 @@ export function CandlestickAiExpertCard({
   if (cautionSignals.length === 0) {
     cautionSignals.push("현재 과열·추격 위험은 제한적이지만 변동성 확대 여부를 계속 관찰해야 합니다.");
   }
+  if (hasPriceAnomaly) {
+    cautionSignals.push("현재가 데이터 차이가 커서 보수적으로 해석해야 합니다.");
+  }
 
   const nextChecks = [
     `다음 종가가 MA20(${formatKRW(ma20)}) 위에서 유지되는지 확인 필요`,
@@ -164,6 +171,11 @@ export function CandlestickAiExpertCard({
         </p>
         <p>최근 종가: {formatKRW(recentClose)} · data.go.kr 일별 종가 기준</p>
         <p>차트 기준일: {chartBaseDate}</p>
+        {hasPriceAnomaly ? (
+          <p className="text-amber-700 dark:text-amber-200">
+            현재가 데이터 차이가 커서 보수적으로 해석해야 합니다.
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-4 grid gap-4">

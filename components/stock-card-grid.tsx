@@ -28,25 +28,48 @@ function getQuoteMeta(stock: Stock) {
 
   if (stock.quoteSource === "data.go.kr") {
     return {
-      label: "최근 종가",
-      sourceText: "최근 종가: data.go.kr",
+      label: "현재가 확인 불가",
+      sourceText: "data.go.kr 일별 종가 기준",
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
 
   if (stock.quoteSource === "none") {
     return {
-      label: "데이터 없음",
-      sourceText: "데이터 없음",
+      label: "현재가 데이터 없음",
+      sourceText: "최근 종가 참고",
       hasPrice: false
     };
   }
 
   const tagSource = getDataSource(stock);
   return {
-    label: "최근 종가",
-    sourceText: tagSource === "data.go.kr" ? "최근 종가: data.go.kr" : "데이터 없음",
+    label: tagSource === "data.go.kr" ? "현재가 확인 불가" : "현재가 데이터 없음",
+    sourceText: tagSource === "data.go.kr" ? "data.go.kr 일별 종가 기준" : "최근 종가 참고",
     hasPrice: tagSource === "data.go.kr" && Number.isFinite(stock.price) && stock.price > 0
+  };
+}
+
+function getPriceAnomalyMeta(stock: Stock) {
+  const anomaly = stock.priceAnomaly;
+  if (anomaly !== "warning" && anomaly !== "critical") return null;
+
+  const gapRate = Number.isFinite(stock.priceAnomalyGapRate)
+    ? Math.round((stock.priceAnomalyGapRate ?? 0) * 100)
+    : null;
+
+  if (anomaly === "critical") {
+    return {
+      text: `데이터 검증 필요${gapRate !== null ? ` · ${gapRate}%` : ""}`,
+      className:
+        "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100"
+    };
+  }
+
+  return {
+    text: `가격 확인 필요${gapRate !== null ? ` · ${gapRate}%` : ""}`,
+    className:
+      "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
   };
 }
 
@@ -87,6 +110,7 @@ export function StockCardGrid({
           const TrendIcon = positive ? TrendingUp : TrendingDown;
           const dataSource = getDataSource(stock);
           const quoteMeta = getQuoteMeta(stock);
+          const anomalyMeta = getPriceAnomalyMeta(stock);
           const canShowChange = quoteMeta.hasPrice;
           const tags = Array.isArray(stock.tags) ? stock.tags : [];
           const visibleTags = tags.filter(
@@ -128,7 +152,11 @@ export function StockCardGrid({
                 <div>
                   <p className="text-xs font-bold text-slate-400">{quoteMeta.label}</p>
                   <p className="text-lg font-bold text-ink dark:text-white">
-                    {quoteMeta.hasPrice ? formatKRW(stock.price) : "데이터 없음"}
+                    {quoteMeta.hasPrice
+                      ? quoteMeta.label === "현재가"
+                        ? formatKRW(stock.price)
+                        : `최근 종가 ${formatKRW(stock.price)}`
+                      : "최근 종가 참고"}
                   </p>
                   {canShowChange ? (
                     <span
@@ -181,6 +209,13 @@ export function StockCardGrid({
                   {quoteMeta.sourceText}
                   {stock.date ? ` · ${stock.date} 기준` : ""}
                 </span>
+                {anomalyMeta ? (
+                  <span
+                    className={`rounded-md border px-2 py-1 text-xs font-bold ${anomalyMeta.className}`}
+                  >
+                    {anomalyMeta.text}
+                  </span>
+                ) : null}
                 {visibleTags.slice(0, 1).map((tag) => (
                   <span
                     key={tag}

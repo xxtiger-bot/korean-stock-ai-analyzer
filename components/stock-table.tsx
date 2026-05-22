@@ -24,24 +24,39 @@ export function StockTable({ title, stocks }: StockTableProps) {
 
   function getQuoteMeta(stock: Stock) {
     if (stock.quoteSource === "KIS") {
-      return { label: "시세: KIS", hasPrice: Number.isFinite(stock.price) && stock.price > 0 };
+      return {
+        label: "시세: KIS",
+        primaryLabel: "현재가",
+        hasPrice: Number.isFinite(stock.price) && stock.price > 0
+      };
     }
     if (stock.quoteSource === "data.go.kr") {
       return {
-        label: "최근 종가: data.go.kr",
+        label: "data.go.kr 일별 종가 기준",
+        primaryLabel: "현재가 확인 불가",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
     if (stock.quoteSource === "none") {
-      return { label: "데이터 없음", hasPrice: false };
+      return { label: "최근 종가 참고", primaryLabel: "현재가 데이터 없음", hasPrice: false };
     }
 
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      label: isDataGo ? "최근 종가: data.go.kr" : "데이터 없음",
+      label: isDataGo ? "data.go.kr 일별 종가 기준" : "최근 종가 참고",
+      primaryLabel: isDataGo ? "현재가 확인 불가" : "현재가 데이터 없음",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };
+  }
+
+  function getPriceAnomalyText(stock: Stock) {
+    if (stock.priceAnomaly !== "warning" && stock.priceAnomaly !== "critical") return "";
+    const gapRate = Number.isFinite(stock.priceAnomalyGapRate)
+      ? Math.round((stock.priceAnomalyGapRate ?? 0) * 100)
+      : null;
+    const title = stock.priceAnomaly === "critical" ? "데이터 검증 필요" : "가격 확인 필요";
+    return `${title}${gapRate !== null ? ` · ${gapRate}%` : ""}`;
   }
 
   return (
@@ -77,17 +92,26 @@ export function StockTable({ title, stocks }: StockTableProps) {
                   {stock.symbol} · {stock.sector}
                 </p>
                 <p className="mt-1 text-[11px] font-bold text-slate-400">
-                  {getQuoteMeta(stock).label}
+                  {getQuoteMeta(stock).primaryLabel}
                   {stock.date ? ` · ${stock.date} 기준` : ""}
                 </p>
+                {getPriceAnomalyText(stock) ? (
+                  <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
+                    {getPriceAnomalyText(stock)}
+                  </p>
+                ) : null}
               </div>
               <WatchlistButton symbol={stock.symbol} compact />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-semibold">
               <p className="text-slate-600 dark:text-slate-300">
-                가격{" "}
+                {getQuoteMeta(stock).primaryLabel}{" "}
                 <span className="font-bold text-ink dark:text-white">
-                  {getQuoteMeta(stock).hasPrice ? formatKRW(stock.price) : "데이터 없음"}
+                  {getQuoteMeta(stock).hasPrice
+                    ? getQuoteMeta(stock).primaryLabel === "현재가"
+                      ? formatKRW(stock.price)
+                      : `최근 종가 ${formatKRW(stock.price)}`
+                    : "최근 종가 참고"}
                 </span>
               </p>
               <p className="text-slate-600 dark:text-slate-300">
@@ -131,7 +155,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
           <thead>
             <tr className="border-b border-line bg-slate-50 text-xs font-bold uppercase tracking-normal text-slate-400 dark:border-dark-line dark:bg-slate-900/60">
               <th className="px-5 py-3">종목</th>
-              <th className="px-4 py-3 text-right">최근 종가</th>
+              <th className="px-4 py-3 text-right">현재가 / 최근 종가</th>
               <th className="px-4 py-3 text-right">등락률</th>
               <th className="px-4 py-3 text-right">거래량</th>
               <th className="px-4 py-3 text-right">시가총액</th>
@@ -159,13 +183,25 @@ export function StockTable({ title, stocks }: StockTableProps) {
                         {stock.date ? ` · ${stock.date} 기준` : ""}
                       </p>
                       <p className="mt-1 text-[11px] font-bold text-slate-400">
+                        {getQuoteMeta(stock).primaryLabel}
+                      </p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-400">
                         {getQuoteMeta(stock).label}
                       </p>
+                      {getPriceAnomalyText(stock) ? (
+                        <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
+                          {getPriceAnomalyText(stock)}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-right text-sm font-bold text-ink dark:text-white">
-                  {getQuoteMeta(stock).hasPrice ? formatKRW(stock.price) : "데이터 없음"}
+                  {getQuoteMeta(stock).hasPrice
+                    ? getQuoteMeta(stock).primaryLabel === "현재가"
+                      ? formatKRW(stock.price)
+                      : `최근 종가 ${formatKRW(stock.price)}`
+                    : "최근 종가 참고"}
                 </td>
                 <td className="px-4 py-4 text-right">
                   {getQuoteMeta(stock).hasPrice ? (

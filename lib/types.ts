@@ -55,6 +55,15 @@ export type Stock = {
   date?: string;
   quoteSource?: "KIS" | "data.go.kr" | "none";
   quoteLabel?: "현재가" | "최근 종가" | "데이터 없음";
+  priceAnomaly?: "warning" | "critical" | null;
+  priceAnomalyGapRate?: number | null;
+  priceAnomalyMessage?: string | null;
+};
+
+export type PriceGuard = {
+  status: "normal" | "warning" | "critical";
+  gapRate: number | null;
+  message: string | null;
 };
 
 export type Candle = {

@@ -37,6 +37,7 @@ import type {
   ForeignOwnershipData,
   MarketIndex,
   MarketSignal,
+  PriceGuard,
   RealtimeQuote,
   Stock,
   TechnicalPoint
@@ -875,12 +876,43 @@ function hasValidStockPrice(stock: Stock) {
   return Number.isFinite(stock.price) && stock.price > 0;
 }
 
+export function validateQuoteAgainstClose(
+  realtimePrice: number | null | undefined,
+  closePrice: number | null | undefined
+): PriceGuard {
+  const safeRealtime = Number.isFinite(realtimePrice) ? Number(realtimePrice) : 0;
+  const safeClose = Number.isFinite(closePrice) ? Number(closePrice) : 0;
+
+  if (safeRealtime <= 0 || safeClose <= 0) {
+    return { status: "normal", gapRate: null, message: null };
+  }
+
+  const gapRate = Math.abs(safeRealtime - safeClose) / safeClose;
+  if (!Number.isFinite(gapRate)) {
+    return { status: "normal", gapRate: null, message: null };
+  }
+
+  if (gapRate > 0.3) {
+    return {
+      status: gapRate > 0.5 ? "critical" : "warning",
+      gapRate,
+      message:
+        "가격 확인 필요 · KIS 현재가와 data.go.kr 최근 종가 차이가 커서 확인이 필요합니다."
+    };
+  }
+
+  return { status: "normal", gapRate, message: null };
+}
+
 function withFallbackQuoteSource(stock: Stock): Stock {
   if (hasDataGoTag(stock) && hasValidStockPrice(stock)) {
     return {
       ...stock,
       quoteSource: "data.go.kr",
-      quoteLabel: "최근 종가"
+      quoteLabel: "최근 종가",
+      priceAnomaly: null,
+      priceAnomalyGapRate: null,
+      priceAnomalyMessage: null
     };
   }
 
@@ -889,7 +921,10 @@ function withFallbackQuoteSource(stock: Stock): Stock {
     quoteSource: "none",
     quoteLabel: "데이터 없음",
     change: Number.isFinite(stock.change) ? stock.change : 0,
-    changeRate: Number.isFinite(stock.changeRate) ? stock.changeRate : 0
+    changeRate: Number.isFinite(stock.changeRate) ? stock.changeRate : 0,
+    priceAnomaly: null,
+    priceAnomalyGapRate: null,
+    priceAnomalyMessage: null
   };
 }
 
@@ -900,7 +935,22 @@ export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
   }
 
   const quote = await getRealtimeQuote(symbol);
+  const inputClosePrice = hasDataGoTag(stock) && hasValidStockPrice(stock) ? stock.price : null;
+  let referenceClosePrice = inputClosePrice;
+
+  if (!referenceClosePrice && process.env.DATA_GO_KR_API_KEY) {
+    try {
+      const dataGoStock = await getStockDetailFromDataGoKr(symbol);
+      if (dataGoStock && Number.isFinite(dataGoStock.price) && dataGoStock.price > 0) {
+        referenceClosePrice = dataGoStock.price;
+      }
+    } catch {
+      // ignore and fallback safely
+    }
+  }
+
   if (quote && Number.isFinite(quote.price) && quote.price > 0) {
+    const guard = validateQuoteAgainstClose(quote.price, referenceClosePrice);
     return {
       ...stock,
       price: quote.price,
@@ -908,31 +958,29 @@ export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
       changeRate: Number.isFinite(quote.changeRate) ? quote.changeRate : 0,
       volume: Number.isFinite(quote.volume) && quote.volume > 0 ? quote.volume : stock.volume,
       quoteSource: "KIS",
-      quoteLabel: "현재가"
+      quoteLabel: "현재가",
+      priceAnomaly: guard.status === "warning" ? "warning" : null,
+      priceAnomalyGapRate: guard.gapRate,
+      priceAnomalyMessage: guard.message
     };
   }
 
-  if (process.env.DATA_GO_KR_API_KEY) {
-    try {
-      const dataGoStock = await getStockDetailFromDataGoKr(symbol);
-      if (dataGoStock && Number.isFinite(dataGoStock.price) && dataGoStock.price > 0) {
-        return {
-          ...stock,
-          price: dataGoStock.price,
-          change: Number.isFinite(dataGoStock.change) ? dataGoStock.change : 0,
-          changeRate: Number.isFinite(dataGoStock.changeRate) ? dataGoStock.changeRate : 0,
-          volume: Number.isFinite(dataGoStock.volume) && dataGoStock.volume > 0
-            ? dataGoStock.volume
-            : stock.volume,
-          date: dataGoStock.date ?? stock.date,
-          tags: Array.from(new Set([...(Array.isArray(stock.tags) ? stock.tags : []), "data.go.kr"])),
-          quoteSource: "data.go.kr",
-          quoteLabel: "최근 종가"
-        };
-      }
-    } catch {
-      // Fallback is handled below.
-    }
+  if (
+    typeof referenceClosePrice === "number" &&
+    Number.isFinite(referenceClosePrice) &&
+    referenceClosePrice > 0
+  ) {
+    return {
+      ...stock,
+      price: referenceClosePrice,
+      change: Number.isFinite(stock.change) ? stock.change : 0,
+      changeRate: Number.isFinite(stock.changeRate) ? stock.changeRate : 0,
+      quoteSource: "data.go.kr",
+      quoteLabel: "최근 종가",
+      priceAnomaly: null,
+      priceAnomalyGapRate: null,
+      priceAnomalyMessage: null
+    };
   }
 
   return withFallbackQuoteSource(stock);

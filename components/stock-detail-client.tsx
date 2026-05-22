@@ -26,7 +26,7 @@ import {
   formatNumber,
   formatPercent
 } from "@/lib/format";
-import type { Candle, ForeignOwnershipData, RealtimeQuote, Stock } from "@/lib/types";
+import type { Candle, ForeignOwnershipData, PriceGuard, RealtimeQuote, Stock } from "@/lib/types";
 import { useMemo } from "react";
 
 function formatRealtimeUpdatedAt(value: string | undefined) {
@@ -53,12 +53,14 @@ export function StockDetailClient({
   stock,
   candles,
   realtimeQuote,
-  foreignOwnership
+  foreignOwnership,
+  priceGuard
 }: {
   stock: Stock;
   candles: Candle[];
   realtimeQuote?: RealtimeQuote | null;
   foreignOwnership?: ForeignOwnershipData | null;
+  priceGuard?: PriceGuard | null;
 }) {
   const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
   const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
@@ -101,6 +103,16 @@ export function StockDetailClient({
     stock.name && stock.name !== stock.koreanName ? stock.name : undefined;
   const dataDate = stock.date ?? latest?.date;
   const dataDateLabel = dataDate ? `${dataDate} 기준` : "일별 종가 기준";
+  const hasPriceAnomaly =
+    priceGuard?.status === "warning" || priceGuard?.status === "critical";
+  const priceAnomalyGapText =
+    hasPriceAnomaly && Number.isFinite(priceGuard?.gapRate)
+      ? ` (차이 ${Math.round((priceGuard?.gapRate ?? 0) * 100)}%)`
+      : "";
+  const priceAnomalyTitle =
+    priceGuard?.status === "critical" ? "데이터 검증 필요" : "가격 확인 필요";
+  const priceAnomalyDescription =
+    "KIS 현재가와 data.go.kr 최근 종가의 차이가 커서 확인이 필요합니다.";
   const sourceMeta = hasRealtimeQuote
     ? ([
         ["시장", stock.market],
@@ -160,6 +172,21 @@ export function StockDetailClient({
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
               data.go.kr 데이터는 일별 종가 기준이며 실시간 시세가 아닙니다.
             </p>
+            {hasPriceAnomaly && (
+              <div
+                className={`mt-3 rounded-md border px-3 py-2 text-xs font-semibold leading-5 ${
+                  priceGuard?.status === "critical"
+                    ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100"
+                    : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+                }`}
+              >
+                <p className="font-bold">
+                  {priceAnomalyTitle}
+                  {priceAnomalyGapText}
+                </p>
+                <p className="mt-1">{priceAnomalyDescription}</p>
+              </div>
+            )}
             <h1 className="mt-4 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
               {stock.koreanName}
             </h1>
@@ -230,6 +257,7 @@ export function StockDetailClient({
             technicalSeries={technicalSeries}
             realtimeQuote={realtimeQuote}
             foreignOwnership={foreignOwnership}
+            priceGuard={priceGuard}
           />
         </div>
         <div id="detail-chart" className="order-2 min-w-0 max-w-full scroll-mt-32 xl:order-1 xl:col-span-8">
@@ -240,6 +268,7 @@ export function StockDetailClient({
             stock={stock}
             foreignOwnership={foreignOwnership}
             realtimeQuote={realtimeQuote}
+            priceGuard={priceGuard}
           />
           <EntryRiskScoreCard stock={stock} />
           {latest && previous ? (
@@ -260,6 +289,7 @@ export function StockDetailClient({
             candles={safeCandles}
             technicalSeries={technicalSeries}
             realtimeQuote={realtimeQuote}
+            priceGuard={priceGuard}
           />
         </div>
         <div className="order-5 grid min-w-0 max-w-full content-start gap-5 xl:order-6 xl:col-span-4">

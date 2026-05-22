@@ -5,7 +5,13 @@ import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
 import { formatKRW } from "@/lib/format";
-import type { AiReport, ForeignOwnershipData, RealtimeQuote, Stock } from "@/lib/types";
+import type {
+  AiReport,
+  ForeignOwnershipData,
+  PriceGuard,
+  RealtimeQuote,
+  Stock
+} from "@/lib/types";
 
 type AnalysisResponse = {
   source: "openai" | "local";
@@ -92,11 +98,13 @@ function formatForeignOwnershipRatio(data?: ForeignOwnershipData | null) {
 export function AiReportCard({
   stock,
   foreignOwnership,
-  realtimeQuote
+  realtimeQuote,
+  priceGuard
 }: {
   stock: Stock;
   foreignOwnership?: ForeignOwnershipData | null;
   realtimeQuote?: RealtimeQuote | null;
+  priceGuard?: PriceGuard | null;
 }) {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +116,11 @@ export function AiReportCard({
   const reportSourceText = hasRealtimePrice
     ? "본 분석의 현재가는 KIS 기준이며, K선과 기술지표는 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다."
     : "현재가 대신 data.go.kr 최근 종가를 기준으로 표시합니다. K선과 기술지표는 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다.";
+  const hasPriceAnomaly =
+    priceGuard?.status === "warning" || priceGuard?.status === "critical";
+  const priceAnomalyNote = hasPriceAnomaly
+    ? "현재가 데이터 차이가 커서 보수적으로 해석해야 합니다."
+    : "";
 
   async function generateReport() {
     setIsLoading(true);
@@ -163,6 +176,11 @@ export function AiReportCard({
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
             수급 참고: 외국인 보유율 {formatForeignOwnershipRatio(foreignOwnership)} (KIS 기준)
           </p>
+          {hasPriceAnomaly && (
+            <p className="mt-1 text-xs font-semibold leading-5 text-amber-700 dark:text-amber-200">
+              {priceAnomalyNote}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -208,6 +226,11 @@ export function AiReportCard({
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
                   {reportSourceText}
                 </p>
+                {hasPriceAnomaly && (
+                  <p className="mt-1 text-xs font-semibold leading-5 text-amber-700 dark:text-amber-200">
+                    {priceAnomalyNote}
+                  </p>
+                )}
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
                 <ShieldCheck className="h-3.5 w-3.5 text-mint" />

@@ -84,16 +84,16 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
 
     if (stock.quoteSource === "data.go.kr") {
       return {
-        label: "최근 종가",
-        sourceText: "최근 종가: data.go.kr",
+        label: "현재가 확인 불가",
+        sourceText: "data.go.kr 일별 종가 기준",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
 
     if (stock.quoteSource === "none") {
       return {
-        label: "데이터 없음",
-        sourceText: "데이터 없음",
+        label: "현재가 데이터 없음",
+        sourceText: "최근 종가 참고",
         hasPrice: false
       };
     }
@@ -101,10 +101,19 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      label: isDataGo ? "최근 종가" : "데이터 없음",
-      sourceText: isDataGo ? "최근 종가: data.go.kr" : "데이터 없음",
+      label: isDataGo ? "현재가 확인 불가" : "현재가 데이터 없음",
+      sourceText: isDataGo ? "data.go.kr 일별 종가 기준" : "최근 종가 참고",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };
+  }
+
+  function getPriceAnomalyText(stock: Stock) {
+    if (stock.priceAnomaly !== "warning" && stock.priceAnomaly !== "critical") return "";
+    const gapRate = Number.isFinite(stock.priceAnomalyGapRate)
+      ? Math.round((stock.priceAnomalyGapRate ?? 0) * 100)
+      : null;
+    const title = stock.priceAnomaly === "critical" ? "데이터 검증 필요" : "가격 확인 필요";
+    return `${title}${gapRate !== null ? ` · ${gapRate}%` : ""}`;
   }
 
   return (
@@ -166,6 +175,11 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                         <p className="mt-1 text-[11px] font-bold text-slate-400">
                           {quote.sourceText}
                         </p>
+                        {getPriceAnomalyText(stock) ? (
+                          <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
+                            {getPriceAnomalyText(stock)}
+                          </p>
+                        ) : null}
                       </>
                     );
                   })()}
@@ -177,7 +191,11 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                       <>
                         <p className="mb-1 text-[11px] font-bold text-slate-400">{quote.label}</p>
                         <p className="text-sm font-bold text-ink dark:text-white">
-                          {quote.hasPrice ? formatKRW(stock.price) : "데이터 없음"}
+                          {quote.hasPrice
+                            ? quote.label === "현재가"
+                              ? formatKRW(stock.price)
+                              : `최근 종가 ${formatKRW(stock.price)}`
+                            : "최근 종가 참고"}
                         </p>
                         {quote.hasPrice ? (
                           <p className={`mt-1 text-xs font-bold ${changeColorClass(stock.change)}`}>
