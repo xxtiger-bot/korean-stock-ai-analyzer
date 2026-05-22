@@ -6,6 +6,10 @@ import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/components/auth-provider";
 
+const AUTH_EMAIL_COOLDOWN_KEY = "authEmailCooldownUntil";
+const AUTH_EMAIL_COOLDOWN_SECONDS = 60;
+const AUTH_EMAIL_RATE_LIMIT_COOLDOWN_SECONDS = 600;
+
 export function SiteHeader() {
   const {
     user,
@@ -22,6 +26,8 @@ export function SiteHeader() {
   const [loginEmail, setLoginEmail] = useState("");
   const [isSendingLink, setIsSendingLink] = useState(false);
   const [modalNotice, setModalNotice] = useState("");
+  const [emailCooldownUntil, setEmailCooldownUntil] = useState(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const email = typeof user?.email === "string" ? user.email : "";
   const isLocalMode = !user;
@@ -45,6 +51,66 @@ export function SiteHeader() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(AUTH_EMAIL_COOLDOWN_KEY);
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > Date.now()) {
+        setEmailCooldownUntil(parsed);
+        setCooldownSeconds(Math.max(1, Math.ceil((parsed - Date.now()) / 1000)));
+      } else {
+        setEmailCooldownUntil(0);
+        setCooldownSeconds(0);
+        window.localStorage.removeItem(AUTH_EMAIL_COOLDOWN_KEY);
+      }
+    } catch {
+      setEmailCooldownUntil(0);
+      setCooldownSeconds(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!Number.isFinite(emailCooldownUntil) || emailCooldownUntil <= Date.now()) {
+      setCooldownSeconds(0);
+      return;
+    }
+
+    const tick = () => {
+      const remain = Math.max(0, Math.ceil((emailCooldownUntil - Date.now()) / 1000));
+      setCooldownSeconds(remain);
+      if (remain <= 0) {
+        setEmailCooldownUntil(0);
+        try {
+          window.localStorage.removeItem(AUTH_EMAIL_COOLDOWN_KEY);
+        } catch {
+          // localStorage may be blocked in restricted contexts.
+        }
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [emailCooldownUntil]);
+
+  function startEmailCooldown(seconds: number) {
+    if (typeof window === "undefined") return;
+    const safeSeconds =
+      Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : AUTH_EMAIL_COOLDOWN_SECONDS;
+    const until = Date.now() + safeSeconds * 1000;
+    setEmailCooldownUntil(until);
+    setCooldownSeconds(safeSeconds);
+    try {
+      window.localStorage.setItem(AUTH_EMAIL_COOLDOWN_KEY, String(until));
+    } catch {
+      // localStorage may be blocked in restricted contexts.
+    }
+  }
+
   function handleOpenLogin() {
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
     setIsLoginModalOpen(true);
@@ -58,6 +124,9 @@ export function SiteHeader() {
   }
 
   async function handleSendMagicLink() {
+    if (cooldownSeconds > 0) {
+      return;
+    }
     const redirectTo = `${window.location.origin}/auth/callback`;
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
     console.log(`[auth] redirectTo: ${redirectTo}`);
@@ -65,21 +134,35 @@ export function SiteHeader() {
     try {
       const result = await signInWithMagicLink(loginEmail, redirectTo);
       if (!result.ok) {
-        const message = result.message ?? "로그인 링크 요청에 실패했습니다.";
+        const rawMessage = result.message ?? "로그인 링크 요청에 실패했습니다.";
+        const lowerMessage = rawMessage.toLowerCase();
+        const isRateLimited =
+          lowerMessage.includes("email rate limit exceeded") ||
+          lowerMessage.includes("rate limit");
+        const message = isRateLimited
+          ? "로그인 이메일 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : rawMessage;
         setModalNotice(message);
         setAuthNotice(message);
+        startEmailCooldown(
+          isRateLimited
+            ? AUTH_EMAIL_RATE_LIMIT_COOLDOWN_SECONDS
+            : AUTH_EMAIL_COOLDOWN_SECONDS
+        );
         return;
       }
 
       const successMessage = result.message ?? "로그인 링크를 이메일로 보냈습니다.";
       setModalNotice(successMessage);
       setAuthNotice(successMessage);
+      startEmailCooldown(AUTH_EMAIL_COOLDOWN_SECONDS);
       setIsLoginModalOpen(false);
       setLoginEmail("");
     } catch {
       const message = "로그인 링크 요청 중 문제가 발생했습니다. 다시 시도해주세요.";
       setModalNotice(message);
       setAuthNotice(message);
+      startEmailCooldown(AUTH_EMAIL_COOLDOWN_SECONDS);
     } finally {
       setIsSendingLink(false);
     }
@@ -212,11 +295,15 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={() => void handleSendMagicLink()}
-              disabled={isSendingLink}
+              disabled={isSendingLink || cooldownSeconds > 0}
               className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               <Mail className="h-4 w-4" />
-              {isSendingLink ? "전송 중..." : "로그인 링크 보내기"}
+              {isSendingLink
+                ? "전송 중..."
+                : cooldownSeconds > 0
+                  ? `다시 보내기까지 ${cooldownSeconds}초`
+                  : "로그인 링크 보내기"}
             </button>
             <button
               type="button"
