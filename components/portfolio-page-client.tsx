@@ -104,12 +104,16 @@ type UserAlertSummary = {
 
 type PortfolioAlertRuleRow = {
   id?: string;
+  user_id?: string;
   holding_id?: string;
   rule_type?: string;
   threshold?: number | null;
   enabled?: boolean;
   created_at?: string;
+  updated_at?: string;
 };
+
+type AlertRuleSyncStatus = "local" | "synced" | "failed";
 
 const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
 const BROWSER_NOTIFICATION_ENABLED_KEY = "portfolioBrowserNotificationEnabled";
@@ -147,6 +151,16 @@ function parseNumber(value: string) {
 
 function safeText(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function extractSupabaseErrorMessage(error: unknown) {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) {
+      return message.trim();
+    }
+  }
+  return "알 수 없는 오류";
 }
 
 function toRiskCount(items: PortfolioDiagnosis[]) {
@@ -344,6 +358,7 @@ function conditionToRuleRow(
   condition: UserAlertCondition,
   userId: string
 ) {
+  const now = new Date().toISOString();
   return {
     user_id: userId,
     id: condition.id,
@@ -351,8 +366,59 @@ function conditionToRuleRow(
     rule_type: condition.type,
     threshold: condition.threshold,
     enabled: condition.enabled,
-    created_at: condition.createdAt
+    created_at: condition.createdAt,
+    updated_at: now
   };
+}
+
+function normalizeAlertConditionMap(
+  value: Record<string, UserAlertCondition[]> | null | undefined
+): Record<string, UserAlertCondition[]> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const normalized: Record<string, UserAlertCondition[]> = {};
+  const entries = Object.entries(value);
+  for (const [entryId, conditions] of entries) {
+    const safeConditions = Array.isArray(conditions)
+      ? conditions
+          .map(normalizeAlertCondition)
+          .filter((item): item is UserAlertCondition => Boolean(item))
+      : [];
+    normalized[entryId] = safeConditions;
+  }
+
+  return normalized;
+}
+
+function hasAnyAlertConditionMapItems(
+  value: Record<string, UserAlertCondition[]> | null | undefined
+) {
+  const safeMap = normalizeAlertConditionMap(value);
+  const allLists = Object.values(safeMap);
+  return allLists.some((items) => Array.isArray(items) && items.length > 0);
+}
+
+function getAlertConditionSignatures(value: Record<string, UserAlertCondition[]>) {
+  const safeMap = normalizeAlertConditionMap(value);
+  const signatures = new Set<string>();
+
+  for (const [entryId, conditions] of Object.entries(safeMap)) {
+    const safeConditions = Array.isArray(conditions) ? conditions : [];
+    for (const condition of safeConditions) {
+      if (!condition || typeof condition.id !== "string") continue;
+      const threshold =
+        typeof condition.threshold === "number" && Number.isFinite(condition.threshold)
+          ? String(condition.threshold)
+          : "null";
+      const enabled = condition.enabled ? "1" : "0";
+      const type = isAlertConditionType(condition.type) ? condition.type : "invalid";
+      signatures.add(`${entryId}::${condition.id}::${type}::${threshold}::${enabled}`);
+    }
+  }
+
+  return signatures;
 }
 
 function extractRsiFromDiagnosis(diagnosis: PortfolioDiagnosis) {
@@ -1163,6 +1229,14 @@ export function PortfolioPageClient() {
   const [dailyReportImageNotice, setDailyReportImageNotice] = useState("");
   const [cloudSyncActionNotice, setCloudSyncActionNotice] = useState("");
   const [alertRuleSyncNotice, setAlertRuleSyncNotice] = useState("");
+  const [localAlertConditionsSnapshot, setLocalAlertConditionsSnapshot] = useState<
+    Record<string, UserAlertCondition[]>
+  >({});
+  const [cloudAlertConditionsSnapshot, setCloudAlertConditionsSnapshot] = useState<
+    Record<string, UserAlertCondition[]>
+  >({});
+  const [isAlertRuleSyncing, setIsAlertRuleSyncing] = useState(false);
+  const [alertRuleSyncStatus, setAlertRuleSyncStatus] = useState<AlertRuleSyncStatus>("local");
   const [symbolLookup, setSymbolLookup] = useState<{
     symbol: string;
     name: string;
@@ -1194,6 +1268,30 @@ export function PortfolioPageClient() {
     if (cloudSyncStatus === "synced" && isCloudSyncEnabled) return "클라우드 동기화됨";
     return "로컬 모드";
   }, [cloudSyncStatus, isCloudSyncEnabled]);
+  const alertRuleSyncStatusLabel = useMemo(() => {
+    if (!isCloudSyncEnabled) return "알림 조건 로컬 모드";
+    if (alertRuleSyncStatus === "failed") return "알림 조건 동기화 실패";
+    if (alertRuleSyncStatus === "synced") return "알림 조건 클라우드 동기화됨";
+    return "알림 조건 로컬 모드";
+  }, [alertRuleSyncStatus, isCloudSyncEnabled]);
+  const canSyncLocalAlertRulesToCloud = useMemo(() => {
+    if (!isCloudSyncEnabled || !supabase || !user?.id) return false;
+    if (!hasAnyAlertConditionMapItems(localAlertConditionsSnapshot)) return false;
+
+    const localSignatures = getAlertConditionSignatures(localAlertConditionsSnapshot);
+    const cloudSignatures = getAlertConditionSignatures(cloudAlertConditionsSnapshot);
+    if (localSignatures.size !== cloudSignatures.size) return true;
+    for (const signature of Array.from(localSignatures)) {
+      if (!cloudSignatures.has(signature)) return true;
+    }
+    return false;
+  }, [
+    cloudAlertConditionsSnapshot,
+    isCloudSyncEnabled,
+    localAlertConditionsSnapshot,
+    supabase,
+    user?.id
+  ]);
 
   useEffect(() => {
     if (cloudSyncNotice) {
@@ -1284,6 +1382,7 @@ export function PortfolioPageClient() {
     let cancelled = false;
     setIsAlertConditionsReady(false);
     setAlertRuleSyncNotice("");
+    setAlertRuleSyncStatus(isCloudSyncEnabled ? "synced" : "local");
 
     let localConditions: Record<string, UserAlertCondition[]> = {};
     try {
@@ -1294,8 +1393,11 @@ export function PortfolioPageClient() {
     }
 
     setAlertConditionsByEntry(localConditions);
+    setLocalAlertConditionsSnapshot(localConditions);
 
     if (!isCloudSyncEnabled || !supabase || !user?.id) {
+      setCloudAlertConditionsSnapshot({});
+      setAlertRuleSyncStatus("local");
       setIsAlertConditionsReady(true);
       return;
     }
@@ -1304,13 +1406,15 @@ export function PortfolioPageClient() {
       try {
         const { data, error } = await supabase
           .from("portfolio_alert_rules")
-          .select("id,holding_id,rule_type,threshold,enabled,created_at")
+          .select("id,user_id,holding_id,rule_type,threshold,enabled,created_at,updated_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: true });
 
         if (cancelled) return;
         if (error) {
           setAlertConditionsByEntry(localConditions);
+          setCloudAlertConditionsSnapshot({});
+          setAlertRuleSyncStatus("failed");
           setAlertRuleSyncNotice("클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다.");
           return;
         }
@@ -1318,6 +1422,8 @@ export function PortfolioPageClient() {
         const safeRows = Array.isArray(data) ? data : [];
         if (safeRows.length === 0) {
           setAlertConditionsByEntry(localConditions);
+          setCloudAlertConditionsSnapshot({});
+          setAlertRuleSyncStatus("synced");
           return;
         }
 
@@ -1333,9 +1439,13 @@ export function PortfolioPageClient() {
         }
 
         setAlertConditionsByEntry(grouped);
+        setCloudAlertConditionsSnapshot(grouped);
+        setAlertRuleSyncStatus("synced");
       } catch {
         if (cancelled) return;
         setAlertConditionsByEntry(localConditions);
+        setCloudAlertConditionsSnapshot({});
+        setAlertRuleSyncStatus("failed");
         setAlertRuleSyncNotice("클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다.");
       } finally {
         if (!cancelled) {
@@ -1597,41 +1707,182 @@ export function PortfolioPageClient() {
     };
   }
 
-  const persistAlertConditionsToCloud = useCallback(
-    async (entryId: string, nextConditions: UserAlertCondition[]) => {
+  const insertAlertConditionToCloud = useCallback(
+    async (entryId: string, condition: UserAlertCondition) => {
       if (!isCloudSyncEnabled || !supabase || !user?.id) return;
+      if (!entryId) {
+        setAlertRuleSyncStatus("failed");
+        setAlertRuleSyncNotice("보유종목 ID를 확인할 수 없습니다.");
+        return;
+      }
+
+      const row = conditionToRuleRow(entryId, condition, user.id);
+      console.log("[portfolio-alert] inserting rule");
+      console.log("[portfolio-alert] user_id:", user.id);
+      console.log("[portfolio-alert] holding_id:", entryId);
+      console.log("[portfolio-alert] rule_type:", condition.type);
+      console.log("[portfolio-alert] threshold:", condition.threshold);
 
       try {
-        const { error: deleteError } = await supabase
+        const { error } = await supabase
+          .from("portfolio_alert_rules")
+          .upsert([row], { onConflict: "user_id,id" });
+        if (error) {
+          throw error;
+        }
+
+        console.log("[portfolio-alert] insert success");
+        setCloudAlertConditionsSnapshot((current) => {
+          const safeCurrent = normalizeAlertConditionMap(current);
+          const existing = Array.isArray(safeCurrent[entryId]) ? safeCurrent[entryId] : [];
+          const next = [...existing.filter((item) => item.id !== condition.id), condition];
+          return {
+            ...safeCurrent,
+            [entryId]: next
+          };
+        });
+        setAlertRuleSyncStatus("synced");
+        setAlertRuleSyncNotice("알림 조건 클라우드 동기화됨");
+      } catch (error) {
+        const message = extractSupabaseErrorMessage(error);
+        console.log("[portfolio-alert] insert error", message);
+        setAlertRuleSyncStatus("failed");
+        setAlertRuleSyncNotice(`알림 조건 클라우드 동기화에 실패했습니다: ${message}`);
+      }
+    },
+    [isCloudSyncEnabled, supabase, user?.id]
+  );
+
+  const updateAlertConditionEnabledInCloud = useCallback(
+    async (entryId: string, conditionId: string, enabled: boolean) => {
+      if (!isCloudSyncEnabled || !supabase || !user?.id) return;
+      if (!entryId) {
+        setAlertRuleSyncStatus("failed");
+        setAlertRuleSyncNotice("보유종목 ID를 확인할 수 없습니다.");
+        return;
+      }
+
+      try {
+        const { error } = await supabase
+          .from("portfolio_alert_rules")
+          .update({
+            enabled,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", user.id)
+          .eq("holding_id", entryId)
+          .eq("id", conditionId);
+        if (error) {
+          throw error;
+        }
+
+        setCloudAlertConditionsSnapshot((current) => {
+          const safeCurrent = normalizeAlertConditionMap(current);
+          const existing = Array.isArray(safeCurrent[entryId]) ? safeCurrent[entryId] : [];
+          const next = existing.map((condition) =>
+            condition.id === conditionId ? { ...condition, enabled } : condition
+          );
+          return {
+            ...safeCurrent,
+            [entryId]: next
+          };
+        });
+        setAlertRuleSyncStatus("synced");
+        setAlertRuleSyncNotice("알림 조건 클라우드 동기화됨");
+      } catch (error) {
+        const message = extractSupabaseErrorMessage(error);
+        setAlertRuleSyncStatus("failed");
+        setAlertRuleSyncNotice(`알림 조건 클라우드 동기화에 실패했습니다: ${message}`);
+      }
+    },
+    [isCloudSyncEnabled, supabase, user?.id]
+  );
+
+  const deleteAlertConditionFromCloud = useCallback(
+    async (entryId: string, conditionId: string) => {
+      if (!isCloudSyncEnabled || !supabase || !user?.id) return;
+      if (!entryId) {
+        setAlertRuleSyncStatus("failed");
+        setAlertRuleSyncNotice("보유종목 ID를 확인할 수 없습니다.");
+        return;
+      }
+
+      try {
+        const { error } = await supabase
           .from("portfolio_alert_rules")
           .delete()
           .eq("user_id", user.id)
-          .eq("holding_id", entryId);
-
-        if (deleteError) {
-          throw deleteError;
+          .eq("holding_id", entryId)
+          .eq("id", conditionId);
+        if (error) {
+          throw error;
         }
 
-        const safeConditions = Array.isArray(nextConditions) ? nextConditions : [];
-        if (safeConditions.length > 0) {
-          const rows = safeConditions.map((condition) =>
-            conditionToRuleRow(entryId, condition, user.id)
-          );
-          const { error: upsertError } = await supabase
-            .from("portfolio_alert_rules")
-            .upsert(rows, { onConflict: "user_id,id" });
-          if (upsertError) {
-            throw upsertError;
-          }
-        }
-
-        setAlertRuleSyncNotice("");
-      } catch {
-        setAlertRuleSyncNotice("클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다.");
+        setCloudAlertConditionsSnapshot((current) => {
+          const safeCurrent = normalizeAlertConditionMap(current);
+          const existing = Array.isArray(safeCurrent[entryId]) ? safeCurrent[entryId] : [];
+          const next = existing.filter((condition) => condition.id !== conditionId);
+          return {
+            ...safeCurrent,
+            [entryId]: next
+          };
+        });
+        setAlertRuleSyncStatus("synced");
+        setAlertRuleSyncNotice("알림 조건 클라우드 동기화됨");
+      } catch (error) {
+        const message = extractSupabaseErrorMessage(error);
+        setAlertRuleSyncStatus("failed");
+        setAlertRuleSyncNotice(`알림 조건 클라우드 동기화에 실패했습니다: ${message}`);
       }
     },
-    [isCloudSyncEnabled, user?.id]
+    [isCloudSyncEnabled, supabase, user?.id]
   );
+
+  const handleSyncLocalAlertRulesToCloud = useCallback(async () => {
+    if (!isCloudSyncEnabled || !supabase || !user?.id) {
+      setAlertRuleSyncStatus("local");
+      setAlertRuleSyncNotice("클라우드 동기화 미설정");
+      return;
+    }
+
+    const normalizedLocalMap = normalizeAlertConditionMap(localAlertConditionsSnapshot);
+    const rows = Object.entries(normalizedLocalMap).flatMap(([entryId, conditions]) => {
+      const safeConditions = Array.isArray(conditions) ? conditions : [];
+      return safeConditions.map((condition) => conditionToRuleRow(entryId, condition, user.id));
+    });
+
+    setIsAlertRuleSyncing(true);
+    try {
+      const { error: deleteError } = await supabase
+        .from("portfolio_alert_rules")
+        .delete()
+        .eq("user_id", user.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      if (rows.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("portfolio_alert_rules")
+          .upsert(rows, { onConflict: "user_id,id" });
+        if (upsertError) {
+          throw upsertError;
+        }
+      }
+
+      setAlertConditionsByEntry(normalizedLocalMap);
+      setCloudAlertConditionsSnapshot(normalizedLocalMap);
+      setAlertRuleSyncStatus("synced");
+      setAlertRuleSyncNotice("로컬 알림 조건을 클라우드에 동기화했습니다.");
+    } catch {
+      setAlertRuleSyncStatus("failed");
+      setAlertRuleSyncNotice(
+        "알림 조건 클라우드 동기화에 실패했습니다. 로컬 데이터는 유지됩니다."
+      );
+    } finally {
+      setIsAlertRuleSyncing(false);
+    }
+  }, [isCloudSyncEnabled, localAlertConditionsSnapshot, supabase, user?.id]);
 
   function updateAlertDraft(entryId: string, patch: Partial<ConditionDraft>) {
     setAlertDraftByEntry((current) => {
@@ -1649,13 +1900,39 @@ export function PortfolioPageClient() {
   }
 
   function addAlertCondition(entryId: string) {
+    if (!entryId) {
+      setAlertRuleSyncStatus("failed");
+      setAlertRuleSyncNotice("보유종목 ID를 확인할 수 없습니다.");
+      return;
+    }
+
     const draft = getAlertDraft(entryId);
     const needsThreshold = isThresholdRequired(draft.type);
-    const parsedThreshold = Number(draft.threshold);
+    const trimmedThreshold = draft.threshold.trim();
+    if (needsThreshold && !trimmedThreshold) {
+      setAlertRuleSyncStatus(isCloudSyncEnabled ? "failed" : "local");
+      setAlertRuleSyncNotice("알림 기준값을 올바르게 입력해주세요.");
+      return;
+    }
+
+    const parsedThreshold = Number(trimmedThreshold);
     const threshold =
       needsThreshold && Number.isFinite(parsedThreshold) ? parsedThreshold : null;
 
-    if (needsThreshold && threshold === null) return;
+    if (needsThreshold && threshold === null) {
+      setAlertRuleSyncStatus(isCloudSyncEnabled ? "failed" : "local");
+      setAlertRuleSyncNotice("알림 기준값을 올바르게 입력해주세요.");
+      return;
+    }
+
+    if (
+      (draft.type === "price_lte" || draft.type === "price_gte") &&
+      (threshold === null || threshold <= 0)
+    ) {
+      setAlertRuleSyncStatus(isCloudSyncEnabled ? "failed" : "local");
+      setAlertRuleSyncNotice("알림 기준값을 올바르게 입력해주세요.");
+      return;
+    }
 
     const newCondition: UserAlertCondition = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1665,48 +1942,62 @@ export function PortfolioPageClient() {
       createdAt: new Date().toISOString()
     };
 
-    let nextEntryConditions: UserAlertCondition[] = [];
+    const existing = Array.isArray(alertConditionsByEntry[entryId]) ? alertConditionsByEntry[entryId] : [];
+    const nextEntryConditions = [...existing, newCondition];
     setAlertConditionsByEntry((current) => {
-      const existing = Array.isArray(current[entryId]) ? current[entryId] : [];
-      nextEntryConditions = [...existing, newCondition];
       return {
         ...current,
         [entryId]: nextEntryConditions
       };
     });
-    void persistAlertConditionsToCloud(entryId, nextEntryConditions);
+    if (isCloudSyncEnabled && user?.id && supabase) {
+      void insertAlertConditionToCloud(entryId, newCondition);
+    } else {
+      setAlertRuleSyncStatus("local");
+      setAlertRuleSyncNotice("");
+    }
 
     updateAlertDraft(entryId, { threshold: "" });
   }
 
   function toggleAlertCondition(entryId: string, conditionId: string) {
-    let nextEntryConditions: UserAlertCondition[] = [];
+    const existing = Array.isArray(alertConditionsByEntry[entryId]) ? alertConditionsByEntry[entryId] : [];
+    const target = existing.find((condition) => condition.id === conditionId);
+    const nextEnabled = target ? !target.enabled : false;
+    const nextEntryConditions = existing.map((condition) =>
+      condition.id === conditionId
+        ? { ...condition, enabled: nextEnabled }
+        : condition
+    );
     setAlertConditionsByEntry((current) => {
-      const existing = Array.isArray(current[entryId]) ? current[entryId] : [];
-      nextEntryConditions = existing.map((condition) =>
-        condition.id === conditionId
-          ? { ...condition, enabled: !condition.enabled }
-          : condition
-      );
       return {
         ...current,
         [entryId]: nextEntryConditions
       };
     });
-    void persistAlertConditionsToCloud(entryId, nextEntryConditions);
+    if (isCloudSyncEnabled && user?.id && supabase && target) {
+      void updateAlertConditionEnabledInCloud(entryId, conditionId, nextEnabled);
+    } else if (!isCloudSyncEnabled) {
+      setAlertRuleSyncStatus("local");
+      setAlertRuleSyncNotice("");
+    }
   }
 
   function removeAlertCondition(entryId: string, conditionId: string) {
-    let nextEntryConditions: UserAlertCondition[] = [];
+    const existing = Array.isArray(alertConditionsByEntry[entryId]) ? alertConditionsByEntry[entryId] : [];
+    const nextEntryConditions = existing.filter((condition) => condition.id !== conditionId);
     setAlertConditionsByEntry((current) => {
-      const existing = Array.isArray(current[entryId]) ? current[entryId] : [];
-      nextEntryConditions = existing.filter((condition) => condition.id !== conditionId);
       return {
         ...current,
         [entryId]: nextEntryConditions
       };
     });
-    void persistAlertConditionsToCloud(entryId, nextEntryConditions);
+    if (isCloudSyncEnabled && user?.id && supabase) {
+      void deleteAlertConditionFromCloud(entryId, conditionId);
+    } else {
+      setAlertRuleSyncStatus("local");
+      setAlertRuleSyncNotice("");
+    }
   }
 
   function onDraftChange<K extends keyof DraftState>(key: K, value: DraftState[K]) {
@@ -2061,6 +2352,17 @@ export function PortfolioPageClient() {
           >
             {cloudSyncStatusLabel}
           </span>
+          <span
+            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${
+              alertRuleSyncStatusLabel === "알림 조건 동기화 실패"
+                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+                : alertRuleSyncStatusLabel === "알림 조건 클라우드 동기화됨"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+            }`}
+          >
+            {alertRuleSyncStatusLabel}
+          </span>
         </div>
         {browserNotificationNotice && (
           <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -2100,6 +2402,20 @@ export function PortfolioPageClient() {
               <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
                 {cloudSyncActionNotice}
               </p>
+            )}
+            {canSyncLocalAlertRulesToCloud && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSyncLocalAlertRulesToCloud()}
+                  disabled={isAlertRuleSyncing}
+                  className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-xs font-bold text-slate-700 hover:text-brand disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-dark-line dark:bg-slate-900/70 dark:text-slate-200 dark:disabled:bg-slate-900/50 dark:disabled:text-slate-500 sm:h-8 sm:w-auto"
+                >
+                  {isAlertRuleSyncing
+                    ? "알림 조건 동기화 중..."
+                    : "로컬 알림 조건을 클라우드에 동기화"}
+                </button>
+              </div>
             )}
           </div>
         )}

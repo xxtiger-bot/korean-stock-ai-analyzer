@@ -41,6 +41,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const NETWORK_BLOCKED_MESSAGE =
   "Supabase 서버에 연결할 수 없습니다. 현재 네트워크 또는 DNS 환경에서 Supabase 접속이 차단되었을 수 있습니다.";
+const SESSION_TIMEOUT_MS = 5000;
 
 function mapAuthErrorMessage(rawMessage: string): string {
   const message = typeof rawMessage === "string" ? rawMessage : "";
@@ -71,7 +72,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const sessionPromise = supabase.auth.getSession();
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timeoutHandle = setTimeout(() => {
+          resolve(null);
+        }, SESSION_TIMEOUT_MS);
+      });
+      const result = await Promise.race([sessionPromise, timeoutPromise]);
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      if (!result) {
+        setSession(null);
+        setUser(null);
+        return null;
+      }
+      const { data } = result;
       const nextSession = data.session ?? null;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "@/app/globals.css";
+import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WatchlistProvider } from "@/components/watchlist-provider";
