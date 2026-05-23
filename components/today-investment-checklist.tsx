@@ -92,6 +92,19 @@ type RiskChangeItem = {
   reason: string;
 };
 
+type RiskTimelineEntry = {
+  key: string;
+  date: string;
+  symbol: string;
+  name: string;
+  previousStatus: string;
+  currentStatus: string;
+  direction: RiskChangeDirection;
+  reason: string;
+  aiScoreChange: number | null;
+  returnRateChange: number | null;
+};
+
 type ChecklistVariant = "home" | "portfolio";
 
 const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
@@ -286,6 +299,33 @@ function getRiskDirectionClass(direction: RiskChangeDirection) {
     return "border-slate-300 bg-slate-100 text-slate-700 dark:border-dark-line dark:bg-slate-900/70 dark:text-slate-200";
   }
   return "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300";
+}
+
+function getDirectionRank(direction: RiskChangeDirection) {
+  if (direction === "상승") return 4;
+  if (direction === "하락") return 3;
+  if (direction === "유지") return 2;
+  return 1;
+}
+
+function getRiskDirectionByStatus(previousStatus: string, currentStatus: string): RiskChangeDirection {
+  const prevRank = getStatusRank(previousStatus);
+  const nowRank = getStatusRank(currentStatus);
+  if (nowRank > prevRank) return "상승";
+  if (nowRank < prevRank) return "하락";
+  return "유지";
+}
+
+function getKstDateDaysAgo(daysAgo: number) {
+  const safeDays = Number.isFinite(daysAgo) && daysAgo > 0 ? Math.floor(daysAgo) : 0;
+  const base = new Date();
+  base.setDate(base.getDate() - safeDays);
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(base);
 }
 
 function evaluateAlertProximity(
@@ -963,18 +1003,96 @@ export function TodayInvestmentChecklist({
 
   const riskChangesSorted = useMemo(() => {
     const safeList = Array.isArray(riskChanges) ? riskChanges : [];
-    const getDirectionRank = (direction: RiskChangeDirection) => {
-      if (direction === "상승") return 4;
-      if (direction === "하락") return 3;
-      if (direction === "유지") return 2;
-      return 1;
-    };
     return [...safeList].sort((left, right) => {
       const directionGap = getDirectionRank(right.direction) - getDirectionRank(left.direction);
       if (directionGap !== 0) return directionGap;
       return left.name.localeCompare(right.name, "ko");
     });
   }, [riskChanges]);
+
+  const riskTimelineData = useMemo(() => {
+    const safeSnapshots = Array.isArray(riskSnapshots) ? riskSnapshots : [];
+    const holdingSymbols = new Set(
+      (Array.isArray(holdingItems) ? holdingItems : [])
+        .map((item) => item.symbol)
+        .filter((value): value is string => typeof value === "string" && Boolean(value))
+    );
+    const cutoffDate = getKstDateDaysAgo(6);
+    const sourceSnapshots = safeSnapshots
+      .filter((snapshot) => {
+        if (!holdingSymbols.has(snapshot.symbol)) return false;
+        return snapshot.snapshotDate >= cutoffDate;
+      })
+      .sort((left, right) =>
+        `${left.snapshotDate}-${left.createdAt}`.localeCompare(`${right.snapshotDate}-${right.createdAt}`)
+      );
+
+    const uniqueDays = new Set(sourceSnapshots.map((snapshot) => snapshot.snapshotDate));
+    const grouped = new Map<string, RiskSnapshot[]>();
+    for (const snapshot of sourceSnapshots) {
+      const list = grouped.get(snapshot.symbol);
+      if (Array.isArray(list)) {
+        list.push(snapshot);
+      } else {
+        grouped.set(snapshot.symbol, [snapshot]);
+      }
+    }
+
+    const entries: RiskTimelineEntry[] = [];
+    grouped.forEach((snapshots, symbol) => {
+      const safeList = Array.isArray(snapshots) ? snapshots : [];
+      if (safeList.length < 2) return;
+      for (let index = 1; index < safeList.length; index += 1) {
+        const previous = safeList[index - 1];
+        const current = safeList[index];
+        const direction = getRiskDirectionByStatus(previous.riskStatus, current.riskStatus);
+        const aiScoreChange =
+          previous.aiScore !== null && current.aiScore !== null
+            ? current.aiScore - previous.aiScore
+            : null;
+        const returnRateChange =
+          previous.returnRate !== null && current.returnRate !== null
+            ? current.returnRate - previous.returnRate
+            : null;
+        const payloadReason =
+          typeof current.payload === "object" &&
+          current.payload !== null &&
+          !Array.isArray(current.payload) &&
+          typeof current.payload.reason === "string"
+            ? current.payload.reason
+            : "";
+        const fallbackReason =
+          direction === "상승"
+            ? "리스크 지표가 상승하여 우선 확인이 필요합니다."
+            : direction === "하락"
+              ? "리스크 지표가 완화되어 유지 관찰 구간입니다."
+              : "리스크 상태는 유지되고 있으며 추이를 관찰합니다.";
+        entries.push({
+          key: `${current.id}-${previous.id}`,
+          date: current.snapshotDate,
+          symbol,
+          name: current.stockName || symbol,
+          previousStatus: previous.riskStatus,
+          currentStatus: current.riskStatus,
+          direction,
+          reason: payloadReason || fallbackReason,
+          aiScoreChange,
+          returnRateChange
+        });
+      }
+    });
+
+    const sortedEntries = entries.sort((left, right) => {
+      const dateGap = right.date.localeCompare(left.date);
+      if (dateGap !== 0) return dateGap;
+      return getDirectionRank(right.direction) - getDirectionRank(left.direction);
+    });
+
+    return {
+      entries: sortedEntries,
+      hasComparableHistory: uniqueDays.size >= 2
+    };
+  }, [holdingItems, riskSnapshots]);
 
   const headline = useMemo(() => {
     if (top3.some((item) => item.statusTag === "데이터 확인 필요")) {
@@ -1100,6 +1218,71 @@ export function TodayInvestmentChecklist({
               </ul>
             )}
           </article>
+
+          {variant === "portfolio" ? (
+            <article className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <h3 className="text-sm font-bold text-ink dark:text-white">리스크 변화 타임라인</h3>
+              {!riskTimelineData.hasComparableHistory ? (
+                <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.
+                </p>
+              ) : riskTimelineData.entries.length === 0 ? (
+                <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  최근 7일 기준으로 표시할 리스크 변화 기록이 없습니다.
+                </p>
+              ) : (
+                <ul className="mt-2 grid gap-2">
+                  {riskTimelineData.entries.map((entry) => (
+                    <li
+                      key={entry.key}
+                      className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="min-w-0 truncate text-sm font-bold text-ink dark:text-white">
+                          {entry.name} · {entry.symbol}
+                        </p>
+                        <span
+                          className={`rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskDirectionClass(entry.direction)}`}
+                        >
+                          {entry.direction === "상승"
+                            ? "리스크 상승"
+                            : entry.direction === "하락"
+                              ? "리스크 하락"
+                              : "유지"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        {entry.date}
+                      </p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        이전 상태: {entry.previousStatus} → 현재 상태: {entry.currentStatus}
+                      </p>
+                      <details className="mt-1 rounded-md border border-line bg-slate-50 px-2 py-1 dark:border-dark-line dark:bg-slate-900/60">
+                        <summary className="cursor-pointer list-none text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                          자세히 보기
+                        </summary>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                          {entry.reason}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          AI 점수 변화:{" "}
+                          {entry.aiScoreChange !== null
+                            ? `${entry.aiScoreChange > 0 ? "+" : ""}${entry.aiScoreChange.toFixed(1)}`
+                            : "데이터 없음"}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          수익률 변화:{" "}
+                          {entry.returnRateChange !== null
+                            ? formatPercent(entry.returnRateChange)
+                            : "데이터 없음"}
+                        </p>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          ) : null}
 
           <article className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
             <h3 className="text-sm font-bold text-ink dark:text-white">알림 조건 근접</h3>

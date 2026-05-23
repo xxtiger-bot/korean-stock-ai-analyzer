@@ -38,6 +38,32 @@ type SavedReport = {
   payload: SavedReportPayload | null;
 };
 
+type RiskChangeDirection = "상승" | "하락" | "유지" | "비교 불가";
+
+type RiskSnapshotRow = {
+  symbol: string;
+  stockName: string;
+  riskStatus: string;
+  aiScore: number | null;
+  returnRate: number | null;
+  snapshotDate: string;
+  createdAt: string;
+  payload: Record<string, unknown>;
+};
+
+type RecentRiskChangeItem = {
+  key: string;
+  date: string;
+  symbol: string;
+  stockName: string;
+  previousStatus: string;
+  currentStatus: string;
+  direction: RiskChangeDirection;
+  reason: string;
+  aiScoreChange: number | null;
+  returnRateChange: number | null;
+};
+
 function safeText(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
@@ -121,6 +147,133 @@ function extractSupabaseMessage(error: unknown) {
   return "알 수 없는 오류";
 }
 
+function getKstDateDaysAgo(daysAgo: number) {
+  const safeDays = Number.isFinite(daysAgo) && daysAgo > 0 ? Math.floor(daysAgo) : 0;
+  const base = new Date();
+  base.setDate(base.getDate() - safeDays);
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(base);
+}
+
+function getStatusRank(status: string) {
+  if (status === "리스크 관리 필요") return 5;
+  if (status === "확인 필요") return 4;
+  if (status === "비중 조절 검토") return 3;
+  if (status === "유지 관찰") return 2;
+  if (status === "추가 관찰 가능") return 1;
+  return 0;
+}
+
+function getDirectionRank(direction: RiskChangeDirection) {
+  if (direction === "상승") return 4;
+  if (direction === "하락") return 3;
+  if (direction === "유지") return 2;
+  return 1;
+}
+
+function getRiskDirectionClass(direction: RiskChangeDirection) {
+  if (direction === "상승") {
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200";
+  }
+  if (direction === "하락") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200";
+  }
+  if (direction === "유지") {
+    return "border-slate-300 bg-slate-100 text-slate-700 dark:border-dark-line dark:bg-slate-900/70 dark:text-slate-200";
+  }
+  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300";
+}
+
+function normalizeRiskSnapshotRow(value: unknown): RiskSnapshotRow | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const symbol = safeText(raw.symbol);
+  const snapshotDate = safeText(raw.snapshot_date);
+  if (!symbol || !snapshotDate) return null;
+  const payload =
+    typeof raw.payload === "object" && raw.payload !== null && !Array.isArray(raw.payload)
+      ? (raw.payload as Record<string, unknown>)
+      : {};
+  return {
+    symbol,
+    stockName: safeText(raw.stock_name, symbol),
+    riskStatus: safeText(raw.risk_status, "비교 불가"),
+    aiScore: typeof raw.ai_score === "number" && Number.isFinite(raw.ai_score) ? raw.ai_score : null,
+    returnRate:
+      typeof raw.return_rate === "number" && Number.isFinite(raw.return_rate) ? raw.return_rate : null,
+    snapshotDate,
+    createdAt: safeText(raw.created_at),
+    payload
+  };
+}
+
+function buildRecentRiskChanges(rows: RiskSnapshotRow[]) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const grouped = new Map<string, RiskSnapshotRow[]>();
+  for (const row of safeRows) {
+    const list = grouped.get(row.symbol);
+    if (Array.isArray(list)) {
+      list.push(row);
+    } else {
+      grouped.set(row.symbol, [row]);
+    }
+  }
+
+  const entries: RecentRiskChangeItem[] = [];
+  grouped.forEach((snapshots, symbol) => {
+    const safeList = Array.isArray(snapshots) ? [...snapshots] : [];
+    if (safeList.length < 2) return;
+    safeList.sort((left, right) =>
+      `${left.snapshotDate}-${left.createdAt}`.localeCompare(`${right.snapshotDate}-${right.createdAt}`)
+    );
+    for (let index = 1; index < safeList.length; index += 1) {
+      const previous = safeList[index - 1];
+      const current = safeList[index];
+      const prevRank = getStatusRank(previous.riskStatus);
+      const nowRank = getStatusRank(current.riskStatus);
+      const direction: RiskChangeDirection =
+        nowRank > prevRank ? "상승" : nowRank < prevRank ? "하락" : "유지";
+      const payloadReason =
+        typeof current.payload.reason === "string" ? safeText(current.payload.reason) : "";
+      const reason =
+        payloadReason ||
+        (direction === "상승"
+          ? "리스크 지표가 상승해 우선 확인이 필요합니다."
+          : direction === "하락"
+            ? "리스크 지표가 완화되어 유지 관찰 구간입니다."
+            : "리스크 상태가 유지되고 있습니다.");
+      entries.push({
+        key: `${current.symbol}-${current.snapshotDate}-${index}`,
+        date: current.snapshotDate,
+        symbol,
+        stockName: current.stockName || symbol,
+        previousStatus: previous.riskStatus,
+        currentStatus: current.riskStatus,
+        direction,
+        reason,
+        aiScoreChange:
+          previous.aiScore !== null && current.aiScore !== null
+            ? current.aiScore - previous.aiScore
+            : null,
+        returnRateChange:
+          previous.returnRate !== null && current.returnRate !== null
+            ? current.returnRate - previous.returnRate
+            : null
+      });
+    }
+  });
+
+  return entries.sort((left, right) => {
+    const dateGap = right.date.localeCompare(left.date);
+    if (dateGap !== 0) return dateGap;
+    return getDirectionRank(right.direction) - getDirectionRank(left.direction);
+  });
+}
+
 export function MyPagePageClient() {
   const router = useRouter();
   const { user, isLoading, signOut } = useAuth();
@@ -135,6 +288,7 @@ export function MyPagePageClient() {
   });
   const [riskTrackStartDate, setRiskTrackStartDate] = useState("");
   const [recentReports, setRecentReports] = useState<SavedReport[]>([]);
+  const [recentRiskChanges, setRecentRiskChanges] = useState<RecentRiskChangeItem[]>([]);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -150,6 +304,7 @@ export function MyPagePageClient() {
       setPlan("Free");
       setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0, riskSnapshotsCount: 0 });
       setRecentReports([]);
+      setRecentRiskChanges([]);
       setExpandedReportId(null);
       setRiskTrackStartDate("");
       setFetchError("");
@@ -161,6 +316,7 @@ export function MyPagePageClient() {
       setFetchError("계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
       setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0, riskSnapshotsCount: 0 });
       setRecentReports([]);
+      setRecentRiskChanges([]);
       setPlan("Free");
       setRiskTrackStartDate("");
       setIsFetching(false);
@@ -182,7 +338,8 @@ export function MyPagePageClient() {
         reportsCountResult,
         riskSnapshotsCountResult,
         riskTrackStartResult,
-        recentReportsResult
+        recentReportsResult,
+        riskTimelineResult
       ] = await Promise.allSettled([
         client.from("profiles").select("plan").eq("id", userId).limit(1),
         client.from("portfolio_holdings").select("id", { count: "exact", head: true }).eq("user_id", userId),
@@ -206,7 +363,14 @@ export function MyPagePageClient() {
           .select("id,report_date,summary,created_at,payload")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
-          .limit(3)
+          .limit(3),
+        client
+          .from("portfolio_risk_snapshots")
+          .select("symbol,stock_name,risk_status,ai_score,return_rate,snapshot_date,created_at,payload")
+          .eq("user_id", userId)
+          .gte("snapshot_date", getKstDateDaysAgo(6))
+          .order("snapshot_date", { ascending: false })
+          .limit(300)
       ]);
 
       if (cancelled) return;
@@ -282,10 +446,27 @@ export function MyPagePageClient() {
           .filter((item): item is SavedReport => Boolean(item));
       })();
 
+      const nextRecentRiskChanges = (() => {
+        if (riskTimelineResult.status !== "fulfilled") {
+          hasError = true;
+          return [] as RecentRiskChangeItem[];
+        }
+        if (riskTimelineResult.value.error) {
+          hasError = true;
+          return [] as RecentRiskChangeItem[];
+        }
+        const rows = Array.isArray(riskTimelineResult.value.data) ? riskTimelineResult.value.data : [];
+        const normalized = rows
+          .map(normalizeRiskSnapshotRow)
+          .filter((item): item is RiskSnapshotRow => Boolean(item));
+        return buildRecentRiskChanges(normalized).slice(0, 3);
+      })();
+
       setPlan(nextPlan);
       setStats(nextStats);
       setRiskTrackStartDate(nextRiskTrackStartDate);
       setRecentReports(nextRecentReports);
+      setRecentRiskChanges(nextRecentRiskChanges);
       setFetchError(hasError ? "계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요." : "");
       setIsFetching(false);
     }
@@ -319,6 +500,7 @@ export function MyPagePageClient() {
   }
 
   const safeReports = Array.isArray(recentReports) ? recentReports : [];
+  const safeRecentRiskChanges = Array.isArray(recentRiskChanges) ? recentRiskChanges : [];
   const safeCloudNotice = safeText(cloudSyncNotice);
 
   if (isLoading) {
@@ -420,6 +602,66 @@ export function MyPagePageClient() {
           {fetchError}
         </section>
       )}
+
+      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-bold text-ink dark:text-white">최근 리스크 변화</h2>
+          {isFetching && (
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              불러오는 중...
+            </span>
+          )}
+        </div>
+
+        {safeRecentRiskChanges.length === 0 ? (
+          <p className="mt-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+            아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.
+          </p>
+        ) : (
+          <ul className="mt-3 grid gap-2">
+            {safeRecentRiskChanges.map((item) => (
+              <li
+                key={item.key}
+                className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-700 dark:text-slate-200">
+                      {item.stockName} · {item.symbol}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{item.date}</p>
+                  </div>
+                  <span
+                    className={`rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskDirectionClass(item.direction)}`}
+                  >
+                    {item.direction === "상승"
+                      ? "리스크 상승"
+                      : item.direction === "하락"
+                        ? "리스크 하락"
+                        : item.direction === "유지"
+                          ? "유지"
+                          : "비교 불가"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  이전 상태: {item.previousStatus} → 현재 상태: {item.currentStatus}
+                </p>
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {item.reason}
+                </p>
+                <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  AI 점수 변화:{" "}
+                  {item.aiScoreChange !== null
+                    ? `${item.aiScoreChange > 0 ? "+" : ""}${item.aiScoreChange.toFixed(1)}`
+                    : "데이터 없음"}{" "}
+                  · 수익률 변화:{" "}
+                  {item.returnRateChange !== null ? formatPercent(item.returnRateChange) : "데이터 없음"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
         <div className="flex flex-wrap items-center gap-2">
