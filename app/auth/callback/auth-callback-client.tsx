@@ -89,7 +89,7 @@ export function AuthCallbackClient() {
           if (mounted) {
             setMessage("로그인되었습니다. 포트폴리오로 이동합니다.");
             redirectTimer = setTimeout(() => {
-              router.replace("/portfolio");
+              router.replace(nextPath || "/portfolio");
             }, 500);
           }
           return;
@@ -133,7 +133,7 @@ export function AuthCallbackClient() {
           if (mounted) {
             setMessage("로그인되었습니다. 포트폴리오로 이동합니다.");
             redirectTimer = setTimeout(() => {
-              router.replace("/portfolio");
+              router.replace(nextPath || "/portfolio");
             }, 500);
           }
           return;

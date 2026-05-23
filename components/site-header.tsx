@@ -87,6 +87,7 @@ export function SiteHeader() {
     supabaseNotice,
     sendEmailOtpCode,
     verifyEmailOtpCode,
+    signInWithOAuthProvider,
     signOut
   } = useAuth();
   const [authNotice, setAuthNotice] = useState("");
@@ -99,6 +100,9 @@ export function SiteHeader() {
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [authModalState, setAuthModalState] = useState<AuthModalState>("idle");
   const [cooldownReason, setCooldownReason] = useState<CooldownReason>(null);
+  const [oauthLoadingProvider, setOauthLoadingProvider] = useState<"google" | "kakao" | null>(
+    null
+  );
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [doNotShowGuideAgain, setDoNotShowGuideAgain] = useState(false);
   const [guideOpenSections, setGuideOpenSections] = useState<string[]>(["about"]);
@@ -193,13 +197,14 @@ export function SiteHeader() {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (!isGuideOpen) return;
+    const shouldLockScroll = isGuideOpen || isLoginModalOpen;
+    if (!shouldLockScroll) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isGuideOpen]);
+  }, [isGuideOpen, isLoginModalOpen]);
 
   function startEmailCooldown(seconds: number, reason: Exclude<CooldownReason, null>) {
     if (typeof window === "undefined") return;
@@ -435,6 +440,36 @@ export function SiteHeader() {
     }
   }
 
+  async function handleOAuthLogin(provider: "google" | "kakao") {
+    if (user) {
+      setAuthState("loggedIn");
+      return;
+    }
+    if (oauthLoadingProvider) return;
+    console.log(`[auth] oauth provider: ${provider}`);
+    setModalNotice("");
+    setOauthLoadingProvider(provider);
+    try {
+      const result = await signInWithOAuthProvider(provider);
+      if (!result.ok) {
+        const message =
+          result.message === "소셜 로그인 설정을 확인해주세요."
+            ? result.message
+            : "소셜 로그인에 실패했습니다. 다시 시도해주세요.";
+        setModalNotice(message);
+        setAuthNotice(message);
+        return;
+      }
+      setModalNotice("소셜 로그인 페이지로 이동합니다.");
+    } catch {
+      const message = "소셜 로그인에 실패했습니다. 다시 시도해주세요.";
+      setModalNotice(message);
+      setAuthNotice(message);
+    } finally {
+      setOauthLoadingProvider(null);
+    }
+  }
+
   async function handleSignOut() {
     const result = await signOut();
     if (!result.ok) {
@@ -557,8 +592,14 @@ export function SiteHeader() {
         </div>
       )}
       {isLoginModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 py-3 md:items-center md:px-4">
-          <div className="w-full max-w-sm rounded-t-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel md:rounded-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4"
+          onClick={() => setIsLoginModalOpen(false)}
+        >
+          <div
+            className="w-[calc(100vw-32px)] max-w-[420px] max-h-[85vh] overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-xs font-bold tracking-normal text-brand">로그인</p>
@@ -567,7 +608,7 @@ export function SiteHeader() {
               <button
                 type="button"
                 onClick={() => setIsLoginModalOpen(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-slate-50 text-slate-500 hover:text-slate-700 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-slate-50 text-slate-500 hover:text-slate-700 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
                 aria-label="닫기"
               >
                 <X className="h-4 w-4" />
@@ -588,13 +629,43 @@ export function SiteHeader() {
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="mt-2 inline-flex h-9 items-center justify-center rounded-md border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200"
+                  className="mt-2 inline-flex h-11 items-center justify-center rounded-md border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200"
                 >
                   로그아웃
                 </button>
               </div>
             ) : (
               <>
+                <section className="mt-3">
+                  <p className="text-xs font-bold text-ink dark:text-white">간편 로그인</p>
+                  <div className="mt-2 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleOAuthLogin("google")}
+                      disabled={Boolean(oauthLoadingProvider) || authModalState === "sending"}
+                      className="inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
+                    >
+                      {oauthLoadingProvider === "google"
+                        ? "Google 로그인 연결 중..."
+                        : "Google로 계속하기"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleOAuthLogin("kakao")}
+                      disabled={Boolean(oauthLoadingProvider) || authModalState === "sending"}
+                      className="inline-flex h-11 w-full items-center justify-center rounded-md border border-yellow-300 bg-[#FEE500] px-3 text-sm font-bold text-[#3C1E1E] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {oauthLoadingProvider === "kakao"
+                        ? "Kakao 로그인 연결 중..."
+                        : "Kakao로 계속하기"}
+                    </button>
+                  </div>
+                </section>
+
+                <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  또는 이메일 인증코드로 로그인
+                </p>
+
                 <label className="mt-3 block">
                   <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
                     이메일
@@ -641,7 +712,7 @@ export function SiteHeader() {
                   type="button"
                   onClick={() => void handleSendOtpCode()}
                   disabled={authModalState === "sending" || cooldownSeconds > 0}
-                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
                   <Mail className="h-4 w-4" />
                   {authModalState === "sending"
@@ -659,7 +730,7 @@ export function SiteHeader() {
                     type="button"
                     onClick={() => void handleVerifyOtpCode()}
                     disabled={authModalState === "sending"}
-                    className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
+                    className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
                   >
                     {authModalState === "sending" ? "확인 중..." : "인증코드 확인"}
                   </button>
@@ -669,21 +740,21 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={handleContinueLocalMode}
-              className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
             >
               클라우드 로그인 없이 계속 사용
             </button>
             <button
               type="button"
               onClick={handleOpenGuide}
-              className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 md:hidden"
+              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 md:hidden"
             >
               사용 가이드 보기
             </button>
             <button
               type="button"
               onClick={handleResetCooldown}
-              className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
+              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
             >
               쿨다운 초기화
             </button>

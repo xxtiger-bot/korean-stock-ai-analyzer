@@ -26,6 +26,8 @@ type AuthActionResult = {
   statusCode?: number;
 };
 
+type OAuthProvider = "google" | "kakao";
+
 type AuthContextValue = {
   user: User | null;
   session: Session | null;
@@ -37,6 +39,7 @@ type AuthContextValue = {
   refreshSession: () => Promise<Session | null>;
   sendEmailOtpCode: (email: string) => Promise<AuthActionResult>;
   verifyEmailOtpCode: (email: string, code: string) => Promise<AuthActionResult>;
+  signInWithOAuthProvider: (provider: OAuthProvider) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 };
 
@@ -353,6 +356,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const signInWithOAuthProvider = useCallback(
+    async (provider: OAuthProvider): Promise<AuthActionResult> => {
+      if (supabaseUrlError) {
+        return {
+          ok: false,
+          message: "Supabase URL 설정을 확인해주세요.",
+          statusCode: 0
+        };
+      }
+
+      if (!supabase || !isSupabaseConfigured || typeof window === "undefined") {
+        return {
+          ok: false,
+          message: "클라우드 동기화 미설정",
+          statusCode: 0
+        };
+      }
+
+      const safeProvider: OAuthProvider = provider === "kakao" ? "kakao" : "google";
+      const redirectTo = `${window.location.origin}/auth/callback?next=/portfolio`;
+
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: safeProvider,
+          options: {
+            redirectTo
+          }
+        });
+
+        if (error) {
+          const rawMessage = mapAuthErrorMessage(error.message ?? "");
+          const lower = rawMessage.toLowerCase();
+          const statusCode =
+            typeof (error as { status?: unknown }).status === "number"
+              ? ((error as { status: number }).status ?? 0)
+              : 0;
+          const needsConfigCheck =
+            lower.includes("provider") ||
+            lower.includes("oauth") ||
+            lower.includes("not enabled") ||
+            lower.includes("unsupported") ||
+            lower.includes("invalid") ||
+            lower.includes("redirect");
+          return {
+            ok: false,
+            message: needsConfigCheck
+              ? "소셜 로그인 설정을 확인해주세요."
+              : rawMessage || "소셜 로그인에 실패했습니다. 다시 시도해주세요.",
+            statusCode
+          };
+        }
+
+        return {
+          ok: true,
+          message: "소셜 로그인으로 이동합니다.",
+          statusCode: 200
+        };
+      } catch (error) {
+        const fallbackMessage =
+          error instanceof Error ? mapAuthErrorMessage(error.message) : NETWORK_BLOCKED_MESSAGE;
+        return {
+          ok: false,
+          message:
+            fallbackMessage === NETWORK_BLOCKED_MESSAGE
+              ? "소셜 로그인에 실패했습니다. 다시 시도해주세요."
+              : fallbackMessage || "소셜 로그인에 실패했습니다. 다시 시도해주세요.",
+          statusCode: 0
+        };
+      }
+    },
+    []
+  );
+
   const signOut = useCallback(async (): Promise<AuthActionResult> => {
     if (!supabase || !isSupabaseConfigured) {
       return { ok: true };
@@ -381,9 +457,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshSession,
       sendEmailOtpCode,
       verifyEmailOtpCode,
+      signInWithOAuthProvider,
       signOut
     }),
-    [isLoading, refreshSession, sendEmailOtpCode, session, signOut, user, verifyEmailOtpCode]
+    [
+      isLoading,
+      refreshSession,
+      sendEmailOtpCode,
+      session,
+      signInWithOAuthProvider,
+      signOut,
+      user,
+      verifyEmailOtpCode
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
