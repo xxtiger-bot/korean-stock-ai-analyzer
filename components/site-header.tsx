@@ -424,6 +424,12 @@ export function SiteHeader() {
             사용 가이드
           </button>
           <Link
+            href="/pricing"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+          >
+            Pro
+          </Link>
+          <Link
             href="/portfolio"
             className="inline-flex items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
           >

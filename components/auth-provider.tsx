@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 import {
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const profileSyncKeyRef = useRef("");
 
   const refreshSession = useCallback(async () => {
     if (!supabase || !isSupabaseConfigured) {
@@ -128,6 +130,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, [refreshSession]);
+
+  useEffect(() => {
+    const supabaseClient = supabase;
+    const userId = user?.id ?? "";
+    const safeEmail = typeof user?.email === "string" ? user.email.trim() : "";
+    const safeDisplayName =
+      typeof user?.user_metadata?.name === "string" ? user.user_metadata.name.trim() : "";
+
+    if (!supabaseClient || !isSupabaseConfigured || !userId) {
+      profileSyncKeyRef.current = "";
+      return;
+    }
+
+    const client = supabaseClient;
+    const syncKey = `${userId}:${safeEmail}:${safeDisplayName}`;
+
+    if (profileSyncKeyRef.current === syncKey) {
+      return;
+    }
+    profileSyncKeyRef.current = syncKey;
+
+    let cancelled = false;
+
+    async function syncProfile() {
+      try {
+        const { data: rows, error: selectError } = await client
+          .from("profiles")
+          .select("id, plan")
+          .eq("id", userId)
+          .limit(1);
+        
+        if (cancelled) return;
+
+        if (selectError) {
+          console.warn("[auth-profile] select failed:", selectError.message ?? "unknown error");
+          return;
+        }
+
+        const existingProfile =
+          Array.isArray(rows) && rows.length > 0 ? (rows[0] as { id?: string; plan?: string }) : null;
+        const nowIso = new Date().toISOString();
+        const payload = {
+          id: userId,
+          email: safeEmail || null,
+          display_name: safeDisplayName || null,
+          updated_at: nowIso
+        };
+
+        if (existingProfile?.id) {
+          const { error: updateError } = await client
+            .from("profiles")
+            .update(payload)
+            .eq("id", userId);
+
+          if (cancelled) return;
+          if (updateError) {
+            console.warn("[auth-profile] update failed:", updateError.message ?? "unknown error");
+          }
+          return;
+        }
+
+        const { error: insertError } = await client.from("profiles").insert({
+          ...payload,
+          plan: "free"
+        });
+
+        if (cancelled) return;
+        if (insertError) {
+          console.warn("[auth-profile] insert failed:", insertError.message ?? "unknown error");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "unknown error";
+        console.warn("[auth-profile] sync failed:", message);
+      }
+    }
+
+    void syncProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.email, user?.user_metadata?.name]);
 
   const sendEmailOtpCode = useCallback(async (email: string): Promise<AuthActionResult> => {
     if (supabaseUrlError) {

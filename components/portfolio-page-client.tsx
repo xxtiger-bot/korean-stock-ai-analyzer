@@ -2670,6 +2670,9 @@ export function PortfolioPageClient() {
             )}
           </div>
         )}
+        <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+          클라우드 동기화와 리포트 저장은 향후 Pro 기능으로 확장될 수 있습니다.
+        </p>
       </section>
 
       <section
