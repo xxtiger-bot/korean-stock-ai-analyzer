@@ -20,7 +20,7 @@ type AuthModalState =
   | "rateLimited"
   | "error"
   | "loggedIn";
-type CooldownReason = "sent" | "rateLimited" | null;
+type CooldownReason = "success" | "rateLimit" | null;
 type AuthLoginStep = "email" | "code";
 
 export function SiteHeader() {
@@ -79,7 +79,7 @@ export function SiteHeader() {
 
     if (!user && authModalState === "loggedIn") {
       if (cooldownSeconds > 0) {
-        setAuthState(cooldownReason === "rateLimited" ? "rateLimited" : "cooldown");
+        setAuthState(cooldownReason === "rateLimit" ? "rateLimited" : "cooldown");
       } else {
         setAuthState("idle");
       }
@@ -87,7 +87,7 @@ export function SiteHeader() {
   }, [authModalState, cooldownReason, cooldownSeconds, setAuthState, user]);
 
   useEffect(() => {
-    syncEmailCooldownFromStorage();
+    void syncEmailCooldownFromStorage();
   }, []);
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export function SiteHeader() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [emailCooldownUntil]);
+  }, [emailCooldownUntil, setAuthState, user]);
 
   function startEmailCooldown(seconds: number, reason: Exclude<CooldownReason, null>) {
     if (typeof window === "undefined") return;
@@ -144,10 +144,25 @@ export function SiteHeader() {
     setCooldownReason(reason);
     setEmailCooldownUntil(until);
     setCooldownSeconds(safeSeconds);
-    setAuthState(reason === "rateLimited" ? "rateLimited" : "cooldown");
+    setAuthState(reason === "rateLimit" ? "rateLimited" : "cooldown");
+    console.log(`[auth] cooldown reason: ${reason}`);
     try {
       window.localStorage.setItem(AUTH_EMAIL_COOLDOWN_KEY, String(until));
       window.localStorage.setItem(AUTH_EMAIL_COOLDOWN_REASON_KEY, reason);
+    } catch {
+      // localStorage may be blocked in restricted contexts.
+    }
+  }
+
+  function clearEmailCooldown() {
+    if (typeof window === "undefined") return;
+    setEmailCooldownUntil(0);
+    setCooldownSeconds(0);
+    setCooldownReason(null);
+    console.log("[auth] cooldown reason: none");
+    try {
+      window.localStorage.removeItem(AUTH_EMAIL_COOLDOWN_KEY);
+      window.localStorage.removeItem(AUTH_EMAIL_COOLDOWN_REASON_KEY);
     } catch {
       // localStorage may be blocked in restricted contexts.
     }
@@ -160,24 +175,25 @@ export function SiteHeader() {
       const reasonRaw = window.localStorage.getItem(AUTH_EMAIL_COOLDOWN_REASON_KEY);
       const parsed = Number(raw);
       const safeReason: CooldownReason =
-        reasonRaw === "rateLimited" || reasonRaw === "sent" ? reasonRaw : null;
-      if (Number.isFinite(parsed) && parsed > Date.now()) {
-        setCooldownReason(safeReason);
-        setEmailCooldownUntil(parsed);
-        setCooldownSeconds(Math.max(1, Math.ceil((parsed - Date.now()) / 1000)));
-        return true;
-      } else {
-        setEmailCooldownUntil(0);
-        setCooldownSeconds(0);
-        setCooldownReason(null);
-        window.localStorage.removeItem(AUTH_EMAIL_COOLDOWN_KEY);
-        window.localStorage.removeItem(AUTH_EMAIL_COOLDOWN_REASON_KEY);
+        reasonRaw === "rateLimit" || reasonRaw === "success" ? reasonRaw : null;
+
+      if (!Number.isFinite(parsed) || parsed <= Date.now()) {
+        clearEmailCooldown();
         return false;
       }
+
+      if (!safeReason) {
+        clearEmailCooldown();
+        return false;
+      }
+
+      setCooldownReason(safeReason);
+      setEmailCooldownUntil(parsed);
+      setCooldownSeconds(Math.max(1, Math.ceil((parsed - Date.now()) / 1000)));
+      console.log(`[auth] cooldown reason: ${safeReason}`);
+      return true;
     } catch {
-      setEmailCooldownUntil(0);
-      setCooldownSeconds(0);
-      setCooldownReason(null);
+      clearEmailCooldown();
       return false;
     }
   }
@@ -194,7 +210,11 @@ export function SiteHeader() {
       return;
     }
     if (hasCooldown) {
-      setAuthState(cooldownReason === "rateLimited" ? "rateLimited" : "cooldown");
+      const reasonRaw =
+        typeof window !== "undefined" ? window.localStorage.getItem(AUTH_EMAIL_COOLDOWN_REASON_KEY) : null;
+      const safeReason: CooldownReason =
+        reasonRaw === "rateLimit" || reasonRaw === "success" ? reasonRaw : null;
+      setAuthState(safeReason === "rateLimit" ? "rateLimited" : "cooldown");
     } else {
       setAuthState("idle");
     }
@@ -224,6 +244,12 @@ export function SiteHeader() {
     setAuthNotice("로컬 모드로 계속 사용합니다.");
   }
 
+  function handleResetCooldown() {
+    clearEmailCooldown();
+    setAuthState("idle");
+    setModalNotice("인증코드 전송 대기 상태로 초기화되었습니다.");
+  }
+
   async function handleSendOtpCode() {
     if (user) {
       setAuthState("loggedIn");
@@ -232,6 +258,7 @@ export function SiteHeader() {
     if (cooldownSeconds > 0 || authModalState === "sending") {
       return;
     }
+    console.log("[auth] send otp clicked");
     console.log(`[auth] supabase url: ${supabaseUrl || "(empty)"}`);
     setModalNotice("");
     setAuthState("sending");
@@ -240,6 +267,7 @@ export function SiteHeader() {
       console.log(`[auth] response status: ${result.statusCode ?? 0}`);
       if (!result.ok) {
         const rawMessage = result.message ?? "인증코드 요청에 실패했습니다.";
+        console.log(`[auth] supabase response status/error: ${result.statusCode ?? 0} ${rawMessage}`);
         const lowerMessage = rawMessage.toLowerCase();
         const isRateLimited =
           result.statusCode === 429 ||
@@ -261,8 +289,9 @@ export function SiteHeader() {
         setAuthNotice(message);
         if (isRateLimited) {
           setAuthState("rateLimited");
-          startEmailCooldown(AUTH_EMAIL_RATE_LIMIT_COOLDOWN_SECONDS, "rateLimited");
+          startEmailCooldown(AUTH_EMAIL_RATE_LIMIT_COOLDOWN_SECONDS, "rateLimit");
         } else {
+          clearEmailCooldown();
           setAuthState("error");
         }
         return;
@@ -273,12 +302,13 @@ export function SiteHeader() {
       setAuthNotice(successMessage);
       setAuthState("sent");
       setLoginStep("code");
-      startEmailCooldown(AUTH_EMAIL_COOLDOWN_SECONDS, "sent");
+      startEmailCooldown(AUTH_EMAIL_COOLDOWN_SECONDS, "success");
     } catch {
-      console.log("[auth] response status: 0");
+      console.log("[auth] supabase response status/error: network");
       const message = "Supabase 연결에 실패했습니다. 네트워크를 확인해주세요.";
       setModalNotice(message);
       setAuthNotice(message);
+      clearEmailCooldown();
       setAuthState("error");
     }
   }
@@ -493,6 +523,9 @@ export function SiteHeader() {
                     {modalNotice}
                   </p>
                 )}
+                <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  cooldownReason: {cooldownReason ?? "none"}
+                </p>
                 <button
                   type="button"
                   onClick={() => void handleSendOtpCode()}
@@ -503,7 +536,9 @@ export function SiteHeader() {
                   {authModalState === "sending"
                     ? "전송 중..."
                     : cooldownSeconds > 0
-                      ? `다시 보내기까지 ${cooldownSeconds}초`
+                      ? cooldownReason === "rateLimit"
+                        ? `3분 후 다시 시도 · ${cooldownSeconds}초`
+                        : `다시 보내기까지 ${cooldownSeconds}초`
                       : loginStep === "code"
                         ? "인증코드 다시 보내기"
                         : "인증코드 보내기"}
@@ -526,6 +561,13 @@ export function SiteHeader() {
               className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
             >
               클라우드 로그인 없이 계속 사용
+            </button>
+            <button
+              type="button"
+              onClick={handleResetCooldown}
+              className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
+            >
+              冷却 초기화
             </button>
           </div>
         </div>
