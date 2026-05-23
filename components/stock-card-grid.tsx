@@ -145,7 +145,12 @@ export function StockCardGrid({
                     {secondaryName}
                   </p>
                 </div>
-                <WatchlistButton symbol={stock.symbol} compact />
+                <WatchlistButton
+                  symbol={stock.symbol}
+                  stockName={stock.koreanName}
+                  market={stock.market}
+                  compact
+                />
               </div>
 
               <div className="mt-3 flex items-end justify-between gap-3">

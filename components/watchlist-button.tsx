@@ -5,10 +5,17 @@ import { useWatchlist } from "@/components/watchlist-provider";
 
 type WatchlistButtonProps = {
   symbol: string;
+  stockName?: string | null;
+  market?: string | null;
   compact?: boolean;
 };
 
-export function WatchlistButton({ symbol, compact = false }: WatchlistButtonProps) {
+export function WatchlistButton({
+  symbol,
+  stockName,
+  market,
+  compact = false
+}: WatchlistButtonProps) {
   const { isWatching, toggle } = useWatchlist();
   const active = isWatching(symbol);
 
@@ -17,7 +24,7 @@ export function WatchlistButton({ symbol, compact = false }: WatchlistButtonProp
       type="button"
       onClick={(event) => {
         event.preventDefault();
-        toggle(symbol);
+        toggle(symbol, { stockName, market });
       }}
       className={`inline-flex items-center justify-center rounded-md border transition ${
         active

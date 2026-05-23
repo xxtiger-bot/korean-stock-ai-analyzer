@@ -13,6 +13,7 @@ type PlanLabel = "Free" | "Pro" | "Business";
 
 type CloudStats = {
   holdingsCount: number;
+  watchlistCount: number;
   alertRulesCount: number;
   reportsCount: number;
   riskSnapshotsCount: number;
@@ -282,6 +283,7 @@ export function MyPagePageClient() {
   const [plan, setPlan] = useState<PlanLabel>("Free");
   const [stats, setStats] = useState<CloudStats>({
     holdingsCount: 0,
+    watchlistCount: 0,
     alertRulesCount: 0,
     reportsCount: 0,
     riskSnapshotsCount: 0
@@ -302,7 +304,13 @@ export function MyPagePageClient() {
     const supabaseClient = supabase;
     if (!user?.id) {
       setPlan("Free");
-      setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0, riskSnapshotsCount: 0 });
+      setStats({
+        holdingsCount: 0,
+        watchlistCount: 0,
+        alertRulesCount: 0,
+        reportsCount: 0,
+        riskSnapshotsCount: 0
+      });
       setRecentReports([]);
       setRecentRiskChanges([]);
       setExpandedReportId(null);
@@ -314,7 +322,13 @@ export function MyPagePageClient() {
 
     if (!isSupabaseConfigured || !supabaseClient) {
       setFetchError("계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-      setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0, riskSnapshotsCount: 0 });
+      setStats({
+        holdingsCount: 0,
+        watchlistCount: 0,
+        alertRulesCount: 0,
+        reportsCount: 0,
+        riskSnapshotsCount: 0
+      });
       setRecentReports([]);
       setRecentRiskChanges([]);
       setPlan("Free");
@@ -334,6 +348,7 @@ export function MyPagePageClient() {
       const [
         profileResult,
         holdingsCountResult,
+        watchlistCountResult,
         alertRulesCountResult,
         reportsCountResult,
         riskSnapshotsCountResult,
@@ -343,6 +358,7 @@ export function MyPagePageClient() {
       ] = await Promise.allSettled([
         client.from("profiles").select("plan").eq("id", userId).limit(1),
         client.from("portfolio_holdings").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        client.from("watchlist_items").select("symbol", { count: "exact", head: true }).eq("user_id", userId),
         client
           .from("portfolio_alert_rules")
           .select("id", { count: "exact", head: true })
@@ -408,6 +424,7 @@ export function MyPagePageClient() {
 
       const nextStats: CloudStats = {
         holdingsCount: countFromResult(holdingsCountResult),
+        watchlistCount: countFromResult(watchlistCountResult),
         alertRulesCount: countFromResult(alertRulesCountResult),
         reportsCount: countFromResult(reportsCountResult),
         riskSnapshotsCount: countFromResult(riskSnapshotsCountResult)
@@ -577,6 +594,10 @@ export function MyPagePageClient() {
             <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
               <span>portfolio_holdings</span>
               <strong>{Number.isFinite(stats.holdingsCount) ? stats.holdingsCount : 0}</strong>
+            </li>
+            <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+              <span>관심종목 수</span>
+              <strong>{Number.isFinite(stats.watchlistCount) ? stats.watchlistCount : 0}</strong>
             </li>
             <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
               <span>portfolio_alert_rules</span>

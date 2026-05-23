@@ -30,7 +30,14 @@ export function WatchlistPanel({
   stocks: Stock[];
   sectionIds?: WatchlistPanelSectionIds;
 }) {
-  const { symbols, remove } = useWatchlist();
+  const {
+    symbols,
+    remove,
+    canSyncLocalToCloud,
+    isCloudSyncing,
+    syncLocalToCloud,
+    syncNotice
+  } = useWatchlist();
   const [liveStocks, setLiveStocks] = useState<Stock[]>([]);
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
   const symbolKey = symbols.join("|");
@@ -98,12 +105,27 @@ export function WatchlistPanel({
           {selected.length}
         </span>
       </div>
+      {canSyncLocalToCloud ? (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => void syncLocalToCloud()}
+            disabled={isCloudSyncing}
+            className="inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            {isCloudSyncing ? "동기화 중..." : "로컬 관심종목을 클라우드에 동기화"}
+          </button>
+        </div>
+      ) : null}
+      {syncNotice ? (
+        <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{syncNotice}</p>
+      ) : null}
       <div className="mt-4 space-y-2">
         {selected.length === 0 ? (
           <EmptyState
             compact
             title="관심종목 없음"
-            description="별표 버튼을 눌러 관심 종목을 추가해보세요."
+            description="관심종목을 추가하면 매일 확인할 종목을 더 쉽게 볼 수 있습니다."
           />
         ) : (
           selected.map((stock) => (

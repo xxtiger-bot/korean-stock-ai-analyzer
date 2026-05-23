@@ -101,7 +101,12 @@ export function StockTable({ title, stocks }: StockTableProps) {
                   </p>
                 ) : null}
               </div>
-              <WatchlistButton symbol={stock.symbol} compact />
+              <WatchlistButton
+                symbol={stock.symbol}
+                stockName={stock.koreanName}
+                market={stock.market}
+                compact
+              />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-semibold">
               <p className="text-slate-600 dark:text-slate-300">
@@ -225,7 +230,12 @@ export function StockTable({ title, stocks }: StockTableProps) {
                   {formatCompactKRW(stock.marketCap)}
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <WatchlistButton symbol={stock.symbol} compact />
+                  <WatchlistButton
+                    symbol={stock.symbol}
+                    stockName={stock.koreanName}
+                    market={stock.market}
+                    compact
+                  />
                 </td>
                 <td className="px-5 py-4 text-right">
                   <Link

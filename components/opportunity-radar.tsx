@@ -130,7 +130,12 @@ export function OpportunityRadar({ items }: { items: OpportunityRadarItem[] }) {
                   </p>
                 </div>
                 <div className="grid justify-items-end gap-2">
-                  <WatchlistButton symbol={item.stock.symbol} compact />
+                  <WatchlistButton
+                    symbol={item.stock.symbol}
+                    stockName={item.stock.koreanName}
+                    market={item.stock.market}
+                    compact
+                  />
                   <span className="text-xs font-bold text-brand">{item.priorityScore}점</span>
                 </div>
               </div>

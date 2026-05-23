@@ -151,7 +151,7 @@ export function StockDetailClient({
           홈
         </Link>
         <div className="hidden md:block">
-          <WatchlistButton symbol={stock.symbol} />
+          <WatchlistButton symbol={stock.symbol} stockName={stock.koreanName} market={stock.market} />
         </div>
       </div>
       <MobileTabNav
@@ -250,7 +250,7 @@ export function StockDetailClient({
           </div>
         )}
         <div className="mt-4 flex flex-wrap gap-2 md:hidden">
-          <WatchlistButton symbol={stock.symbol} />
+          <WatchlistButton symbol={stock.symbol} stockName={stock.koreanName} market={stock.market} />
           <Link
             href="/portfolio#portfolio-add-entry"
             className="inline-flex h-10 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"

@@ -127,7 +127,7 @@ export function PotentialRadar({ items }: { items: PotentialRadarItem[] }) {
                     데이터 출처: {item.dataSource} · {item.updatedAt}
                   </p>
                 </div>
-                <WatchlistButton symbol={item.code} compact />
+                <WatchlistButton symbol={item.code} stockName={item.name} compact />
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
