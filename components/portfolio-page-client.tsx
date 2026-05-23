@@ -1376,6 +1376,38 @@ export function PortfolioPageClient() {
     [draft.symbol]
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncMobileTabWithHash = () => {
+      const currentHash = window.location.hash.toLowerCase();
+      const nextTab: PortfolioMobileTab =
+        currentHash === "#reports"
+          ? "reports"
+          : currentHash === "#portfolio-alerts"
+            ? "alerts"
+            : currentHash === "#portfolio-holdings"
+              ? "holdings"
+              : "summary";
+      setMobileTab(nextTab);
+
+      if (nextTab === "reports") {
+        window.requestAnimationFrame(() => {
+          const reportSection = window.document.getElementById("reports");
+          if (reportSection) {
+            reportSection.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        });
+      }
+    };
+
+    syncMobileTabWithHash();
+    window.addEventListener("hashchange", syncMobileTabWithHash);
+    return () => {
+      window.removeEventListener("hashchange", syncMobileTabWithHash);
+    };
+  }, []);
+
   const safeEntries = useMemo(
     () => (Array.isArray(entries) ? entries : []),
     [entries]
