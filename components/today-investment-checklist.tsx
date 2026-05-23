@@ -62,6 +62,7 @@ type ChecklistItem = {
   score: number;
   alertNearDetails: AlertNearDetail[];
   source: "holding" | "watchlist";
+  quoteSource: "KIS" | "data.go.kr fallback";
 };
 
 type RiskSnapshot = {
@@ -90,6 +91,20 @@ type RiskChangeItem = {
   todayStatus: string;
   direction: RiskChangeDirection;
   reason: string;
+  reasons: string[];
+  returnRateChange: number | null;
+  alertNearCountChange: number | null;
+  currentPriceNeedsCheck: boolean;
+  aiJudgementChanged: boolean;
+};
+
+type RiskAiSummary = {
+  overallDirection: RiskChangeDirection;
+  oneLineSummary: string;
+  risingItems: RiskChangeItem[];
+  fallingItems: RiskChangeItem[];
+  checkReasons: string[];
+  hasHistory: boolean;
 };
 
 type RiskTimelineEntry = {
@@ -306,6 +321,13 @@ function getDirectionRank(direction: RiskChangeDirection) {
   if (direction === "하락") return 3;
   if (direction === "유지") return 2;
   return 1;
+}
+
+function getRiskDirectionBadgeLabel(direction: RiskChangeDirection) {
+  if (direction === "상승") return "리스크 상승";
+  if (direction === "하락") return "리스크 하락";
+  if (direction === "유지") return "유지";
+  return "비교 불가";
 }
 
 function getRiskDirectionByStatus(previousStatus: string, currentStatus: string): RiskChangeDirection {
@@ -554,7 +576,8 @@ function buildChecklistItem(diagnosis: PortfolioDiagnosis, conditions: UserAlert
     oneLineReason: reasons[0] ?? "현재는 관찰 구간입니다.",
     score,
     alertNearDetails: proximity.details,
-    source: "holding"
+    source: "holding",
+    quoteSource: diagnosis.quoteSource === "KIS" ? "KIS" : "data.go.kr fallback"
   };
 }
 
@@ -723,7 +746,9 @@ export function TodayInvestmentChecklist({
           .limit(500);
         if (cancelled) return;
         if (error) {
-          setSnapshotNotice("리스크 스냅샷 조회 실패로 로컬 기록을 사용합니다.");
+          setSnapshotNotice(
+            "클라우드 리스크 기록을 불러오지 못해 로컬 기록을 기준으로 표시합니다."
+          );
           setRiskSnapshots(parseLocalRiskSnapshots());
           return;
         }
@@ -828,7 +853,8 @@ export function TodayInvestmentChecklist({
         oneLineReason: reasons[0] ?? "기본 관찰 구간입니다.",
         score,
         alertNearDetails: [],
-        source: "watchlist"
+        source: "watchlist",
+        quoteSource: stock.quoteSource === "KIS" ? "KIS" : "data.go.kr fallback"
       });
     }
     return items.sort((a, b) => b.score - a.score || Math.abs((b.returnRate ?? 0)) - Math.abs((a.returnRate ?? 0)));
@@ -970,7 +996,9 @@ export function TodayInvestmentChecklist({
     for (const item of holdingItems) {
       const previous = safeSnapshots
         .filter((snapshot) => snapshot.symbol === item.symbol && snapshot.snapshotDate < todayDate)
-        .sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate))[0];
+        .sort((a, b) =>
+          `${b.snapshotDate}-${b.createdAt}`.localeCompare(`${a.snapshotDate}-${a.createdAt}`)
+        )[0];
 
       if (!previous) {
         result.push({
@@ -979,7 +1007,12 @@ export function TodayInvestmentChecklist({
           yesterdayStatus: "기록 없음",
           todayStatus: item.riskStatus,
           direction: "비교 불가",
-          reason: "오늘부터 리스크 변화를 추적합니다."
+          reason: "오늘부터 리스크 변화를 추적합니다.",
+          reasons: ["아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다."],
+          returnRateChange: null,
+          alertNearCountChange: null,
+          currentPriceNeedsCheck: item.quoteSource !== "KIS",
+          aiJudgementChanged: false
         });
         continue;
       }
@@ -988,13 +1021,73 @@ export function TodayInvestmentChecklist({
       const nowRank = getStatusRank(item.riskStatus);
       const direction: RiskChangeDirection =
         nowRank > prevRank ? "상승" : nowRank < prevRank ? "하락" : "유지";
+      const returnRateChange =
+        previous.returnRate !== null && item.returnRate !== null
+          ? item.returnRate - previous.returnRate
+          : null;
+      const alertNearCountChange = item.nearAlertCount - previous.alertNearCount;
+      const currentPriceNeedsCheck =
+        item.quoteSource !== "KIS" ||
+        item.currentPrice === null ||
+        !Number.isFinite(item.currentPrice) ||
+        item.currentPrice <= 0;
+      const aiJudgementChanged = previous.riskStatus !== item.riskStatus;
+      const reasonDetails: string[] = [];
+
+      if (direction === "상승") {
+        if (previous.riskStatus === "유지 관찰" && item.riskStatus === "리스크 관리 필요") {
+          reasonDetails.push("유지 관찰에서 리스크 관리 필요 상태로 변화했습니다.");
+        } else {
+          reasonDetails.push("리스크 상태가 전일 대비 상승했습니다.");
+        }
+      } else if (direction === "하락") {
+        if (previous.riskStatus === "리스크 관리 필요" && item.riskStatus === "유지 관찰") {
+          reasonDetails.push("리스크 관리 필요 상태에서 유지 관찰 상태로 완화되었습니다.");
+        } else {
+          reasonDetails.push("리스크 상태가 전일 대비 완화되었습니다.");
+        }
+      } else {
+        reasonDetails.push("리스크 상태는 전일과 유사한 흐름입니다.");
+      }
+
+      if (returnRateChange !== null && returnRateChange <= -3) {
+        reasonDetails.push("수익률이 전일 대비 하락했습니다.");
+      } else if (returnRateChange !== null && returnRateChange >= 3) {
+        reasonDetails.push("수익률이 개선되었습니다.");
+      }
+
+      if (alertNearCountChange > 0) {
+        reasonDetails.push("알림 조건에 가까워진 항목이 있습니다.");
+      }
+
+      if (aiJudgementChanged) {
+        reasonDetails.push("AI 판단 상태가 변해 재평가가 필요합니다.");
+      }
+
+      if (currentPriceNeedsCheck) {
+        reasonDetails.push("현재가 확인이 필요합니다.");
+      }
+
+      if (item.statusTag === "데이터 확인 필요") {
+        reasonDetails.push("데이터 확인 필요 신호가 있어 보수적으로 관찰이 필요합니다.");
+      }
+
+      if (reasonDetails.length === 0) {
+        reasonDetails.push(item.oneLineReason || "리스크 변화를 관찰 중입니다.");
+      }
+
       result.push({
         symbol: item.symbol,
         name: item.name,
         yesterdayStatus: previous.riskStatus,
         todayStatus: item.riskStatus,
         direction,
-        reason: item.oneLineReason
+        reason: reasonDetails[0] ?? item.oneLineReason,
+        reasons: reasonDetails,
+        returnRateChange,
+        alertNearCountChange: Number.isFinite(alertNearCountChange) ? alertNearCountChange : null,
+        currentPriceNeedsCheck,
+        aiJudgementChanged
       });
     }
 
@@ -1009,6 +1102,83 @@ export function TodayInvestmentChecklist({
       return left.name.localeCompare(right.name, "ko");
     });
   }, [riskChanges]);
+
+  const riskAiSummary = useMemo<RiskAiSummary>(() => {
+    const safeChanges = Array.isArray(riskChangesSorted) ? riskChangesSorted : [];
+    const hasHistory = safeChanges.some((item) => item.direction !== "비교 불가");
+    const risingItems = safeChanges.filter((item) => item.direction === "상승").slice(0, 3);
+    const fallingItems = safeChanges.filter((item) => item.direction === "하락").slice(0, 3);
+
+    let overallDirection: RiskChangeDirection = "비교 불가";
+    if (risingItems.length > 0) {
+      overallDirection = "상승";
+    } else if (fallingItems.length > 0) {
+      overallDirection = "하락";
+    } else if (safeChanges.some((item) => item.direction === "유지")) {
+      overallDirection = "유지";
+    }
+
+    const reasonPool: string[] = [];
+    if (safeChanges.some((item) => item.returnRateChange !== null && item.returnRateChange <= -3)) {
+      reasonPool.push("수익률 하락");
+    }
+    if (safeChanges.some((item) => item.returnRateChange !== null && item.returnRateChange >= 3)) {
+      reasonPool.push("수익률 개선");
+    }
+    if (safeChanges.some((item) => (item.alertNearCountChange ?? 0) > 0)) {
+      reasonPool.push("알림 조건 근접");
+    }
+    if (safeChanges.some((item) => item.aiJudgementChanged)) {
+      reasonPool.push("AI 판단 변화");
+    }
+    if (
+      safeChanges.some((item) => item.currentPriceNeedsCheck) ||
+      safeChanges.some((item) => item.reason.includes("현재가 확인"))
+    ) {
+      reasonPool.push("데이터 확인 필요");
+    }
+    if (safeChanges.some((item) => item.direction === "상승")) {
+      reasonPool.push("리스크 상태 변화");
+    }
+
+    const checkReasons = reasonPool.slice(0, 4);
+    const holdingCount = holdingItems.length;
+
+    let oneLineSummary = "아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.";
+    if (hasHistory) {
+      if (overallDirection === "상승") {
+        oneLineSummary =
+          holdingCount <= 1
+            ? "오늘은 보유 종목의 리스크가 상승해 우선 확인이 필요합니다."
+            : "오늘은 일부 보유종목의 리스크가 상승해 먼저 확인이 필요합니다.";
+      } else if (overallDirection === "하락") {
+        oneLineSummary =
+          holdingCount <= 1
+            ? "보유 종목의 리스크가 완화되어 유지 관찰 흐름을 확인할 수 있습니다."
+            : "전일 대비 리스크가 완화된 종목이 있어 포트폴리오 흐름이 개선되었습니다.";
+      } else {
+        oneLineSummary =
+          holdingCount <= 1
+            ? "보유 종목은 전일 대비 큰 변화 없이 유지 관찰 구간입니다."
+            : "현재 포트폴리오는 전일 대비 큰 변화 없이 유지 관찰 구간입니다.";
+      }
+
+      if (checkReasons.includes("알림 조건 근접")) {
+        oneLineSummary += " 알림 조건에 가까운 항목을 함께 확인해주세요.";
+      } else if (checkReasons.includes("데이터 확인 필요")) {
+        oneLineSummary += " 현재가와 종가 차이가 큰 종목은 신중한 확인이 필요합니다.";
+      }
+    }
+
+    return {
+      overallDirection,
+      oneLineSummary,
+      risingItems,
+      fallingItems,
+      checkReasons,
+      hasHistory
+    };
+  }, [holdingItems.length, riskChangesSorted]);
 
   const riskTimelineData = useMemo(() => {
     const safeSnapshots = Array.isArray(riskSnapshots) ? riskSnapshots : [];
@@ -1095,6 +1265,9 @@ export function TodayInvestmentChecklist({
   }, [holdingItems, riskSnapshots]);
 
   const headline = useMemo(() => {
+    if (riskAiSummary.hasHistory) {
+      return riskAiSummary.oneLineSummary;
+    }
     if (top3.some((item) => item.statusTag === "데이터 확인 필요")) {
       return "데이터 불일치가 있는 종목은 매매 판단 전에 가격을 다시 확인해주세요.";
     }
@@ -1108,7 +1281,7 @@ export function TodayInvestmentChecklist({
       return "현재 포트폴리오는 유지 관찰 구간입니다.";
     }
     return "일별 데이터 기준으로 기본 관찰 구간입니다.";
-  }, [profitObservationItems.length, riskUpItems.length, top3]);
+  }, [profitObservationItems.length, riskAiSummary, riskUpItems.length, top3]);
 
   const hasAnyData = top3.length > 0 || riskChanges.length > 0 || alertNearItems.length > 0;
   const showEmpty =
@@ -1154,6 +1327,95 @@ export function TodayInvestmentChecklist({
       ) : (
         <div className="mt-4 grid gap-3">
           <article className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+            <h3 className="text-sm font-bold text-ink dark:text-white">
+              {variant === "portfolio" ? "내 보유종목 리스크 변화 요약" : "리스크 변화 AI 요약"}
+            </h3>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                전체 변화 방향
+              </span>
+              <span
+                className={`rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskDirectionClass(
+                  riskAiSummary.overallDirection
+                )}`}
+              >
+                {getRiskDirectionBadgeLabel(riskAiSummary.overallDirection)}
+              </span>
+              <p className="min-w-0 flex-1 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
+                {riskAiSummary.oneLineSummary}
+              </p>
+            </div>
+
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <div className="rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-dark-panel">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">리스크 상승 종목</p>
+                {riskAiSummary.risingItems.length === 0 ? (
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    현재 리스크가 크게 상승한 종목은 없습니다.
+                  </p>
+                ) : (
+                  <ul className="mt-1 grid gap-1">
+                    {riskAiSummary.risingItems.map((item) => (
+                      <li key={`risk-up-${item.symbol}`} className="rounded-md bg-slate-50 px-2 py-1 dark:bg-slate-900/60">
+                        <p className="text-xs font-bold text-ink dark:text-white">
+                          {item.name} · {item.symbol}
+                        </p>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                          어제: {item.yesterdayStatus} → 오늘: {item.todayStatus}
+                        </p>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                          {item.reason}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-dark-panel">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">리스크 하락 종목</p>
+                {riskAiSummary.fallingItems.length === 0 ? (
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    현재 리스크 하락 신호가 큰 종목은 없습니다.
+                  </p>
+                ) : (
+                  <ul className="mt-1 grid gap-1">
+                    {riskAiSummary.fallingItems.map((item) => (
+                      <li key={`risk-down-${item.symbol}`} className="rounded-md bg-slate-50 px-2 py-1 dark:bg-slate-900/60">
+                        <p className="text-xs font-bold text-ink dark:text-white">
+                          {item.name} · {item.symbol}
+                        </p>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                          어제: {item.yesterdayStatus} → 오늘: {item.todayStatus}
+                        </p>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                          {item.reason}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">오늘 먼저 확인할 이유</p>
+              {riskAiSummary.checkReasons.length === 0 ? (
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.
+                </p>
+              ) : (
+                <ul className="mt-1 grid gap-1">
+                  {riskAiSummary.checkReasons.map((reason) => (
+                    <li key={`risk-reason-${reason}`} className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      - {reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
             <h3 className="text-sm font-bold text-ink dark:text-white">오늘 먼저 확인할 종목 TOP 3</h3>
             {top3.length === 0 ? (
               <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">데이터 없음</p>
@@ -1195,13 +1457,7 @@ export function TodayInvestmentChecklist({
                         {item.name} · {item.symbol}
                       </p>
                       <span className={`rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskDirectionClass(item.direction)}`}>
-                        {item.direction === "상승"
-                          ? "리스크 상승"
-                          : item.direction === "하락"
-                            ? "리스크 하락"
-                            : item.direction === "유지"
-                              ? "유지"
-                              : "비교 불가"}
+                        {getRiskDirectionBadgeLabel(item.direction)}
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -1244,11 +1500,7 @@ export function TodayInvestmentChecklist({
                         <span
                           className={`rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskDirectionClass(entry.direction)}`}
                         >
-                          {entry.direction === "상승"
-                            ? "리스크 상승"
-                            : entry.direction === "하락"
-                              ? "리스크 하락"
-                              : "유지"}
+                          {getRiskDirectionBadgeLabel(entry.direction)}
                         </span>
                       </div>
                       <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">

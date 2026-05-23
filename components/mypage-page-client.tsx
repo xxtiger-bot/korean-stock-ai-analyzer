@@ -189,6 +189,13 @@ function getRiskDirectionClass(direction: RiskChangeDirection) {
   return "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300";
 }
 
+function getRiskDirectionBadgeLabel(direction: RiskChangeDirection) {
+  if (direction === "상승") return "리스크 상승";
+  if (direction === "하락") return "리스크 하락";
+  if (direction === "유지") return "유지";
+  return "비교 불가";
+}
+
 function normalizeRiskSnapshotRow(value: unknown): RiskSnapshotRow | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
@@ -519,6 +526,37 @@ export function MyPagePageClient() {
   const safeReports = Array.isArray(recentReports) ? recentReports : [];
   const safeRecentRiskChanges = Array.isArray(recentRiskChanges) ? recentRiskChanges : [];
   const safeCloudNotice = safeText(cloudSyncNotice);
+  const recentRiskChangeSummary = useMemo(() => {
+    if (safeRecentRiskChanges.length === 0) {
+      return "아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.";
+    }
+
+    const hasRising = safeRecentRiskChanges.some((item) => item.direction === "상승");
+    const hasFalling = safeRecentRiskChanges.some((item) => item.direction === "하락");
+    const hasDataCheck = safeRecentRiskChanges.some(
+      (item) =>
+        item.reason.includes("현재가 확인") ||
+        item.reason.includes("데이터") ||
+        item.reason.includes("가격")
+    );
+    const hasReturnDrop = safeRecentRiskChanges.some(
+      (item) => item.returnRateChange !== null && item.returnRateChange <= -3
+    );
+
+    if (hasRising) {
+      return "최근 리스크 상승 종목이 있어 우선 확인과 재평가가 필요합니다.";
+    }
+    if (hasDataCheck) {
+      return "일부 종목은 데이터 확인이 필요해 보수적인 관찰이 필요합니다.";
+    }
+    if (hasReturnDrop) {
+      return "수익률 하락 구간이 있어 리스크 관리 기준을 점검해주세요.";
+    }
+    if (hasFalling) {
+      return "최근 리스크가 완화되어 유지 관찰 흐름을 확인할 수 있습니다.";
+    }
+    return "최근 리스크 상태는 큰 변화 없이 유지 관찰 구간입니다.";
+  }, [safeRecentRiskChanges]);
 
   if (isLoading) {
     return (
@@ -633,6 +671,9 @@ export function MyPagePageClient() {
             </span>
           )}
         </div>
+        <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-700 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200">
+          최근 리스크 변화 한 줄 요약: {recentRiskChangeSummary}
+        </p>
 
         {safeRecentRiskChanges.length === 0 ? (
           <p className="mt-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
@@ -655,13 +696,7 @@ export function MyPagePageClient() {
                   <span
                     className={`rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskDirectionClass(item.direction)}`}
                   >
-                    {item.direction === "상승"
-                      ? "리스크 상승"
-                      : item.direction === "하락"
-                        ? "리스크 하락"
-                        : item.direction === "유지"
-                          ? "유지"
-                          : "비교 불가"}
+                    {getRiskDirectionBadgeLabel(item.direction)}
                   </span>
                 </div>
                 <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
