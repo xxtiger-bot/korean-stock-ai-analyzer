@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Bell, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { MobileSectionNav } from "@/components/mobile-section-nav";
+import { MobileTabNav } from "@/components/mobile-tab-nav";
 import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
@@ -115,6 +115,7 @@ type PortfolioAlertRuleRow = {
 };
 
 type AlertRuleSyncStatus = "local" | "synced" | "failed";
+type PortfolioMobileTab = "summary" | "holdings" | "alerts" | "reports";
 
 const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
 const BROWSER_NOTIFICATION_ENABLED_KEY = "portfolioBrowserNotificationEnabled";
@@ -1360,6 +1361,7 @@ export function PortfolioPageClient() {
   } | null>(null);
   const [lookupFailed, setLookupFailed] = useState(false);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
+  const [mobileTab, setMobileTab] = useState<PortfolioMobileTab>("summary");
   const [draft, setDraft] = useState<DraftState>({
     symbol: "",
     buyPrice: "",
@@ -2557,24 +2559,30 @@ export function PortfolioPageClient() {
       setIsSavingDailyReport(false);
     }
   }
+  const mobileTabClass = (tab: PortfolioMobileTab) =>
+    mobileTab === tab ? "block" : "hidden";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <section className="mb-4">
+      <section className={`mb-4 ${mobileTabClass("summary")} md:block`}>
         <TodayInvestmentChecklist variant="portfolio" sectionId="portfolio-checklist" />
       </section>
-      <MobileSectionNav
+      <MobileTabNav
         items={[
-          { id: "portfolio-checklist", label: "요약" },
-          { id: "portfolio-holdings", label: "보유" },
-          { id: "portfolio-alerts", label: "알림" },
-          { id: "portfolio-report", label: "리포트" }
+          { key: "summary", label: "요약" },
+          { key: "holdings", label: "보유" },
+          { key: "alerts", label: "알림" },
+          { key: "reports", label: "리포트" }
         ]}
+        activeKey={mobileTab}
+        onChange={(value) => setMobileTab(value as PortfolioMobileTab)}
         topClassName="top-[72px]"
       />
       <section
         id="portfolio-summary"
-        className="scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+        className={`scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+          "summary"
+        )} md:block`}
       >
         <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio</p>
         <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
@@ -2688,7 +2696,9 @@ export function PortfolioPageClient() {
 
       <section
         id="portfolio-risk"
-        className="mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+        className={`mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+          "alerts"
+        )} md:block`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -2797,8 +2807,10 @@ export function PortfolioPageClient() {
       </section>
 
       <section
-        id="portfolio-report"
-        className="mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+        id="reports"
+        className={`mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+          "reports"
+        )} md:block`}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div>
@@ -3112,7 +3124,7 @@ export function PortfolioPageClient() {
         </article>
       </section>
 
-      <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className={`mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 ${mobileTabClass("summary")} md:grid`}>
         <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
           <p className="text-xs font-bold text-slate-400">총 보유 종목 수</p>
           <p className="mt-1 text-xl font-bold text-ink dark:text-white">{safeEntries.length}</p>
@@ -3143,7 +3155,7 @@ export function PortfolioPageClient() {
 
       <section
         id="portfolio-holdings"
-        className="mt-4 grid min-w-0 scroll-mt-32 gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]"
+        className={`mt-4 grid min-w-0 scroll-mt-32 gap-4 ${mobileTabClass("holdings")} md:grid xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]`}
       >
         <form
           id="portfolio-add-entry"

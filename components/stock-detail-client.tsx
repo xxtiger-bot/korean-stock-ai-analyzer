@@ -13,7 +13,7 @@ import { IndicatorSummary } from "@/components/indicator-summary";
 import { IndicatorTranslator } from "@/components/indicator-translator";
 import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
 import { MetricCard } from "@/components/metric-card";
-import { MobileSectionNav } from "@/components/mobile-section-nav";
+import { MobileTabNav } from "@/components/mobile-tab-nav";
 import { PotentialScoreCard } from "@/components/potential-score-card";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { WatchlistButton } from "@/components/watchlist-button";
@@ -27,7 +27,9 @@ import {
   formatPercent
 } from "@/lib/format";
 import type { Candle, ForeignOwnershipData, PriceGuard, RealtimeQuote, Stock } from "@/lib/types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+
+type MobileDetailTab = "summary" | "chart" | "ai" | "indicators" | "risk";
 
 function formatRealtimeUpdatedAt(value: string | undefined) {
   if (!value) return "";
@@ -127,6 +129,16 @@ export function StockDetailClient({
         ["최근 종가", dataSource],
         ["기준일", dataDateLabel]
       ] as const);
+  const [mobileTab, setMobileTab] = useState<MobileDetailTab>("summary");
+  const mobileSummaryLine = hasPriceAnomaly
+    ? "현재가 데이터 차이가 커서 보수적으로 해석해야 합니다."
+    : headlineChangeRate >= 2
+      ? "단기 상승 흐름이지만 변동성 확대 구간 여부를 함께 확인하세요."
+      : headlineChangeRate <= -2
+        ? "단기 변동성 구간으로 지지선 재확인이 필요합니다."
+        : "현재 흐름은 중립 관찰 구간이며 다음 종가와 거래량을 함께 확인하세요.";
+  const mobileTabClass = (tab: MobileDetailTab) =>
+    mobileTab === tab ? "block" : "hidden";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -142,20 +154,24 @@ export function StockDetailClient({
           <WatchlistButton symbol={stock.symbol} />
         </div>
       </div>
-      <MobileSectionNav
+      <MobileTabNav
         items={[
-          { id: "detail-overview", label: "개요" },
-          { id: "detail-chart", label: "차트" },
-          { id: "detail-ai", label: "AI" },
-          { id: "detail-indicators", label: "지표" },
-          { id: "detail-risk", label: "리스크" }
+          { key: "summary", label: "요약" },
+          { key: "chart", label: "차트" },
+          { key: "ai", label: "AI" },
+          { key: "indicators", label: "지표" },
+          { key: "risk", label: "리스크" }
         ]}
+        activeKey={mobileTab}
+        onChange={(value) => setMobileTab(value as MobileDetailTab)}
         topClassName="top-[72px]"
       />
 
       <section
         id="detail-overview"
-        className="min-w-0 max-w-full scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+        className={`min-w-0 max-w-full scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+          "summary"
+        )} md:block`}
       >
         <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
@@ -242,11 +258,16 @@ export function StockDetailClient({
             보유 추가
           </Link>
         </div>
+        <div className="mt-4 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300 md:hidden">
+          핵심 판단: {mobileSummaryLine}
+        </div>
       </section>
 
       <section
         id="detail-price"
-        className="mt-5 grid min-w-0 max-w-full scroll-mt-32 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"
+        className={`mt-5 grid min-w-0 max-w-full scroll-mt-32 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 ${mobileTabClass(
+          "summary"
+        )} md:grid`}
       >
         <div className="sm:col-span-2 xl:col-span-5">
           <p className="text-xs font-bold tracking-normal text-brand">가격 범위</p>
@@ -310,9 +331,12 @@ export function StockDetailClient({
           </details>
         </div>
       </section>
+      <div className={`mt-5 md:hidden ${mobileTabClass("summary")}`}>
+        <EntryRiskScoreCard stock={stock} />
+      </div>
 
       <div className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-12">
-        <div id="detail-risk" className="order-1 min-w-0 max-w-full scroll-mt-32 xl:order-5 xl:col-span-8">
+        <div id="detail-risk" className={`order-1 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("risk")} md:block xl:order-5 xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               AI 참고
@@ -328,7 +352,7 @@ export function StockDetailClient({
             priceGuard={priceGuard}
           />
         </div>
-        <div id="detail-chart" className="order-3 min-w-0 max-w-full scroll-mt-32 xl:order-1 xl:col-span-8">
+        <div id="detail-chart" className={`order-3 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("chart")} md:block xl:order-1 xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               data.go.kr 기준
@@ -337,7 +361,7 @@ export function StockDetailClient({
           </div>
           <CandlestickChart series={technicalSeries} />
         </div>
-        <div id="detail-ai" className="order-5 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 xl:order-2 xl:col-span-4">
+        <div id="detail-ai" className={`order-5 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 ${mobileTabClass("ai")} md:grid xl:order-2 xl:col-span-4`}>
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               AI 참고
@@ -363,7 +387,7 @@ export function StockDetailClient({
             </section>
           )}
         </div>
-        <div className="order-6 min-w-0 max-w-full scroll-mt-32 xl:order-3 xl:col-span-8">
+        <div className={`order-6 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("ai")} md:block xl:order-3 xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               AI 참고
@@ -378,12 +402,12 @@ export function StockDetailClient({
             priceGuard={priceGuard}
           />
         </div>
-        <div className="order-2 grid min-w-0 max-w-full content-start gap-5 xl:order-6 xl:col-span-4">
+        <div className={`order-2 grid min-w-0 max-w-full content-start gap-5 ${mobileTabClass("risk")} md:grid xl:order-6 xl:col-span-4`}>
           <TradingPlanHelper stock={stock} />
           <PotentialScoreCard stock={stock} />
           <DangerWarningCard stock={stock} />
         </div>
-        <div id="detail-indicators" className="order-4 min-w-0 max-w-full scroll-mt-32 xl:hidden xl:col-span-8">
+        <div id="detail-indicators" className={`order-4 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("indicators")} md:block xl:hidden xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               data.go.kr 기준
@@ -409,7 +433,7 @@ export function StockDetailClient({
             </div>
           </details>
         </div>
-        <div id="detail-indicators-desktop" className="order-7 min-w-0 max-w-full xl:col-span-8 xl:order-4">
+        <div id="detail-indicators-desktop" className={`order-7 min-w-0 max-w-full ${mobileTabClass("indicators")} md:block xl:col-span-8 xl:order-4`}>
           <div className="hidden xl:block">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">

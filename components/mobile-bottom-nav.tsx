@@ -17,9 +17,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { key: "home", label: "홈", href: "/", icon: Home },
-  { key: "search", label: "검색", href: "/#home-search", icon: Search },
+  { key: "search", label: "검색", href: "/#search", icon: Search },
   { key: "portfolio", label: "보유", href: "/portfolio", icon: BriefcaseBusiness },
-  { key: "report", label: "리포트", href: "/portfolio#portfolio-report", icon: FileText },
+  { key: "report", label: "리포트", href: "/portfolio#reports", icon: FileText },
   { key: "mypage", label: "내 계정", href: "/mypage", icon: UserCircle2 }
 ];
 
@@ -43,7 +43,7 @@ export function MobileBottomNav() {
 
   const activeKey = useMemo<NavKey>(() => {
     if (pathname === "/") {
-      return hash.includes("home-search") ? "search" : "home";
+      return hash.includes("home-search") || hash.includes("search") ? "search" : "home";
     }
     if (pathname.startsWith("/portfolio")) {
       return hash.includes("portfolio-report") || hash.includes("reports")
