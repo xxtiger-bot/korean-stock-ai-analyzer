@@ -7,9 +7,34 @@ import { PortfolioProvider } from "@/components/portfolio-provider";
 import { AuthProvider } from "@/components/auth-provider";
 import { SiteFooter } from "@/components/site-footer";
 
+const metadataDescription =
+  "한국 주식 현재가, 일별 종가, AI 분석, 보유종목 진단, 리스크 알림을 제공하는 한국 주식 분석 도구";
+
 export const metadata: Metadata = {
-  title: "KRX Insight | Korean Stock Analytics",
-  description: "Korean stock analytics MVP with mock KRX market data."
+  title: "KRX Insight | Korean Stock AI Analyzer",
+  description: metadataDescription,
+  keywords: [
+    "한국 주식",
+    "KRX",
+    "주식 분석",
+    "AI 주식 분석",
+    "삼성전자",
+    "KIS",
+    "data.go.kr",
+    "포트폴리오 진단"
+  ],
+  openGraph: {
+    title: "KRX Insight | Korean Stock AI Analyzer",
+    description: metadataDescription,
+    siteName: "KRX Insight",
+    type: "website",
+    locale: "ko_KR"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "KRX Insight | Korean Stock AI Analyzer",
+    description: metadataDescription
+  }
 };
 
 export default function RootLayout({

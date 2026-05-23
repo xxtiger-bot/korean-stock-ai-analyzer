@@ -1,0 +1,25 @@
+import type { MetadataRoute } from "next";
+
+function getSiteUrl() {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/+$/, "");
+  }
+  const fromVercel = process.env.VERCEL_URL?.trim();
+  if (fromVercel) {
+    const normalized = fromVercel.replace(/\/+$/, "");
+    return normalized.startsWith("http") ? normalized : `https://${normalized}`;
+  }
+  return "http://localhost:3000";
+}
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: {
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/debug/market-data", "/mypage", "/portfolio"]
+    },
+    sitemap: `${getSiteUrl()}/sitemap.xml`
+  };
+}
