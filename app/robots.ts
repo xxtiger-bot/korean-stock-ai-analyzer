@@ -18,7 +18,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/debug/market-data", "/mypage", "/portfolio"]
+      disallow: ["/debug/market-data", "/mypage", "/portfolio", "/admin/checklist"]
     },
     sitemap: `${getSiteUrl()}/sitemap.xml`
   };
