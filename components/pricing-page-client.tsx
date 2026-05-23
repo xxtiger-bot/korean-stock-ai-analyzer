@@ -102,7 +102,7 @@ export function PricingPageClient() {
   return (
     <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-5 lg:px-7">
       <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">Membership</p>
+        <p className="text-xs font-bold tracking-normal text-brand">요금제</p>
         <h1 className="mt-1 text-xl font-bold text-ink dark:text-white">요금제 안내</h1>
         <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
           KRX Insight의 무료/Pro/Business 플랜 구조를 미리 확인할 수 있습니다.

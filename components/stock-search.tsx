@@ -77,7 +77,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     if (stock.quoteSource === "KIS") {
       return {
         label: "현재가",
-        sourceText: "시세: KIS",
+        sourceText: "현재가: KIS",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
@@ -85,7 +85,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     if (stock.quoteSource === "data.go.kr") {
       return {
         label: "현재가 확인 불가",
-        sourceText: "data.go.kr 일별 종가 기준",
+        sourceText: "최근 종가: data.go.kr",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
@@ -102,7 +102,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
       label: isDataGo ? "현재가 확인 불가" : "현재가 데이터 없음",
-      sourceText: isDataGo ? "data.go.kr 일별 종가 기준" : "최근 종가 참고",
+      sourceText: isDataGo ? "최근 종가: data.go.kr" : "최근 종가 참고",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };
   }

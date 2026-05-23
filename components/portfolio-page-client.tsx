@@ -299,6 +299,12 @@ function judgementClass(judgement: string) {
   return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/50 dark:text-blue-200";
 }
 
+function formatJudgementLabel(judgement: string) {
+  if (judgement === "리스크 관리 관찰") return "리스크 관리 필요";
+  if (judgement === "비중 조절 검토 구간") return "비중 조절 검토";
+  return judgement;
+}
+
 function ListBlock({ title, items }: { title: string; items: string[] }) {
   const safeItems = Array.isArray(items) ? items : [];
   return (
@@ -568,7 +574,7 @@ function buildUserAlertCoreSummary(
   } else if (judgement === "추가 관찰 가능") {
     prefix = "현재 보유 상태는 추가 관찰 가능 구간이지만,";
   } else if (judgement === "리스크 관리 관찰" || judgement === "비중 조절 검토 구간") {
-    prefix = "현재 보유 상태는 리스크 관리 관찰 구간이며,";
+    prefix = "현재 보유 상태는 리스크 관리 필요 구간이며,";
   }
 
   if (options.hasMa20Below && (options.hasPriceLower || options.hasReturnLower)) {
@@ -935,7 +941,7 @@ function buildTomorrowCheckItems(options: {
     addCheck("다음 종가 흐름과 손익 전환 구간을 중심으로 확인 필요 항목을 점검하세요.");
   }
   if (checks.length < 3) {
-    addCheck("리스크 관리 관찰 종목은 우선순위를 높여 점검하고 재평가하세요.");
+    addCheck("리스크 관리 필요 종목은 우선순위를 높여 점검하고 재평가하세요.");
   }
 
   return checks.slice(0, 5);
@@ -965,7 +971,9 @@ function buildDailyPortfolioReportText(options: {
           const lineIndex = index + 1;
           return `${lineIndex}. ${safeText(item.stockName)} (${safeText(item.symbol)}) | 수익률 ${formatPercent(
             safeNumber(item.returnRate)
-          )} | ${safeText(item.judgement)} | 핵심 이유: ${safeText(item.coreReason)} | 다음 확인: ${safeText(
+          )} | ${formatJudgementLabel(safeText(item.judgement))} | 핵심 이유: ${safeText(
+            item.coreReason
+          )} | 다음 확인: ${safeText(
             item.nextCheck
           )}`;
         });
@@ -977,7 +985,7 @@ function buildDailyPortfolioReportText(options: {
           (item, index) =>
             `${index + 1}. ${safeText(item.stockName)} (${safeText(item.symbol)}) | 수익률 ${formatPercent(
               safeNumber(item.returnRate)
-            )} | ${safeText(item.judgement)}`
+            )} | ${formatJudgementLabel(safeText(item.judgement))}`
         );
 
   const riskLines =
@@ -1232,7 +1240,7 @@ function buildPortfolioRiskAlerts(
     if (isRiskManagementJudgement) {
       pushAlert(
         "리스크 관리 필요",
-        "AI 판단 결과가 리스크 관리 관찰 구간으로 분류되어 재평가가 필요합니다.",
+        "AI 판단 결과가 리스크 관리 필요 구간으로 분류되어 재평가가 필요합니다.",
         100,
         firstNextCheck
       );
@@ -2915,7 +2923,7 @@ export function PortfolioPageClient() {
                           item.judgement
                         )}`}
                       >
-                        {item.judgement}
+                        {formatJudgementLabel(item.judgement)}
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -3344,7 +3352,7 @@ export function PortfolioPageClient() {
                           judgement
                         )}`}
                       >
-                        {judgement}
+                        {formatJudgementLabel(judgement)}
                       </span>
                     </div>
                     <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">

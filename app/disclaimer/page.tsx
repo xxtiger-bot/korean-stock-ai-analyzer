@@ -5,7 +5,7 @@ export default function DisclaimerPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">Disclaimer</p>
+        <p className="text-xs font-bold tracking-normal text-brand">면책 안내</p>
         <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
           투자 유의 및 면책 안내
         </h1>
@@ -18,7 +18,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-bold text-ink dark:text-white">핵심 안내</h2>
         <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
           <li>- AI 분석 결과는 참고 정보이며 투자 조언이 아닙니다.</li>
-          <li>- 주가 데이터는 지연되거나 외부 API 실패 시 fallback 데이터로 표시될 수 있습니다.</li>
+          <li>- 주가 데이터는 지연되거나 외부 API 실패 시 대체(fallback) 데이터로 표시될 수 있습니다.</li>
           <li>- 투자 결정과 그 결과에 대한 책임은 사용자 본인에게 있습니다.</li>
         </ul>
       </section>

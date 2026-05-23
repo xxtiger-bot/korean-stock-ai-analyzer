@@ -117,14 +117,14 @@ export function StockDetailClient({
     ? ([
         ["시장", stock.market],
         ["코드", stock.symbol],
-        ["시세", "KIS"],
-        ["차트", chartSource],
+        ["현재가", "KIS"],
+        ["최근 종가", chartSource],
         ["기준일", dataDateLabel]
       ] as const)
     : ([
         ["시장", stock.market],
         ["코드", stock.symbol],
-        ["데이터", dataSource],
+        ["최근 종가", dataSource],
         ["기준일", dataDateLabel]
       ] as const);
 

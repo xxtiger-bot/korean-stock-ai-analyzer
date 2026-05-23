@@ -25,14 +25,14 @@ export function StockTable({ title, stocks }: StockTableProps) {
   function getQuoteMeta(stock: Stock) {
     if (stock.quoteSource === "KIS") {
       return {
-        label: "시세: KIS",
+        label: "현재가: KIS",
         primaryLabel: "현재가",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
     if (stock.quoteSource === "data.go.kr") {
       return {
-        label: "data.go.kr 일별 종가 기준",
+        label: "최근 종가: data.go.kr",
         primaryLabel: "현재가 확인 불가",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
@@ -44,7 +44,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      label: isDataGo ? "data.go.kr 일별 종가 기준" : "최근 종가 참고",
+      label: isDataGo ? "최근 종가: data.go.kr" : "최근 종가 참고",
       primaryLabel: isDataGo ? "현재가 확인 불가" : "현재가 데이터 없음",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };

@@ -31,6 +31,12 @@ function safeText(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
+function formatJudgementLabel(judgement: string) {
+  if (judgement === "리스크 관리 관찰") return "리스크 관리 필요";
+  if (judgement === "비중 조절 검토 구간") return "비중 조절 검토";
+  return judgement;
+}
+
 function judgementRank(judgement: string) {
   if (judgement === "리스크 관리 관찰") return 0;
   if (judgement === "비중 조절 검토 구간") return 1;
@@ -189,7 +195,7 @@ export function PortfolioRiskSummary() {
                     </p>
                   </div>
                   <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 dark:border-dark-line dark:bg-slate-900/70 dark:text-slate-200">
-                    {item.judgement}
+                    {formatJudgementLabel(item.judgement)}
                   </span>
                 </div>
                 <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">

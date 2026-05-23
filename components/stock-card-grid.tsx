@@ -21,7 +21,7 @@ function getQuoteMeta(stock: Stock) {
   if (stock.quoteSource === "KIS") {
     return {
       label: "현재가",
-      sourceText: "시세: KIS",
+      sourceText: "현재가: KIS",
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
@@ -29,7 +29,7 @@ function getQuoteMeta(stock: Stock) {
   if (stock.quoteSource === "data.go.kr") {
     return {
       label: "현재가 확인 불가",
-      sourceText: "data.go.kr 일별 종가 기준",
+      sourceText: "최근 종가: data.go.kr",
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
@@ -45,7 +45,7 @@ function getQuoteMeta(stock: Stock) {
   const tagSource = getDataSource(stock);
   return {
     label: tagSource === "data.go.kr" ? "현재가 확인 불가" : "현재가 데이터 없음",
-    sourceText: tagSource === "data.go.kr" ? "data.go.kr 일별 종가 기준" : "최근 종가 참고",
+    sourceText: tagSource === "data.go.kr" ? "최근 종가: data.go.kr" : "최근 종가 참고",
     hasPrice: tagSource === "data.go.kr" && Number.isFinite(stock.price) && stock.price > 0
   };
 }

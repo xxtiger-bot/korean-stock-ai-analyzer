@@ -8,19 +8,19 @@ export function SiteFooter() {
           <span className="text-slate-500 dark:text-slate-400">© KRX Insight MVP</span>
           <span className="hidden sm:inline">·</span>
           <Link href="/about" className="hover:text-brand">
-            About
+            소개
           </Link>
           <span>·</span>
           <Link href="/privacy" className="hover:text-brand">
-            Privacy
+            개인정보
           </Link>
           <span>·</span>
           <Link href="/disclaimer" className="hover:text-brand">
-            Disclaimer
+            면책 안내
           </Link>
         </div>
         <p className="text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400">
-          이 서비스는 투자 참고 정보이며 매수/매도 추천이 아닙니다.
+          이 서비스는 투자 참고 정보이며, 매수/매도 추천이 아닙니다.
         </p>
       </div>
     </footer>

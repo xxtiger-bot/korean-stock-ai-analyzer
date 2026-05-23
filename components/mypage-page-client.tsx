@@ -298,7 +298,7 @@ export function MyPagePageClient() {
     return (
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-          <p className="text-xs font-bold uppercase tracking-normal text-brand">My Account</p>
+          <p className="text-xs font-bold tracking-normal text-brand">계정</p>
           <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white">내 계정</h1>
           <p className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
             로그인 후 내 계정을 확인할 수 있습니다.
@@ -318,7 +318,7 @@ export function MyPagePageClient() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">My Account</p>
+        <p className="text-xs font-bold tracking-normal text-brand">계정</p>
         <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white">내 계정</h1>
         <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
           계정 정보와 클라우드 동기화 현황을 한 번에 확인할 수 있습니다.

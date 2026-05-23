@@ -428,7 +428,7 @@ export function SiteHeader() {
             href="/pricing"
             className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
           >
-            Pro
+            요금제
           </Link>
           <Link
             href="/portfolio"
@@ -436,7 +436,7 @@ export function SiteHeader() {
           >
             <BriefcaseBusiness className="h-4 w-4 text-brand" />
             <span className="hidden sm:inline">내 보유종목</span>
-            <span className="sm:hidden">보유종목</span>
+            <span className="sm:hidden">내 보유종목</span>
           </Link>
           <Link
             href="/mypage"
@@ -468,7 +468,7 @@ export function SiteHeader() {
           <div className="w-full max-w-sm rounded-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-xs font-bold uppercase tracking-normal text-brand">Auth</p>
+                <p className="text-xs font-bold tracking-normal text-brand">로그인</p>
                 <h3 className="mt-1 text-base font-bold text-ink dark:text-white">이메일 인증 로그인</h3>
               </div>
               <button
@@ -542,7 +542,7 @@ export function SiteHeader() {
                   </p>
                 )}
                 <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  cooldownReason: {cooldownReason ?? "none"}
+                  쿨다운 상태: {cooldownReason ?? "없음"}
                 </p>
                 <button
                   type="button"
@@ -580,13 +580,13 @@ export function SiteHeader() {
             >
               클라우드 로그인 없이 계속 사용
             </button>
-            <button
-              type="button"
-              onClick={handleResetCooldown}
-              className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
-            >
-              冷却 초기화
-            </button>
+              <button
+                type="button"
+                onClick={handleResetCooldown}
+                className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
+              >
+              쿨다운 초기화
+              </button>
           </div>
         </div>
       )}
@@ -595,7 +595,7 @@ export function SiteHeader() {
           <div className="flex w-full max-w-2xl max-w-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-soft dark:border-dark-line dark:bg-dark-panel">
             <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 dark:border-dark-line sm:px-5">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-normal text-brand">Guide</p>
+                <p className="text-xs font-bold tracking-normal text-brand">사용 가이드</p>
                 <h3 className="mt-1 text-base font-bold text-ink dark:text-white">
                   처음 사용 가이드
                 </h3>
@@ -662,9 +662,6 @@ export function SiteHeader() {
                 <p className="text-xs leading-6 text-amber-900 dark:text-amber-200">
                   이 서비스는 투자 참고 정보이며, 매수/매도 추천이 아닙니다. 투자 결정은 본인의 판단과
                   책임입니다.
-                </p>
-                <p className="mt-1 text-[11px] text-amber-800 dark:text-amber-300">
-                  中文提示：本工具用于参考分析，不构成投资建议。
                 </p>
               </section>
             </div>

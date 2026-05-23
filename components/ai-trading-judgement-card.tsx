@@ -392,7 +392,7 @@ export function AiTradingJudgementCard({
           <SafeList items={judgement.cautionReasons} />
         </article>
         <article>
-          <h3 className="text-sm font-bold text-ink dark:text-white">청산 / 리스크 관리 관찰 이유</h3>
+          <h3 className="text-sm font-bold text-ink dark:text-white">청산 / 리스크 관리 필요 이유</h3>
           <SafeList items={judgement.riskManagementReasons} />
         </article>
         <article>

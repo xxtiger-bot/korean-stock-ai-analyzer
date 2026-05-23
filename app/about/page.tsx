@@ -5,7 +5,7 @@ export default function AboutPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">About</p>
+        <p className="text-xs font-bold tracking-normal text-brand">소개</p>
         <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
           KRX Insight 소개
         </h1>
