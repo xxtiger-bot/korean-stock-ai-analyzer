@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Bell, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { MobileSectionNav } from "@/components/mobile-section-nav";
+import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
@@ -2559,11 +2560,13 @@ export function PortfolioPageClient() {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+      <section className="mb-4">
+        <TodayInvestmentChecklist variant="portfolio" sectionId="portfolio-checklist" />
+      </section>
       <MobileSectionNav
         items={[
-          { id: "portfolio-summary", label: "요약" },
-          { id: "portfolio-risk", label: "리스크" },
-          { id: "portfolio-holdings", label: "보유종목" },
+          { id: "portfolio-checklist", label: "요약" },
+          { id: "portfolio-holdings", label: "보유" },
           { id: "portfolio-alerts", label: "알림" },
           { id: "portfolio-report", label: "리포트" }
         ]}

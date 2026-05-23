@@ -10,8 +10,8 @@ function formatRatio(value: number | null) {
 }
 
 function formatQty(value: number | null) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return "확인 필요";
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return "데이터 없음";
   }
   return `${formatNumber(value)}주`;
 }
@@ -55,9 +55,12 @@ export function ForeignOwnershipCard({
       </div>
 
       {!hasAnyValue ? (
-        <p className="mt-4 break-words text-sm font-semibold text-slate-500 dark:text-slate-400">
-          외국인 보유율 데이터를 현재 확인할 수 없습니다.
-        </p>
+        <div className="mt-4">
+          <p className="break-words text-sm font-bold text-ink dark:text-white">데이터 없음</p>
+          <p className="mt-1 break-words text-sm font-semibold text-slate-500 dark:text-slate-400">
+            KIS 외국인 보유 데이터가 제공되지 않았습니다.
+          </p>
+        </div>
       ) : (
         <>
           <p className="mt-3 text-xs font-bold text-slate-400">{mainLabel}</p>
@@ -67,7 +70,7 @@ export function ForeignOwnershipCard({
           <div className="mt-2 grid gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
             <p className="break-words">외국인 보유수량 {formatQty(data?.foreignHoldingQty ?? null)}</p>
             <p className="break-words">외국인 한도수량 {formatLimitQty(data?.foreignLimitQty ?? null)}</p>
-            <p className="break-words">외국인 소진율 {exhaustionRate ?? "확인 필요"}</p>
+            <p className="break-words">외국인 소진율 {exhaustionRate ?? "데이터 없음"}</p>
             <p className="break-words">기준 KIS</p>
           </div>
         </>

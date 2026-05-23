@@ -109,6 +109,7 @@ export function AiReportCard({
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
   const hasRealtimePrice = Boolean(
     realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
   );
@@ -125,6 +126,7 @@ export function AiReportCard({
   async function generateReport() {
     setIsLoading(true);
     setError("");
+    setIsExpanded(false);
 
     try {
       const response = await fetch("/api/analysis", {
@@ -243,7 +245,9 @@ export function AiReportCard({
               ["01", "추세 요약", data.report.trend],
               ["02", "기술적 근거", data.report.technical],
               ["03", "리스크", data.report.risk]
-            ].map(([index, title, content]) => (
+            ]
+              .slice(0, isExpanded ? 3 : 1)
+              .map(([index, title, content]) => (
               <article key={title} className="bg-white p-4 dark:bg-dark-panel">
                 <div className="flex gap-3">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-xs font-bold text-white dark:bg-white dark:text-ink">
@@ -258,10 +262,19 @@ export function AiReportCard({
                 </div>
               </article>
             ))}
+            {!isExpanded ? (
+              <article className="bg-white px-4 py-3 dark:bg-dark-panel">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  요약만 표시 중입니다. 전체 내용을 열어 기술적 근거, 리스크, 관찰 포인트를 확인하세요.
+                </p>
+              </article>
+            ) : null}
             <article className="bg-white p-4 dark:bg-dark-panel">
               <h3 className="text-sm font-bold text-ink dark:text-white">관찰 포인트</h3>
               <div className="mt-3 grid gap-2">
-                {toTextList(data.report.watchPoints, []).map((point, index) => (
+                {toTextList(data.report.watchPoints, [])
+                  .slice(0, isExpanded ? 6 : 2)
+                  .map((point, index) => (
                   <p
                     key={`${index}-${point}`}
                     className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
@@ -274,21 +287,32 @@ export function AiReportCard({
                 ))}
               </div>
             </article>
+            {isExpanded ? (
+              <article className="bg-white p-4 dark:bg-dark-panel">
+                <h3 className="text-sm font-bold text-ink dark:text-white">단기 체크 포인트</h3>
+                <div className="mt-3 grid gap-2">
+                  {toTextList(data.report.shortTermCheckPoints, []).map((point, index) => (
+                    <p
+                      key={`${index}-${point}`}
+                      className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
+                    >
+                      <span className="shrink-0 text-xs font-bold text-brand">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="min-w-0 break-words">{point}</span>
+                    </p>
+                  ))}
+                </div>
+              </article>
+            ) : null}
             <article className="bg-white p-4 dark:bg-dark-panel">
-              <h3 className="text-sm font-bold text-ink dark:text-white">단기 체크 포인트</h3>
-              <div className="mt-3 grid gap-2">
-                {toTextList(data.report.shortTermCheckPoints, []).map((point, index) => (
-                  <p
-                    key={`${index}-${point}`}
-                    className="flex max-w-full items-start gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
-                  >
-                    <span className="shrink-0 text-xs font-bold text-brand">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="min-w-0 break-words">{point}</span>
-                  </p>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsExpanded((prev) => !prev)}
+                className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+              >
+                {isExpanded ? "요약으로 보기" : "전체 보기"}
+              </button>
             </article>
             <article className="bg-slate-50 p-4 dark:bg-slate-900/60">
               <h3 className="text-xs font-bold text-ink dark:text-white">면책 문구</h3>

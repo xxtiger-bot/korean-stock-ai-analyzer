@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BriefcaseBusiness, Mail, Star, UserCircle2, X } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Mail, Search, UserCircle2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/components/auth-provider";
@@ -22,6 +22,60 @@ type AuthModalState =
   | "loggedIn";
 type CooldownReason = "success" | "rateLimit" | null;
 type AuthLoginStep = "email" | "code";
+
+type GuideSection = {
+  id: string;
+  title: string;
+  description: string;
+  bullets?: string[];
+};
+
+const GUIDE_SECTIONS: GuideSection[] = [
+  {
+    id: "about",
+    title: "A. 이 사이트는 무엇인가요?",
+    description:
+      "KRX Insight는 한국 주식의 현재가, 일별 종가, 기술지표, AI 참고 분석을 제공하는 도구입니다."
+  },
+  {
+    id: "price",
+    title: "B. 가격 데이터는 어떻게 보나요?",
+    description: "현재가와 최근 종가의 출처를 구분해서 확인하세요.",
+    bullets: [
+      "현재가: KIS 기준",
+      "최근 종가: data.go.kr 일별 종가 기준",
+      "KIS 실패 시 현재가 확인 불가로 표시",
+      "data.go.kr 가격은 실시간 가격이 아님"
+    ]
+  },
+  {
+    id: "analysis",
+    title: "C. 종목 분석은 어떻게 하나요?",
+    description: "검색 후 상세 페이지에서 AI 분석과 차트 해석을 확인할 수 있습니다.",
+    bullets: ["종목 검색", "상세 페이지 이동", "AI 분석 리포트 확인", "캔들차트 분석 참고"]
+  },
+  {
+    id: "portfolio",
+    title: "D. 내 보유종목은 어떻게 쓰나요?",
+    description: "/portfolio에서 보유종목을 등록하고 진단과 알림을 확인할 수 있습니다.",
+    bullets: [
+      "종목코드, 매수가, 수량 입력",
+      "AI 보유 진단 확인",
+      "리스크 알림 확인",
+      "리포트 복사/이미지 저장"
+    ]
+  },
+  {
+    id: "cloud",
+    title: "E. 클라우드 동기화는 무엇인가요?",
+    description: "로그인하면 보유종목과 알림 조건을 클라우드에 저장할 수 있습니다.",
+    bullets: [
+      "로그인 시 클라우드 동기화 가능",
+      "비로그인 상태에서도 로컬 모드 사용 가능",
+      "Supabase 연결 실패 시 localStorage fallback"
+    ]
+  }
+];
 
 export function SiteHeader() {
   const {
@@ -47,6 +101,7 @@ export function SiteHeader() {
   const [cooldownReason, setCooldownReason] = useState<CooldownReason>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [doNotShowGuideAgain, setDoNotShowGuideAgain] = useState(false);
+  const [guideOpenSections, setGuideOpenSections] = useState<string[]>(["about"]);
 
   const email = typeof user?.email === "string" ? user.email : "";
   const isLocalMode = !user;
@@ -136,6 +191,16 @@ export function SiteHeader() {
     };
   }, [emailCooldownUntil, setAuthState, user]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!isGuideOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isGuideOpen]);
+
   function startEmailCooldown(seconds: number, reason: Exclude<CooldownReason, null>) {
     if (typeof window === "undefined") return;
     const safeSeconds =
@@ -222,6 +287,7 @@ export function SiteHeader() {
 
   function handleOpenGuide() {
     setIsGuideOpen(true);
+    setGuideOpenSections(["about"]);
   }
 
   function handleCloseGuide() {
@@ -233,6 +299,16 @@ export function SiteHeader() {
       }
     }
     setIsGuideOpen(false);
+  }
+
+  function toggleGuideSection(sectionId: string) {
+    setGuideOpenSections((current) => {
+      const safeCurrent = Array.isArray(current) ? current : [];
+      if (safeCurrent.includes(sectionId)) {
+        return safeCurrent.filter((id) => id !== sectionId);
+      }
+      return [...safeCurrent, sectionId];
+    });
   }
 
   function handleContinueLocalMode() {
@@ -370,7 +446,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur dark:border-dark-line dark:bg-slate-950/88">
-      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white">
             <BarChart3 className="h-5 w-5" />
@@ -384,31 +460,48 @@ export function SiteHeader() {
             </span>
           </span>
         </Link>
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-          <div className="hidden items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 sm:flex">
-            <Star className="h-4 w-4 text-amber-500" />
-            관심종목
-          </div>
+        <div className="flex min-w-0 items-center justify-end gap-2">
+          <Link
+            href="/#home-search"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-slate-50 text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 md:hidden"
+            aria-label="검색"
+            title="검색"
+          >
+            <Search className="h-4 w-4" />
+          </Link>
           {user ? (
-            <div className="inline-flex max-w-[260px] items-center gap-2 rounded-lg border border-line bg-slate-50 px-2.5 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 sm:px-3">
-              <span className="hidden truncate sm:inline">{email || "로그인 사용자"}</span>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-brand dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
+            <>
+              <Link
+                href="/mypage"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-slate-50 text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 md:hidden"
+                aria-label="내 계정"
+                title="내 계정"
               >
-                로그아웃
-              </button>
-            </div>
+                <UserCircle2 className="h-4 w-4" />
+              </Link>
+              <div className="hidden max-w-[260px] items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 md:inline-flex">
+                <span className="truncate">{email || "로그인 사용자"}</span>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-brand dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
+                >
+                  로그아웃
+                </button>
+              </div>
+            </>
           ) : (
             <>
               <button
                 type="button"
                 onClick={handleOpenLogin}
                 data-auth-login-trigger="true"
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 dark:disabled:text-slate-500"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-slate-50 text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 dark:disabled:text-slate-500 md:h-9 md:w-auto md:px-3"
               >
-                로그인
+                <span className="md:hidden">
+                  <UserCircle2 className="h-4 w-4" />
+                </span>
+                <span className="hidden md:inline">로그인</span>
               </button>
               {isLoading && (
                 <span className="hidden rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-400 sm:inline-flex">
@@ -420,33 +513,33 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={handleOpenGuide}
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+            className="hidden h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 md:inline-flex"
           >
             사용 가이드
           </button>
           <Link
             href="/pricing"
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+            className="hidden h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 md:inline-flex"
           >
             요금제
           </Link>
           <Link
             href="/portfolio"
-            className="inline-flex items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+            className="hidden items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 md:inline-flex"
           >
             <BriefcaseBusiness className="h-4 w-4 text-brand" />
-            <span className="hidden sm:inline">내 보유종목</span>
-            <span className="sm:hidden">내 보유종목</span>
+            <span>내 보유종목</span>
           </Link>
           <Link
             href="/mypage"
-            className="inline-flex items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+            className="hidden items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 md:inline-flex"
           >
             <UserCircle2 className="h-4 w-4 text-brand" />
-            <span className="hidden sm:inline">내 계정</span>
-            <span className="sm:hidden">계정</span>
+            <span>내 계정</span>
           </Link>
-          <ThemeToggle />
+          <div className="hidden md:block">
+            <ThemeToggle />
+          </div>
         </div>
       </div>
       {(authNotice || !isSupabaseReady) && (
@@ -464,8 +557,8 @@ export function SiteHeader() {
         </div>
       )}
       {isLoginModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 py-3 md:items-center md:px-4">
+          <div className="w-full max-w-sm rounded-t-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel md:rounded-xl">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-xs font-bold tracking-normal text-brand">로그인</p>
@@ -580,19 +673,26 @@ export function SiteHeader() {
             >
               클라우드 로그인 없이 계속 사용
             </button>
-              <button
-                type="button"
-                onClick={handleResetCooldown}
-                className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
-              >
+            <button
+              type="button"
+              onClick={handleOpenGuide}
+              className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 md:hidden"
+            >
+              사용 가이드 보기
+            </button>
+            <button
+              type="button"
+              onClick={handleResetCooldown}
+              className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
+            >
               쿨다운 초기화
-              </button>
+            </button>
           </div>
         </div>
       )}
       {isGuideOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-3 py-4 sm:px-4">
-          <div className="flex w-full max-w-2xl max-w-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 px-3 py-3 md:items-center md:px-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl max-w-full flex-col overflow-hidden rounded-t-xl border border-line bg-white shadow-soft dark:border-dark-line dark:bg-dark-panel md:rounded-xl">
             <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 dark:border-dark-line sm:px-5">
               <div className="min-w-0">
                 <p className="text-xs font-bold tracking-normal text-brand">사용 가이드</p>
@@ -610,53 +710,41 @@ export function SiteHeader() {
               </button>
             </div>
 
-            <div className="max-h-[70vh] space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-              <section className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900">
-                <h4 className="text-sm font-bold text-ink dark:text-white">A. 이 사이트는 무엇인가요?</h4>
-                <p className="mt-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
-                  KRX Insight는 한국 주식의 현재가, 일별 종가, 기술지표, AI 참고 분석을 제공하는
-                  도구입니다.
-                </p>
-              </section>
-
-              <section className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900">
-                <h4 className="text-sm font-bold text-ink dark:text-white">B. 가격 데이터는 어떻게 보나요?</h4>
-                <ul className="mt-1 space-y-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
-                  <li>- 현재가: KIS 기준</li>
-                  <li>- 최근 종가: data.go.kr 일별 종가 기준</li>
-                  <li>- KIS 실패 시 현재가 확인 불가로 표시</li>
-                  <li>- data.go.kr 가격은 실시간 가격이 아님</li>
-                </ul>
-              </section>
-
-              <section className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900">
-                <h4 className="text-sm font-bold text-ink dark:text-white">C. 종목 분석은 어떻게 하나요?</h4>
-                <ul className="mt-1 space-y-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
-                  <li>- 종목 검색</li>
-                  <li>- 상세 페이지 이동</li>
-                  <li>- AI 분석 리포트 확인</li>
-                  <li>- 캔들차트 분석 참고</li>
-                </ul>
-              </section>
-
-              <section className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900">
-                <h4 className="text-sm font-bold text-ink dark:text-white">D. 내 보유종목은 어떻게 쓰나요?</h4>
-                <ul className="mt-1 space-y-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
-                  <li>- /portfolio 에서 종목코드, 매수가, 수량 입력</li>
-                  <li>- AI 보유 진단 확인</li>
-                  <li>- 리스크 알림 확인</li>
-                  <li>- 리포트 복사/이미지 저장</li>
-                </ul>
-              </section>
-
-              <section className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900">
-                <h4 className="text-sm font-bold text-ink dark:text-white">E. 클라우드 동기화는 무엇인가요?</h4>
-                <ul className="mt-1 space-y-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
-                  <li>- 로그인하면 보유종목과 알림 조건을 클라우드에 저장 가능</li>
-                  <li>- 로그인하지 않아도 로컬 모드 사용 가능</li>
-                  <li>- Supabase 연결 실패 시 localStorage fallback</li>
-                </ul>
-              </section>
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+              {(Array.isArray(GUIDE_SECTIONS) ? GUIDE_SECTIONS : []).map((section) => {
+                const isOpen = (Array.isArray(guideOpenSections) ? guideOpenSections : []).includes(
+                  section.id
+                );
+                return (
+                  <section
+                    key={section.id}
+                    className="rounded-lg border border-line bg-slate-50 dark:border-dark-line dark:bg-slate-900"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleGuideSection(section.id)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                    >
+                      <h4 className="text-sm font-bold text-ink dark:text-white">{section.title}</h4>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        {isOpen ? "접기" : "열기"}
+                      </span>
+                    </button>
+                    {isOpen ? (
+                      <div className="border-t border-line px-3 py-3 text-xs leading-6 text-slate-600 dark:border-dark-line dark:text-slate-300">
+                        <p>{section.description}</p>
+                        {Array.isArray(section.bullets) && section.bullets.length > 0 ? (
+                          <ul className="mt-1 space-y-1">
+                            {section.bullets.map((bullet) => (
+                              <li key={`${section.id}-${bullet}`}>- {bullet}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })}
 
               <section className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/40">
                 <p className="text-xs leading-6 text-amber-900 dark:text-amber-200">
@@ -666,21 +754,23 @@ export function SiteHeader() {
               </section>
             </div>
 
-            <div className="border-t border-line px-4 py-3 dark:border-dark-line sm:px-5">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={doNotShowGuideAgain}
-                  onChange={(event) => setDoNotShowGuideAgain(event.target.checked)}
-                  className="h-4 w-4 rounded border-line text-brand focus:ring-brand/20 dark:border-dark-line"
-                />
-                다시 보지 않기
-              </label>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <div className="shrink-0 border-t border-line px-4 py-3 dark:border-dark-line sm:px-5">
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDoNotShowGuideAgain((prev) => !prev)}
+                  className={`inline-flex h-10 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold sm:w-auto ${
+                    doNotShowGuideAgain
+                      ? "border-brand bg-blue-50 text-brand dark:bg-blue-950/30"
+                      : "border-line bg-white text-slate-700 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+                  }`}
+                >
+                  다시 보지 않기
+                </button>
                 <button
                   type="button"
                   onClick={handleCloseGuide}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-line bg-white px-4 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md border border-line bg-white px-4 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 sm:w-auto"
                 >
                   닫기
                 </button>

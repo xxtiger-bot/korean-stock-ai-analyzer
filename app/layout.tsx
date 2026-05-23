@@ -6,6 +6,7 @@ import { WatchlistProvider } from "@/components/watchlist-provider";
 import { PortfolioProvider } from "@/components/portfolio-provider";
 import { AuthProvider } from "@/components/auth-provider";
 import { SiteFooter } from "@/components/site-footer";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 
 const metadataDescription =
   "한국 주식 현재가, 일별 종가, AI 분석, 보유종목 진단, 리스크 알림을 제공하는 한국 주식 분석 도구";
@@ -44,7 +45,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body>
+      <body className="pb-20 md:pb-0">
         <ThemeProvider>
           <AuthProvider>
             <PortfolioProvider>
@@ -52,6 +53,7 @@ export default function RootLayout({
                 <SiteHeader />
                 {children}
                 <SiteFooter />
+                <MobileBottomNav />
               </WatchlistProvider>
             </PortfolioProvider>
           </AuthProvider>

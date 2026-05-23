@@ -87,7 +87,7 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
         ))}
       </div>
       <div className="mt-5 grid max-w-full gap-5 lg:grid-cols-2">
-        <div className="h-56 max-w-full rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+        <div className="h-[260px] max-w-full rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50 sm:h-[300px]">
           <p className="mb-2 text-xs font-bold text-slate-500 dark:text-slate-400">RSI 14</p>
           <ResponsiveContainer width="100%" height="86%">
             <ComposedChart data={visible}>
@@ -98,8 +98,10 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
                 contentStyle={{
                   borderRadius: 8,
                   border: "1px solid #dfe6ee",
-                  fontSize: 12
+                  fontSize: 12,
+                  maxWidth: 180
                 }}
+                wrapperStyle={{ maxWidth: 180, pointerEvents: "none", zIndex: 20 }}
                 formatter={(value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "-")}
               />
               <ReferenceLine y={70} stroke="#e23b3b" strokeDasharray="4 5" />
@@ -114,7 +116,7 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div className="h-56 max-w-full rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+        <div className="hidden h-[260px] max-w-full rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50 sm:h-[300px] lg:block">
           <p className="mb-2 text-xs font-bold text-slate-500 dark:text-slate-400">MACD</p>
           <ResponsiveContainer width="100%" height="86%">
             <ComposedChart data={visible}>
@@ -125,8 +127,10 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
                 contentStyle={{
                   borderRadius: 8,
                   border: "1px solid #dfe6ee",
-                  fontSize: 12
+                  fontSize: 12,
+                  maxWidth: 180
                 }}
+                wrapperStyle={{ maxWidth: 180, pointerEvents: "none", zIndex: 20 }}
                 formatter={(value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "-")}
               />
               <Bar dataKey="macdHistogram" fill="#94a3b8" radius={[2, 2, 0, 0]} />
@@ -141,6 +145,45 @@ export function IndicatorSummary({ series }: { series: TechnicalPoint[] }) {
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+        <details className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50 lg:hidden">
+          <summary className="cursor-pointer list-none text-xs font-bold text-slate-500 dark:text-slate-400">
+            MACD 상세 보기
+          </summary>
+          <div className="mt-3 h-[240px] sm:h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={visible}>
+                <CartesianGrid stroke="#dfe6ee" strokeDasharray="4 6" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => String(value).slice(5)}
+                />
+                <YAxis tick={{ fontSize: 10 }} width={42} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: "1px solid #dfe6ee",
+                    fontSize: 12,
+                    maxWidth: 160
+                  }}
+                  wrapperStyle={{ maxWidth: 160, pointerEvents: "none", zIndex: 20 }}
+                  formatter={(value) =>
+                    Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "-"
+                  }
+                />
+                <Bar dataKey="macdHistogram" fill="#94a3b8" radius={[2, 2, 0, 0]} />
+                <Line dataKey="macd" dot={false} stroke="#e23b3b" strokeWidth={2} type="monotone" />
+                <Line
+                  dataKey="macdSignal"
+                  dot={false}
+                  stroke="#1769ff"
+                  strokeWidth={2}
+                  type="monotone"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </details>
       </div>
     </section>
   );

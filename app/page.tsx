@@ -6,6 +6,7 @@ import { PotentialRadar } from "@/components/potential-radar";
 import { StockCardGrid } from "@/components/stock-card-grid";
 import { StockSearch } from "@/components/stock-search";
 import { StockTable } from "@/components/stock-table";
+import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import {
   getMarketOverview,
@@ -56,7 +57,7 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
       <MobileSectionNav
         items={[
-          { id: "home-market", label: "시장" },
+          { id: "home-checklist", label: "시장" },
           { id: "home-search", label: "검색" },
           { id: "home-interest", label: "관심" },
           { id: "home-portfolio", label: "보유" },
@@ -64,6 +65,9 @@ export default async function Home() {
         ]}
         topClassName="top-[72px]"
       />
+      <section className="mb-3">
+        <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
+      </section>
       <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
         <div id="home-market" className="grid min-w-0 gap-3 scroll-mt-32">
           <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">

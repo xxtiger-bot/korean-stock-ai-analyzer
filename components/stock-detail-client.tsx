@@ -138,15 +138,16 @@ export function StockDetailClient({
           <ArrowLeft className="h-4 w-4" />
           홈
         </Link>
-        <WatchlistButton symbol={stock.symbol} />
+        <div className="hidden md:block">
+          <WatchlistButton symbol={stock.symbol} />
+        </div>
       </div>
       <MobileSectionNav
         items={[
           { id: "detail-overview", label: "개요" },
           { id: "detail-chart", label: "차트" },
-          { id: "detail-ai", label: "AI분석" },
-          { id: "detail-candle", label: "캔들" },
-          { id: "detail-flow", label: "수급" },
+          { id: "detail-ai", label: "AI" },
+          { id: "detail-indicators", label: "지표" },
           { id: "detail-risk", label: "리스크" }
         ]}
         topClassName="top-[72px]"
@@ -187,7 +188,8 @@ export function StockDetailClient({
                 <p className="mt-1">{priceAnomalyDescription}</p>
               </div>
             )}
-            <h1 className="mt-4 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
+            <p className="mt-4 text-xs font-bold tracking-normal text-brand">현재가 요약</p>
+            <h1 className="mt-1 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
               {stock.koreanName}
             </h1>
             {secondaryName && (
@@ -201,6 +203,11 @@ export function StockDetailClient({
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
               {formatKRW(headlinePrice)}
             </p>
+            {!hasRealtimeQuote ? (
+              <p className="mt-1 break-words text-xs font-bold text-amber-700 dark:text-amber-200">
+                현재가 확인 불가
+              </p>
+            ) : null}
             <p className="mt-1 break-words text-xs font-semibold text-slate-500 dark:text-slate-400">
               {headlineSource}
             </p>
@@ -226,12 +233,33 @@ export function StockDetailClient({
             ))}
           </div>
         )}
+        <div className="mt-4 flex flex-wrap gap-2 md:hidden">
+          <WatchlistButton symbol={stock.symbol} />
+          <Link
+            href="/portfolio#portfolio-add-entry"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            보유 추가
+          </Link>
+        </div>
       </section>
 
       <section
-        id="detail-flow"
+        id="detail-price"
         className="mt-5 grid min-w-0 max-w-full scroll-mt-32 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"
       >
+        <div className="sm:col-span-2 xl:col-span-5">
+          <p className="text-xs font-bold tracking-normal text-brand">가격 범위</p>
+          <h2 className="mt-1 text-base font-bold text-ink dark:text-white">가격 범위 · 수급 정보</h2>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              {hasRealtimeQuote ? "KIS 기준" : "data.go.kr 기준"}
+            </span>
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              {hasRealtimeQuote ? "현재가 기준" : "최근 종가 기준"}
+            </span>
+          </div>
+        </div>
         <MetricCard
           label="거래량"
           value={formatNumber(stock.volume)}
@@ -240,17 +268,57 @@ export function StockDetailClient({
         />
         <MetricCard label="시가총액" value={formatCompactKRW(stock.marketCap)} icon={Wallet} />
         <MetricCard label="일중 범위" value={dayRange} icon={Activity} tone={tone} />
-        <MetricCard
-          label="PER / EPS"
-          value={`${Number.isFinite(stock.pe) ? stock.pe.toFixed(1) : "0.0"}x`}
-          subValue={formatKRW(stock.eps)}
-          icon={Gauge}
-        />
-        <ForeignOwnershipCard data={foreignOwnership} />
+        <div className="hidden xl:contents">
+          <MetricCard
+            label="PER / EPS"
+            value={
+              Number.isFinite(stock.pe) && stock.pe > 0
+                ? `${stock.pe.toFixed(1)}x`
+                : "데이터 없음"
+            }
+            subValue={
+              Number.isFinite(stock.eps) && stock.eps > 0
+                ? formatKRW(stock.eps)
+                : "재무 지표는 아직 제공되지 않습니다."
+            }
+            icon={Gauge}
+          />
+          <ForeignOwnershipCard data={foreignOwnership} />
+        </div>
+        <div className="xl:hidden sm:col-span-2">
+          <details className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+            <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
+              자세히 보기
+            </summary>
+            <div className="mt-3 grid gap-3">
+              <MetricCard
+                label="PER / EPS"
+                value={
+                  Number.isFinite(stock.pe) && stock.pe > 0
+                    ? `${stock.pe.toFixed(1)}x`
+                    : "데이터 없음"
+                }
+                subValue={
+                  Number.isFinite(stock.eps) && stock.eps > 0
+                    ? formatKRW(stock.eps)
+                    : "재무 지표는 아직 제공되지 않습니다."
+                }
+                icon={Gauge}
+              />
+              <ForeignOwnershipCard data={foreignOwnership} />
+            </div>
+          </details>
+        </div>
       </section>
 
       <div className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-12">
         <div id="detail-risk" className="order-1 min-w-0 max-w-full scroll-mt-32 xl:order-5 xl:col-span-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              AI 참고
+            </span>
+            <h2 className="text-base font-bold text-ink dark:text-white">리스크 및 면책</h2>
+          </div>
           <AiTradingJudgementCard
             stock={stock}
             candles={safeCandles}
@@ -260,10 +328,22 @@ export function StockDetailClient({
             priceGuard={priceGuard}
           />
         </div>
-        <div id="detail-chart" className="order-2 min-w-0 max-w-full scroll-mt-32 xl:order-1 xl:col-span-8">
+        <div id="detail-chart" className="order-3 min-w-0 max-w-full scroll-mt-32 xl:order-1 xl:col-span-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              data.go.kr 기준
+            </span>
+            <h2 className="text-base font-bold text-ink dark:text-white">K선 차트</h2>
+          </div>
           <CandlestickChart series={technicalSeries} />
         </div>
-        <div id="detail-ai" className="order-3 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 xl:order-2 xl:col-span-4">
+        <div id="detail-ai" className="order-5 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 xl:order-2 xl:col-span-4">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              AI 참고
+            </span>
+            <h2 className="text-base font-bold text-ink dark:text-white">AI 분석 요약</h2>
+          </div>
           <AiReportCard
             stock={stock}
             foreignOwnership={foreignOwnership}
@@ -283,7 +363,13 @@ export function StockDetailClient({
             </section>
           )}
         </div>
-        <div id="detail-candle" className="order-4 min-w-0 max-w-full scroll-mt-32 xl:order-3 xl:col-span-8">
+        <div className="order-6 min-w-0 max-w-full scroll-mt-32 xl:order-3 xl:col-span-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              AI 참고
+            </span>
+            <h2 className="text-base font-bold text-ink dark:text-white">AI 캔들차트 분석</h2>
+          </div>
           <CandlestickAiExpertCard
             stock={stock}
             candles={safeCandles}
@@ -292,12 +378,18 @@ export function StockDetailClient({
             priceGuard={priceGuard}
           />
         </div>
-        <div className="order-5 grid min-w-0 max-w-full content-start gap-5 xl:order-6 xl:col-span-4">
+        <div className="order-2 grid min-w-0 max-w-full content-start gap-5 xl:order-6 xl:col-span-4">
           <TradingPlanHelper stock={stock} />
           <PotentialScoreCard stock={stock} />
           <DangerWarningCard stock={stock} />
         </div>
-        <div className="order-6 min-w-0 max-w-full xl:hidden xl:col-span-8">
+        <div id="detail-indicators" className="order-4 min-w-0 max-w-full scroll-mt-32 xl:hidden xl:col-span-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              data.go.kr 기준
+            </span>
+            <h2 className="text-base font-bold text-ink dark:text-white">기술 지표</h2>
+          </div>
           <details className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
             <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
               상세 지표 해석 펼치기
@@ -317,8 +409,14 @@ export function StockDetailClient({
             </div>
           </details>
         </div>
-        <div className="order-7 min-w-0 max-w-full xl:col-span-8 xl:order-4">
+        <div id="detail-indicators-desktop" className="order-7 min-w-0 max-w-full xl:col-span-8 xl:order-4">
           <div className="hidden xl:block">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+                data.go.kr 기준
+              </span>
+              <h2 className="text-base font-bold text-ink dark:text-white">기술 지표</h2>
+            </div>
             {latest ? (
               <IndicatorTranslator stock={stock} latest={latest} />
             ) : (
