@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { WatchlistProvider } from "@/components/watchlist-provider";
 import { PortfolioProvider } from "@/components/portfolio-provider";
 import { AuthProvider } from "@/components/auth-provider";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "KRX Insight | Korean Stock Analytics",
@@ -25,6 +26,7 @@ export default function RootLayout({
               <WatchlistProvider>
                 <SiteHeader />
                 {children}
+                <SiteFooter />
               </WatchlistProvider>
             </PortfolioProvider>
           </AuthProvider>
