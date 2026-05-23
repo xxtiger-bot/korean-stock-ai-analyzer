@@ -225,6 +225,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           statusCode: 0
         };
       }
+      if (!/^\d{6,8}$/.test(safeCode)) {
+        return {
+          ok: false,
+          message: "인증코드는 6~8자리 숫자로 입력해주세요.",
+          statusCode: 0
+        };
+      }
       try {
         const { error } = await supabase.auth.verifyOtp({
           email: safeEmail,

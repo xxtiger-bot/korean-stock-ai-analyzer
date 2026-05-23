@@ -502,15 +502,18 @@ export function SiteHeader() {
                 {loginStep === "code" && (
                   <label className="mt-2 block">
                     <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      6자리 인증코드
+                      이메일 인증코드
                     </span>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={8}
                       value={otpCode}
                       onChange={(event) =>
-                        setOtpCode(event.target.value.replace(/[^0-9a-zA-Z]/g, "").slice(0, 8))
+                        setOtpCode(event.target.value.replace(/[^0-9]/g, "").slice(0, 8))
                       }
-                      placeholder="인증코드 입력"
+                      placeholder="6~8자리 숫자 코드 입력"
                       className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
                     />
                     <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
