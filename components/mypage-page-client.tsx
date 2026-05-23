@@ -15,6 +15,7 @@ type CloudStats = {
   holdingsCount: number;
   alertRulesCount: number;
   reportsCount: number;
+  riskSnapshotsCount: number;
 };
 
 type SavedReportPayloadItem = {
@@ -129,8 +130,10 @@ export function MyPagePageClient() {
   const [stats, setStats] = useState<CloudStats>({
     holdingsCount: 0,
     alertRulesCount: 0,
-    reportsCount: 0
+    reportsCount: 0,
+    riskSnapshotsCount: 0
   });
+  const [riskTrackStartDate, setRiskTrackStartDate] = useState("");
   const [recentReports, setRecentReports] = useState<SavedReport[]>([]);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -145,9 +148,10 @@ export function MyPagePageClient() {
     const supabaseClient = supabase;
     if (!user?.id) {
       setPlan("Free");
-      setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0 });
+      setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0, riskSnapshotsCount: 0 });
       setRecentReports([]);
       setExpandedReportId(null);
+      setRiskTrackStartDate("");
       setFetchError("");
       setIsFetching(false);
       return;
@@ -155,9 +159,10 @@ export function MyPagePageClient() {
 
     if (!isSupabaseConfigured || !supabaseClient) {
       setFetchError("계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-      setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0 });
+      setStats({ holdingsCount: 0, alertRulesCount: 0, reportsCount: 0, riskSnapshotsCount: 0 });
       setRecentReports([]);
       setPlan("Free");
+      setRiskTrackStartDate("");
       setIsFetching(false);
       return;
     }
@@ -175,6 +180,8 @@ export function MyPagePageClient() {
         holdingsCountResult,
         alertRulesCountResult,
         reportsCountResult,
+        riskSnapshotsCountResult,
+        riskTrackStartResult,
         recentReportsResult
       ] = await Promise.allSettled([
         client.from("profiles").select("plan").eq("id", userId).limit(1),
@@ -184,6 +191,16 @@ export function MyPagePageClient() {
           .select("id", { count: "exact", head: true })
           .eq("user_id", userId),
         client.from("portfolio_reports").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        client
+          .from("portfolio_risk_snapshots")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId),
+        client
+          .from("portfolio_risk_snapshots")
+          .select("snapshot_date")
+          .eq("user_id", userId)
+          .order("snapshot_date", { ascending: true })
+          .limit(1),
         client
           .from("portfolio_reports")
           .select("id,report_date,summary,created_at,payload")
@@ -228,8 +245,27 @@ export function MyPagePageClient() {
       const nextStats: CloudStats = {
         holdingsCount: countFromResult(holdingsCountResult),
         alertRulesCount: countFromResult(alertRulesCountResult),
-        reportsCount: countFromResult(reportsCountResult)
+        reportsCount: countFromResult(reportsCountResult),
+        riskSnapshotsCount: countFromResult(riskSnapshotsCountResult)
       };
+
+      const nextRiskTrackStartDate = (() => {
+        if (riskTrackStartResult.status !== "fulfilled") {
+          hasError = true;
+          return "";
+        }
+        if (riskTrackStartResult.value.error) {
+          hasError = true;
+          return "";
+        }
+        const rows = Array.isArray(riskTrackStartResult.value.data)
+          ? riskTrackStartResult.value.data
+          : [];
+        const first = rows.length > 0 ? rows[0] : null;
+        return first && typeof (first as { snapshot_date?: unknown }).snapshot_date === "string"
+          ? ((first as { snapshot_date?: string }).snapshot_date ?? "")
+          : "";
+      })();
 
       const nextRecentReports = (() => {
         if (recentReportsResult.status !== "fulfilled") {
@@ -248,6 +284,7 @@ export function MyPagePageClient() {
 
       setPlan(nextPlan);
       setStats(nextStats);
+      setRiskTrackStartDate(nextRiskTrackStartDate);
       setRecentReports(nextRecentReports);
       setFetchError(hasError ? "계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요." : "");
       setIsFetching(false);
@@ -367,7 +404,14 @@ export function MyPagePageClient() {
               <span>portfolio_reports</span>
               <strong>{Number.isFinite(stats.reportsCount) ? stats.reportsCount : 0}</strong>
             </li>
+            <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+              <span>portfolio_risk_snapshots</span>
+              <strong>{Number.isFinite(stats.riskSnapshotsCount) ? stats.riskSnapshotsCount : 0}</strong>
+            </li>
           </ul>
+          <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            최근 리스크 변화 추적 시작일: {riskTrackStartDate || "데이터 없음"}
+          </p>
         </article>
       </section>
 
