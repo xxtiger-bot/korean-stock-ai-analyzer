@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BriefcaseBusiness, Mail, Star, X } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Mail, Star, UserCircle2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/components/auth-provider";
@@ -405,6 +405,7 @@ export function SiteHeader() {
               <button
                 type="button"
                 onClick={handleOpenLogin}
+                data-auth-login-trigger="true"
                 className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 dark:disabled:text-slate-500"
               >
                 로그인
@@ -436,6 +437,14 @@ export function SiteHeader() {
             <BriefcaseBusiness className="h-4 w-4 text-brand" />
             <span className="hidden sm:inline">내 보유종목</span>
             <span className="sm:hidden">보유종목</span>
+          </Link>
+          <Link
+            href="/mypage"
+            className="inline-flex items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            <UserCircle2 className="h-4 w-4 text-brand" />
+            <span className="hidden sm:inline">내 계정</span>
+            <span className="sm:hidden">계정</span>
           </Link>
           <ThemeToggle />
         </div>
