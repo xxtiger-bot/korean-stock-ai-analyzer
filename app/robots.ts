@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       disallow: [
+        "/admin",
         "/debug/market-data",
         "/mypage",
         "/portfolio",

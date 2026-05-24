@@ -17,6 +17,7 @@ const ROUTES_TO_CHECK = [
   "/portfolio",
   "/pricing",
   "/mypage",
+  "/admin",
   "/about",
   "/privacy",
   "/disclaimer",

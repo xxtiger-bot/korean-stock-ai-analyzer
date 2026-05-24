@@ -60,6 +60,7 @@ const ROUTES: RouteSpec[] = [
   { route: "/portfolio", slug: "portfolio" },
   { route: "/pricing", slug: "pricing" },
   { route: "/mypage", slug: "mypage" },
+  { route: "/admin", slug: "admin" },
   { route: "/debug/market-data", slug: "debug-market-data" },
   { route: "/admin/checklist", slug: "admin-checklist" }
 ];
@@ -1004,4 +1005,3 @@ main().catch(async (error) => {
   console.error(error instanceof Error ? error.message : "알 수 없는 오류");
   process.exit(1);
 });
-

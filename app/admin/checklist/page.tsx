@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminAccessGuard } from "@/components/admin-access-guard";
 import { FeedbackTrigger } from "@/components/feedback-trigger";
 
 export const dynamic = "force-dynamic";
@@ -93,73 +94,81 @@ function StatusBadge({ status }: { status: ChecklistStatus }) {
 
 export default function AdminChecklistPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <p className="text-xs font-bold tracking-normal text-brand">Admin</p>
-        <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
-          MVP 출시 체크리스트
-        </h1>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
-            <p className="text-[11px] font-bold tracking-normal text-slate-500 dark:text-slate-400">
-              현재 버전
-            </p>
-            <p className="mt-1 text-sm font-bold text-ink dark:text-white">MVP</p>
+    <AdminAccessGuard>
+      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+        <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+          <p className="text-xs font-bold tracking-normal text-brand">Admin</p>
+          <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
+            MVP 출시 체크리스트
+          </h1>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+              <p className="text-[11px] font-bold tracking-normal text-slate-500 dark:text-slate-400">
+                현재 버전
+              </p>
+              <p className="mt-1 text-sm font-bold text-ink dark:text-white">MVP</p>
+            </div>
+            <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+              <p className="text-[11px] font-bold tracking-normal text-slate-500 dark:text-slate-400">
+                출시 상태
+              </p>
+              <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">내부 테스트 중</p>
+            </div>
           </div>
-          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
-            <p className="text-[11px] font-bold tracking-normal text-slate-500 dark:text-slate-400">
-              출시 상태
-            </p>
-            <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">내부 테스트 중</p>
+        </section>
+
+        <section className="mt-4 space-y-4">
+          {checklistGroups.map((group) => (
+            <article
+              key={group.title}
+              className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6"
+            >
+              <h2 className="text-base font-bold text-ink dark:text-white">{group.title}</h2>
+              <ul className="mt-3 space-y-2">
+                {group.items.map((item) => (
+                  <li
+                    key={`${group.title}-${item.label}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2 dark:border-dark-line"
+                  >
+                    <span className="min-w-0 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      {item.label}
+                    </span>
+                    <StatusBadge status={item.status} />
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </section>
+
+        <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+          <h2 className="text-base font-bold text-ink dark:text-white">피드백 테스트</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+            테스트 중 발견한 이슈나 개선 의견을 바로 접수할 수 있습니다.
+          </p>
+          <div className="mt-3">
+            <FeedbackTrigger
+              label="피드백 보내기"
+              source="admin-checklist"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+            />
           </div>
-        </div>
-      </section>
-
-      <section className="mt-4 space-y-4">
-        {checklistGroups.map((group) => (
-          <article
-            key={group.title}
-            className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6"
-          >
-            <h2 className="text-base font-bold text-ink dark:text-white">{group.title}</h2>
-            <ul className="mt-3 space-y-2">
-              {group.items.map((item) => (
-                <li
-                  key={`${group.title}-${item.label}`}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2 dark:border-dark-line"
-                >
-                  <span className="min-w-0 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {item.label}
-                  </span>
-                  <StatusBadge status={item.status} />
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </section>
-
-      <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <h2 className="text-base font-bold text-ink dark:text-white">피드백 테스트</h2>
-        <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-          테스트 중 발견한 이슈나 개선 의견을 바로 접수할 수 있습니다.
-        </p>
-        <div className="mt-3">
-          <FeedbackTrigger
-            label="피드백 보내기"
-            source="admin-checklist"
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
-          />
-        </div>
-        <div className="mt-2">
-          <Link
-            href="/admin/feedback"
-            className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-white px-4 text-xs font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
-          >
-            피드백 관리 페이지 열기
-          </Link>
-        </div>
-      </section>
-    </main>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href="/admin/feedback"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-white px-4 text-xs font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+            >
+              피드백 관리 페이지 열기
+            </Link>
+            <Link
+              href="/admin"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-white px-4 text-xs font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+            >
+              Admin 대시보드
+            </Link>
+          </div>
+        </section>
+      </main>
+    </AdminAccessGuard>
   );
 }
