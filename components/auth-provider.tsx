@@ -49,6 +49,23 @@ const NETWORK_BLOCKED_MESSAGE =
   "Supabase 서버에 연결할 수 없습니다. 현재 네트워크 또는 DNS 환경에서 Supabase 접속이 차단되었을 수 있습니다.";
 const SESSION_TIMEOUT_MS = 5000;
 
+function resolveUserDisplayName(user: User | null): string {
+  if (!user) return "";
+
+  const metadata = user.user_metadata as Record<string, unknown> | null;
+  const provider =
+    typeof user.app_metadata?.provider === "string" ? user.app_metadata.provider.toLowerCase() : "";
+
+  const safeName = typeof metadata?.name === "string" ? metadata.name.trim() : "";
+  const safeNickname = typeof metadata?.nickname === "string" ? metadata.nickname.trim() : "";
+
+  if (safeName) return safeName;
+  if (safeNickname) return safeNickname;
+  if (provider === "kakao") return "Kakao 사용자";
+
+  return "로그인 사용자";
+}
+
 function mapAuthErrorMessage(rawMessage: string): string {
   const message = typeof rawMessage === "string" ? rawMessage : "";
   const lower = message.toLowerCase();
@@ -138,8 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabaseClient = supabase;
     const userId = user?.id ?? "";
     const safeEmail = typeof user?.email === "string" ? user.email.trim() : "";
-    const safeDisplayName =
-      typeof user?.user_metadata?.name === "string" ? user.user_metadata.name.trim() : "";
+    const safeDisplayName = resolveUserDisplayName(user);
 
     if (!supabaseClient || !isSupabaseConfigured || !userId) {
       profileSyncKeyRef.current = "";
@@ -214,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.email, user?.user_metadata?.name]);
+  }, [user]);
 
   const sendEmailOtpCode = useCallback(async (email: string): Promise<AuthActionResult> => {
     if (supabaseUrlError) {
@@ -376,13 +392,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const safeProvider: OAuthProvider = provider === "kakao" ? "kakao" : "google";
       const redirectTo = `${window.location.origin}/auth/callback?next=/portfolio`;
+      const oauthOptions =
+        safeProvider === "kakao"
+          ? { redirectTo, scopes: "profile_nickname" }
+          : { redirectTo };
 
       try {
+        console.log(`[auth] oauth provider: ${safeProvider}`);
+        console.log(
+          `[auth] oauth options: ${JSON.stringify({
+            provider: safeProvider,
+            redirectTo: oauthOptions.redirectTo,
+            ...(safeProvider === "kakao" ? { scopes: oauthOptions.scopes } : {})
+          })}`
+        );
         const { error } = await supabase.auth.signInWithOAuth({
           provider: safeProvider,
-          options: {
-            redirectTo
-          }
+          options: oauthOptions
         });
 
         if (error) {
@@ -402,7 +428,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return {
             ok: false,
             message: needsConfigCheck
-              ? "소셜 로그인 설정을 확인해주세요."
+              ? safeProvider === "kakao"
+                ? "카카오 로그인 설정을 확인해주세요."
+                : "소셜 로그인 설정을 확인해주세요."
               : rawMessage || "소셜 로그인에 실패했습니다. 다시 시도해주세요.",
             statusCode
           };

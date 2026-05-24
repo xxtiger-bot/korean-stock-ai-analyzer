@@ -77,6 +77,35 @@ const GUIDE_SECTIONS: GuideSection[] = [
   }
 ];
 
+function getUserDisplayLabel(
+  user: { email?: string | null; user_metadata?: unknown; app_metadata?: unknown } | null
+) {
+  if (!user) return "로그인 사용자";
+
+  const safeEmail = typeof user.email === "string" ? user.email.trim() : "";
+  if (safeEmail) return safeEmail;
+
+  const metadata = user.user_metadata as Record<string, unknown> | null;
+  const appMetadata = user.app_metadata as Record<string, unknown> | null;
+  const providerFromMeta = typeof metadata?.provider === "string" ? metadata.provider.toLowerCase() : "";
+  const providerFromAppMeta =
+    typeof appMetadata?.provider === "string" ? appMetadata.provider.toLowerCase() : "";
+  const provider = providerFromAppMeta || providerFromMeta;
+
+  if (provider === "kakao") return "Kakao 사용자";
+
+  const nameCandidates = [
+    typeof metadata?.name === "string" ? metadata.name.trim() : "",
+    typeof metadata?.full_name === "string" ? metadata.full_name.trim() : "",
+    typeof metadata?.nickname === "string" ? metadata.nickname.trim() : ""
+  ];
+
+  const displayName = nameCandidates.find((value) => Boolean(value));
+  if (displayName) return displayName;
+
+  return "로그인 사용자";
+}
+
 export function SiteHeader() {
   const {
     user,
@@ -108,6 +137,7 @@ export function SiteHeader() {
   const [guideOpenSections, setGuideOpenSections] = useState<string[]>(["about"]);
 
   const email = typeof user?.email === "string" ? user.email : "";
+  const userDisplayLabel = getUserDisplayLabel(user);
   const isLocalMode = !user;
 
   const supabaseUrlStatusLabel =
@@ -452,9 +482,12 @@ export function SiteHeader() {
     try {
       const result = await signInWithOAuthProvider(provider);
       if (!result.ok) {
-        const message =
-          result.message === "소셜 로그인 설정을 확인해주세요."
-            ? result.message
+        const isConfigMessage =
+          result.message === "소셜 로그인 설정을 확인해주세요." ||
+          result.message === "카카오 로그인 설정을 확인해주세요.";
+        const message: string =
+          isConfigMessage
+            ? result.message ?? "소셜 로그인 설정을 확인해주세요."
             : "소셜 로그인에 실패했습니다. 다시 시도해주세요.";
         setModalNotice(message);
         setAuthNotice(message);
@@ -515,7 +548,7 @@ export function SiteHeader() {
                 <UserCircle2 className="h-4 w-4" />
               </Link>
               <div className="hidden max-w-[260px] items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 md:inline-flex">
-                <span className="truncate">{email || "로그인 사용자"}</span>
+                <span className="truncate">{userDisplayLabel}</span>
                 <button
                   type="button"
                   onClick={handleSignOut}
@@ -625,7 +658,7 @@ export function SiteHeader() {
             {user ? (
               <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-semibold text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
                 <p>이미 로그인되었습니다.</p>
-                <p className="mt-1 break-all">{email || "로그인 사용자"}</p>
+                <p className="mt-1 break-all">{userDisplayLabel}</p>
                 <button
                   type="button"
                   onClick={handleSignOut}
@@ -651,15 +684,15 @@ export function SiteHeader() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => void handleOAuthLogin("kakao")}
-                      disabled={Boolean(oauthLoadingProvider) || authModalState === "sending"}
-                      className="inline-flex h-11 w-full items-center justify-center rounded-md border border-yellow-300 bg-[#FEE500] px-3 text-sm font-bold text-[#3C1E1E] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
+                      disabled={true}
+                      className="inline-flex h-11 w-full items-center justify-center rounded-md border border-yellow-300 bg-[#FEE500] px-3 text-sm font-bold text-[#3C1E1E] opacity-60 disabled:cursor-not-allowed"
                     >
-                      {oauthLoadingProvider === "kakao"
-                        ? "Kakao 로그인 연결 중..."
-                        : "Kakao로 계속하기"}
+                      Kakao 로그인 준비 중
                     </button>
                   </div>
+                  <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                    Kakao 로그인은 이메일 권한 설정 후 제공될 예정입니다.
+                  </p>
                 </section>
 
                 <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
