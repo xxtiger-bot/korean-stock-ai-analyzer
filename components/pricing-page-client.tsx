@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { resolvePlanFromProfile, toPlanStatusLabel, type UserPlan } from "@/lib/plan";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -284,12 +285,18 @@ export function PricingPageClient() {
             </ul>
             {plan.name === "Pro" ? (
               <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                친구를 초대하고 Pro 3일 체험권을 받아보세요.
+                친구를 초대하면 Pro 3일 체험권을 받을 수 있습니다.
               </p>
             ) : null}
 
             {plan.name === "Pro" ? (
               <div className="mt-4 space-y-2">
+                <Link
+                  href="/mypage"
+                  className="inline-flex h-9 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+                >
+                  내 초대 링크 보기
+                </Link>
                 <button
                   type="button"
                   onClick={() => setIsWaitlistOpen((current) => !current)}

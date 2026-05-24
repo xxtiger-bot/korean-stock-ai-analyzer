@@ -56,7 +56,12 @@ const checklistGroups: ChecklistGroup[] = [
       { label: "portfolio_holdings", status: "완료" },
       { label: "portfolio_alert_rules", status: "완료" },
       { label: "portfolio_reports", status: "완료" },
-      { label: "profiles.plan", status: "완료" }
+      { label: "profiles.plan", status: "완료" },
+      { label: "referrals", status: "완료" },
+      { label: "profiles.referral_code", status: "완료" },
+      { label: "profiles.pro_expires_at", status: "완료" },
+      { label: "pro_waitlist", status: "완료" },
+      { label: "user_feedback", status: "완료" }
     ]
   },
   {

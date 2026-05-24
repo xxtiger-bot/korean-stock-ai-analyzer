@@ -20,6 +20,7 @@ const ROUTES_TO_CHECK = [
   "/about",
   "/privacy",
   "/disclaimer",
+  "/beta?ref=test",
   "/debug/market-data",
   "/admin/checklist",
   "/sitemap.xml",

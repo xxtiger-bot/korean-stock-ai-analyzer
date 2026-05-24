@@ -146,6 +146,15 @@ function formatExpiryDate(value: string) {
   return date.toLocaleString("ko-KR");
 }
 
+function getTrialDaysRemaining(value: string) {
+  if (!value) return null;
+  const expiresAt = new Date(value);
+  if (Number.isNaN(expiresAt.getTime())) return null;
+  const remainMs = expiresAt.getTime() - Date.now();
+  if (!Number.isFinite(remainMs) || remainMs <= 0) return null;
+  return Math.max(1, Math.ceil(remainMs / (24 * 60 * 60 * 1000)));
+}
+
 function buildInviteLink(referralCode: string) {
   if (!referralCode) return "";
   return `https://korean-stock-ai-analyzer.vercel.app/beta?ref=${encodeURIComponent(referralCode)}`;
@@ -640,6 +649,19 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   }
 
   const inviteLink = useMemo(() => buildInviteLink(referralCode), [referralCode]);
+  const proTrialDaysRemaining = useMemo(() => getTrialDaysRemaining(proExpiresAt), [proExpiresAt]);
+  const proTrialStatusText = useMemo(() => {
+    if (Number.isFinite(proTrialDaysRemaining ?? NaN) && (proTrialDaysRemaining ?? 0) > 0) {
+      return `Pro 체험중 · ${proTrialDaysRemaining}일 남음`;
+    }
+    return "Free 플랜";
+  }, [proTrialDaysRemaining]);
+  const proTrialRemainText = useMemo(() => {
+    if (Number.isFinite(proTrialDaysRemaining ?? NaN) && (proTrialDaysRemaining ?? 0) > 0) {
+      return `${proTrialDaysRemaining}일`;
+    }
+    return "데이터 없음";
+  }, [proTrialDaysRemaining]);
 
   useEffect(() => {
     setInviteNotice("");
@@ -878,7 +900,7 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
           <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
             <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">현재 상태</dt>
             <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
-              {planStatusLabel}
+              {proTrialStatusText}
             </dd>
           </div>
           <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60 sm:col-span-2">
@@ -891,6 +913,12 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
             <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">초대 성공 수</dt>
             <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
               {Number.isFinite(referralSuccessCount) ? referralSuccessCount : 0}
+            </dd>
+          </div>
+          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+            <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Pro 체험 남은 기간</dt>
+            <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {proTrialRemainText}
             </dd>
           </div>
           <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">

@@ -205,6 +205,26 @@ git push origin v1.0-mvp
 
 ---
 
+## 14. 邀请奖励测试流程（친구 초대 리워드）
+按下面流程可验证 referral + Pro 体验奖励：
+
+1. 使用 **A 用户** 登录，进入 `/mypage`。
+2. 点击 `초대 링크 복사`，拿到邀请链接（例如 `/beta?ref=xxx`）。
+3. 打开无痕窗口，用无痕窗口访问该 `/beta?ref=xxx` 链接。
+4. 在无痕窗口用 **B 用户** 完成登录。
+5. 到 Supabase 检查 `referrals` 表：应新增一条 `referred_user_id = B` 的记录。
+6. 到 Supabase 检查 A 用户的 `profiles.pro_expires_at`：应在原基础上增加 `+3 days`。
+7. 回到 A 用户 `/mypage`，确认：
+   - `초대 성공 수` 增加
+   - `Pro 체험중 · N일 남음` 正常显示
+
+注意：
+- 同一个 `referred_user_id` 只能奖励一次。
+- 自己邀请自己无效。
+- 无效 referral code 会被忽略，不应导致页面崩溃。
+
+---
+
 ## 附：建议执行顺序（发布前）
 1. `npm run build`
 2. `npm run check:mvp`
@@ -212,4 +232,3 @@ git push origin v1.0-mvp
 4. 人工检查 `/admin/checklist`
 5. 人工抽查核心页面与移动端
 6. 再进行 tag + GitHub Release + Vercel 发布确认
-
