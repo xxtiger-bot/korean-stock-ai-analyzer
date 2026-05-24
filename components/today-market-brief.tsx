@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, TrendingUp } from "lucide-react";
+import { AlertTriangle, Copy, TrendingUp } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { useWatchlist } from "@/components/watchlist-provider";
@@ -347,6 +347,7 @@ export function TodayMarketBrief({
   const [cloudAlertMap, setCloudAlertMap] = useState<Record<string, UserAlertCondition[]>>({});
   const [riskSnapshots, setRiskSnapshots] = useState<RiskSnapshot[]>([]);
   const [snapshotNotice, setSnapshotNotice] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
 
   const safeEntries = useMemo(() => (Array.isArray(entries) ? entries : []), [entries]);
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
@@ -639,6 +640,46 @@ export function TodayMarketBrief({
     return "유지 관찰";
   }, [diagnosisById]);
 
+  const briefingCopyText = useMemo(() => {
+    const safeFocusItems = Array.isArray(focusItems) ? focusItems : [];
+    const topLines =
+      safeFocusItems.length > 0
+        ? safeFocusItems.slice(0, 3).map((item, index) => `${index + 1}. ${item.name} · ${item.symbol} - ${item.reason}`)
+        : ["1. 우선 확인 종목이 없습니다."];
+
+    return [
+      "[KRX Insight 오늘 시장 브리핑]",
+      `시장 방향: ${directionText(direction)}`,
+      `오늘 한 줄: ${oneLine}`,
+      "오늘 먼저 확인할 종목:",
+      ...topLines,
+      "데이터 기준: KIS 현재가 + data.go.kr 일별 종가 참고",
+      "주의: 투자 참고 정보이며, 매수/매도 추천이 아닙니다."
+    ].join("\n");
+  }, [direction, focusItems, oneLine]);
+
+  async function handleCopyBriefing() {
+    if (typeof window === "undefined") return;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(briefingCopyText);
+      } else {
+        const tempTextArea = window.document.createElement("textarea");
+        tempTextArea.value = briefingCopyText;
+        tempTextArea.setAttribute("readonly", "true");
+        tempTextArea.style.position = "fixed";
+        tempTextArea.style.top = "-9999px";
+        window.document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        window.document.execCommand("copy");
+        window.document.body.removeChild(tempTextArea);
+      }
+      setCopyNotice("브리핑이 복사되었습니다.");
+    } catch {
+      setCopyNotice("브리핑 복사에 실패했습니다.");
+    }
+  }
+
   const showEmptyState =
     safeEntries.length === 0 &&
     safeWatchlistSymbols.length === 0 &&
@@ -656,18 +697,31 @@ export function TodayMarketBrief({
             {variant === "portfolio" ? "내 포트폴리오 오늘 브리핑" : "오늘 시장 브리핑"}
           </h2>
         </div>
-        <span
-          className={`rounded-md border px-2 py-1 text-[11px] font-bold ${marketDirectionBadgeClass(
-            direction
-          )}`}
-        >
-          {directionText(direction)}
-        </span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span
+            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${marketDirectionBadgeClass(
+              direction
+            )}`}
+          >
+            {directionText(direction)}
+          </span>
+          <button
+            type="button"
+            onClick={() => void handleCopyBriefing()}
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-line bg-white px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            브리핑 복사
+          </button>
+        </div>
       </div>
 
       <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-700 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200">
         {oneLine}
       </p>
+      {copyNotice ? (
+        <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">{copyNotice}</p>
+      ) : null}
 
       {showEmptyState ? (
         <div className="mt-3">
