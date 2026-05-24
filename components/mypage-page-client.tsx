@@ -297,6 +297,7 @@ export function MyPagePageClient() {
   const [riskTrackStartDate, setRiskTrackStartDate] = useState("");
   const [recentReports, setRecentReports] = useState<SavedReport[]>([]);
   const [recentRiskChanges, setRecentRiskChanges] = useState<RecentRiskChangeItem[]>([]);
+  const [isProWaitlistApplied, setIsProWaitlistApplied] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -320,6 +321,7 @@ export function MyPagePageClient() {
       });
       setRecentReports([]);
       setRecentRiskChanges([]);
+      setIsProWaitlistApplied(false);
       setExpandedReportId(null);
       setRiskTrackStartDate("");
       setFetchError("");
@@ -339,6 +341,7 @@ export function MyPagePageClient() {
       });
       setRecentReports([]);
       setRecentRiskChanges([]);
+      setIsProWaitlistApplied(false);
       setPlan("Free");
       setRiskTrackStartDate("");
       setIsFetching(false);
@@ -364,7 +367,8 @@ export function MyPagePageClient() {
         riskSnapshotsCountResult,
         riskTrackStartResult,
         recentReportsResult,
-        riskTimelineResult
+        riskTimelineResult,
+        proWaitlistResult
       ] = await Promise.allSettled([
         client.from("profiles").select("plan").eq("id", userId).limit(1),
         client.from("portfolio_holdings").select("id", { count: "exact", head: true }).eq("user_id", userId),
@@ -401,7 +405,8 @@ export function MyPagePageClient() {
           .eq("user_id", userId)
           .gte("snapshot_date", getKstDateDaysAgo(6))
           .order("snapshot_date", { ascending: false })
-          .limit(300)
+          .limit(300),
+        client.from("pro_waitlist").select("id", { count: "exact", head: true }).eq("user_id", userId)
       ]);
 
       if (cancelled) return;
@@ -495,11 +500,27 @@ export function MyPagePageClient() {
         return buildRecentRiskChanges(normalized).slice(0, 3);
       })();
 
+      const nextProWaitlistApplied = (() => {
+        if (proWaitlistResult.status !== "fulfilled") {
+          hasError = true;
+          return false;
+        }
+        if (proWaitlistResult.value.error) {
+          hasError = true;
+          return false;
+        }
+        const count = Number.isFinite(proWaitlistResult.value.count ?? NaN)
+          ? Number(proWaitlistResult.value.count)
+          : 0;
+        return count > 0;
+      })();
+
       setPlan(nextPlan);
       setStats(nextStats);
       setRiskTrackStartDate(nextRiskTrackStartDate);
       setRecentReports(nextRecentReports);
       setRecentRiskChanges(nextRecentRiskChanges);
+      setIsProWaitlistApplied(nextProWaitlistApplied);
       setFetchError(hasError ? "계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요." : "");
       setIsFetching(false);
     }
@@ -655,6 +676,12 @@ export function MyPagePageClient() {
                 {isFreePlan
                   ? `관심종목 ${stats.watchlistCount}/${watchlistLimit ?? FREE_LIMITS.watchlist} · 보유종목 ${stats.holdingsCount}/${holdingsLimit ?? FREE_LIMITS.holdings} · 오늘 리포트 ${stats.todayReportCount}/${reportLimit ?? FREE_LIMITS.dailyReportSave}`
                   : "관심종목 · 보유종목 · 리포트 저장 한도 없음"}
+              </dd>
+            </div>
+            <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60 sm:col-span-2">
+              <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Pro 알림 신청 상태</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {isProWaitlistApplied ? "신청 완료" : "미신청"}
               </dd>
             </div>
           </dl>

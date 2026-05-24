@@ -106,7 +106,7 @@ export function WatchlistPanel({
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">관심종목</h2>
         </div>
         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:bg-slate-900/70 dark:text-slate-300">
-          {selected.length}
+          {symbols.length}
         </span>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -123,12 +123,12 @@ export function WatchlistPanel({
                   : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
             }`}
           >
-            관심종목 {selected.length}/{watchlistLimit}
+            관심종목 {symbols.length}/{watchlistLimit}
           </span>
         ) : null}
         {(isWatchlistLimitReached || isWatchlistNearLimit) && watchlistLimit !== null ? (
           <Link
-            href="/pricing"
+            href="/pricing#pro-plan"
             className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
           >
             요금제 보기

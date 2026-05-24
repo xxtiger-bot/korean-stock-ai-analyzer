@@ -270,6 +270,14 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     (symbol: string, metadata?: { stockName?: string | null; market?: string | null }) => {
       const normalized = normalizeSymbol(symbol);
       if (!normalized) return;
+      if (!symbols.includes(normalized) && isFreePlan && symbols.length >= FREE_LIMITS.watchlist) {
+        setSyncNotice(
+          user?.id
+            ? "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다."
+            : "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
+        );
+        return;
+      }
       const nextItem: WatchlistItem = {
         symbol: normalized,
         stockName: safeText(metadata?.stockName),
@@ -279,21 +287,13 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       setItems((current) => {
         const safeCurrent = Array.isArray(current) ? current : [];
         if (safeCurrent.some((item) => item.symbol === normalized)) return safeCurrent;
-        if (isFreePlan && safeCurrent.length >= FREE_LIMITS.watchlist) {
-          setSyncNotice(
-            user?.id
-              ? "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다."
-              : "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
-          );
-          return safeCurrent;
-        }
         return [...safeCurrent, nextItem];
       });
       if (user?.id && isSupabaseReady && isSupabaseConfigured && supabase) {
         void upsertCloudWatchlistItem(nextItem);
       }
     },
-    [isFreePlan, isSupabaseReady, upsertCloudWatchlistItem, user?.id]
+    [isFreePlan, isSupabaseReady, symbols, upsertCloudWatchlistItem, user?.id]
   );
 
   const remove = useCallback(
@@ -314,18 +314,19 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     (symbol: string, metadata?: { stockName?: string | null; market?: string | null }) => {
       const normalized = normalizeSymbol(symbol);
       if (!normalized) return;
+      const exists = symbols.includes(normalized);
+      if (!exists && isFreePlan && symbols.length >= FREE_LIMITS.watchlist) {
+        setSyncNotice(
+          user?.id
+            ? "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다."
+            : "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
+        );
+        return;
+      }
       setItems((current) => {
         const safeCurrent = Array.isArray(current) ? current : [];
-        const exists = safeCurrent.some((item) => item.symbol === normalized);
-        if (exists) return safeCurrent.filter((item) => item.symbol !== normalized);
-        if (isFreePlan && safeCurrent.length >= FREE_LIMITS.watchlist) {
-          setSyncNotice(
-            user?.id
-              ? "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다."
-              : "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
-          );
-          return safeCurrent;
-        }
+        const existsInCurrent = safeCurrent.some((item) => item.symbol === normalized);
+        if (existsInCurrent) return safeCurrent.filter((item) => item.symbol !== normalized);
         return [
           ...safeCurrent,
           {
@@ -336,7 +337,6 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
           }
         ];
       });
-      const exists = symbols.includes(normalized);
       if (user?.id && isSupabaseReady && isSupabaseConfigured && supabase) {
         if (exists) {
           void deleteCloudWatchlistItem(normalized);
