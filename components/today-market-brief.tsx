@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Copy, TrendingUp } from "lucide-react";
+import { AlertTriangle, Copy, Download, TrendingUp } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { useWatchlist } from "@/components/watchlist-provider";
@@ -329,6 +329,28 @@ function marketDirectionDetail(direction: MorningMarketDirection, signals: Marke
   return `KOSPI ${formatPercent(kospiRate)} · KOSDAQ ${formatPercent(kosdaqRate)} 기준으로 ${directionText(direction)} 흐름입니다.`;
 }
 
+function wrapCanvasTextLines(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+) {
+  const chunks = text.split(/\s+/).filter(Boolean);
+  if (chunks.length === 0) return [""];
+  const lines: string[] = [];
+  let current = chunks[0];
+  for (let index = 1; index < chunks.length; index += 1) {
+    const next = `${current} ${chunks[index]}`;
+    if (context.measureText(next).width <= maxWidth) {
+      current = next;
+    } else {
+      lines.push(current);
+      current = chunks[index];
+    }
+  }
+  lines.push(current);
+  return lines;
+}
+
 export function TodayMarketBrief({
   signals,
   stocks,
@@ -348,6 +370,7 @@ export function TodayMarketBrief({
   const [riskSnapshots, setRiskSnapshots] = useState<RiskSnapshot[]>([]);
   const [snapshotNotice, setSnapshotNotice] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
+  const [imageNotice, setImageNotice] = useState("");
 
   const safeEntries = useMemo(() => (Array.isArray(entries) ? entries : []), [entries]);
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
@@ -675,8 +698,138 @@ export function TodayMarketBrief({
         window.document.body.removeChild(tempTextArea);
       }
       setCopyNotice("브리핑이 복사되었습니다.");
+      setImageNotice("");
     } catch {
       setCopyNotice("브리핑 복사에 실패했습니다.");
+    }
+  }
+
+  async function handleSaveBriefingImage() {
+    if (typeof window === "undefined") return;
+
+    try {
+      const topItems = Array.isArray(focusItems) ? focusItems.slice(0, 3) : [];
+      const dateText = localDateKey();
+      const canvas = window.document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        setImageNotice("브리핑 이미지 저장에 실패했습니다.");
+        return;
+      }
+
+      context.fillStyle = "#f8fafc";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      const cardX = 44;
+      const cardY = 36;
+      const cardWidth = canvas.width - cardX * 2;
+      const cardHeight = canvas.height - cardY * 2;
+      const radius = 26;
+
+      context.beginPath();
+      context.moveTo(cardX + radius, cardY);
+      context.lineTo(cardX + cardWidth - radius, cardY);
+      context.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + radius);
+      context.lineTo(cardX + cardWidth, cardY + cardHeight - radius);
+      context.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - radius, cardY + cardHeight);
+      context.lineTo(cardX + radius, cardY + cardHeight);
+      context.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - radius);
+      context.lineTo(cardX, cardY + radius);
+      context.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+      context.closePath();
+      context.fillStyle = "#ffffff";
+      context.fill();
+
+      const textLeft = cardX + 44;
+      const textWidth = cardWidth - 88;
+      let currentY = cardY + 48;
+
+      context.fillStyle = "#1d4ed8";
+      context.font = "700 38px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText("KRX Insight", textLeft, currentY);
+
+      currentY += 58;
+      context.fillStyle = "#0f172a";
+      context.font = "700 34px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText(variant === "portfolio" ? "내 포트폴리오 오늘 브리핑" : "오늘 시장 브리핑", textLeft, currentY);
+
+      currentY += 54;
+      context.fillStyle = "#334155";
+      context.font = "600 24px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText(`기준일: ${dateText}`, textLeft, currentY);
+
+      currentY += 52;
+      context.fillStyle = "#0f172a";
+      context.font = "700 28px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText(`시장 방향: ${directionText(direction)}`, textLeft, currentY);
+
+      currentY += 54;
+      context.fillStyle = "#0f172a";
+      context.font = "700 26px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText("오늘 한 줄 브리핑", textLeft, currentY);
+
+      currentY += 40;
+      context.fillStyle = "#1e293b";
+      context.font = "500 23px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      const summaryLines = wrapCanvasTextLines(context, oneLine, textWidth);
+      for (const line of summaryLines) {
+        context.fillText(line, textLeft, currentY);
+        currentY += 34;
+      }
+
+      currentY += 16;
+      context.fillStyle = "#0f172a";
+      context.font = "700 26px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      context.fillText("오늘 먼저 확인할 종목 TOP 3", textLeft, currentY);
+
+      currentY += 40;
+      context.fillStyle = "#1e293b";
+      context.font = "500 23px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      const itemLines =
+        topItems.length > 0
+          ? topItems.map((item, index) => `${index + 1}. ${item.name} · ${item.symbol} - ${item.reason}`)
+          : ["1. 우선 확인 종목이 없습니다."];
+
+      for (const itemLine of itemLines) {
+        const wrapped = wrapCanvasTextLines(context, itemLine, textWidth);
+        for (const line of wrapped) {
+          context.fillText(line, textLeft, currentY);
+          currentY += 34;
+        }
+        currentY += 10;
+      }
+
+      currentY += 10;
+      context.fillStyle = "#334155";
+      context.font = "600 21px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      const dataLine = "데이터 기준: KIS 현재가 + data.go.kr 일별 종가 참고";
+      for (const line of wrapCanvasTextLines(context, dataLine, textWidth)) {
+        context.fillText(line, textLeft, currentY);
+        currentY += 30;
+      }
+
+      currentY += 8;
+      context.fillStyle = "#7c2d12";
+      context.font = "600 21px 'Noto Sans KR', 'Segoe UI', sans-serif";
+      const disclaimerLine = "투자 참고 정보이며, 매수/매도 추천이 아닙니다.";
+      for (const line of wrapCanvasTextLines(context, disclaimerLine, textWidth)) {
+        context.fillText(line, textLeft, currentY);
+        currentY += 30;
+      }
+
+      const imageDataUrl = canvas.toDataURL("image/png");
+      const anchor = window.document.createElement("a");
+      anchor.href = imageDataUrl;
+      anchor.download = `krx-insight-morning-brief-${dateText}.png`;
+      anchor.click();
+
+      setImageNotice("브리핑 이미지가 저장되었습니다.");
+      setCopyNotice("");
+    } catch {
+      setImageNotice("브리핑 이미지 저장에 실패했습니다.");
     }
   }
 
@@ -713,6 +866,14 @@ export function TodayMarketBrief({
             <Copy className="h-3.5 w-3.5" />
             브리핑 복사
           </button>
+          <button
+            type="button"
+            onClick={() => void handleSaveBriefingImage()}
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-line bg-white px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+          >
+            <Download className="h-3.5 w-3.5" />
+            브리핑 이미지 저장
+          </button>
         </div>
       </div>
 
@@ -721,6 +882,9 @@ export function TodayMarketBrief({
       </p>
       {copyNotice ? (
         <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">{copyNotice}</p>
+      ) : null}
+      {imageNotice ? (
+        <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">{imageNotice}</p>
       ) : null}
 
       {showEmptyState ? (
