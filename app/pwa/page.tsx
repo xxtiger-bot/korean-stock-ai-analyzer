@@ -49,7 +49,14 @@ export default function PwaGuidePage() {
           </Link>
         </div>
       </section>
+
+      <section className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-soft dark:border-amber-900/60 dark:bg-amber-950/40 sm:p-6">
+        <h2 className="text-lg font-bold text-amber-900 dark:text-amber-100">설치 문제 해결</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-amber-900 dark:text-amber-100">
+          이미 설치한 App 아이콘이 열리지 않으면 기존 홈 화면 아이콘을 삭제한 뒤,
+          Chrome에서 다시 설치해 주세요.
+        </p>
+      </section>
     </main>
   );
 }
-

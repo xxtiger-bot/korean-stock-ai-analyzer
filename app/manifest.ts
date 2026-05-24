@@ -5,8 +5,11 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "KRX Insight",
     short_name: "KRX Insight",
     description: "한국 주식 AI 분석과 보유종목 리스크 진단 도구",
-    start_url: "/",
+    start_url: "/?source=pwa",
+    scope: "/",
+    id: "/",
     display: "standalone",
+    orientation: "portrait",
     background_color: "#ffffff",
     theme_color: "#0f172a",
     lang: "ko",
@@ -24,4 +27,3 @@ export default function manifest(): MetadataRoute.Manifest {
     ]
   };
 }
-
