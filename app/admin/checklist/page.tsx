@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FeedbackTrigger } from "@/components/feedback-trigger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -130,6 +131,20 @@ export default function AdminChecklistPage() {
             </ul>
           </article>
         ))}
+      </section>
+
+      <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <h2 className="text-base font-bold text-ink dark:text-white">피드백 테스트</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+          테스트 중 발견한 이슈나 개선 의견을 바로 접수할 수 있습니다.
+        </p>
+        <div className="mt-3">
+          <FeedbackTrigger
+            label="피드백 보내기"
+            source="admin-checklist"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          />
+        </div>
       </section>
     </main>
   );

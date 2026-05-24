@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BarChart3, BriefcaseBusiness, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { FeedbackTrigger } from "@/components/feedback-trigger";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatPercent } from "@/lib/format";
 import { marketDirectionBadgeClass, resolveMarketDirection } from "@/lib/morning-brief";
@@ -962,6 +963,11 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
           <LogOut className="h-4 w-4" />
           로그아웃
         </button>
+        <FeedbackTrigger
+          label="피드백 보내기"
+          source="mypage"
+          className="inline-flex h-10 items-center justify-center gap-1 rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+        />
       </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
