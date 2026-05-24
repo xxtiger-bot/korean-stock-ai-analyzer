@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { FeedbackTrigger } from "@/components/feedback-trigger";
 
 export const dynamic = "force-dynamic";
@@ -144,6 +145,14 @@ export default function AdminChecklistPage() {
             source="admin-checklist"
             className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
           />
+        </div>
+        <div className="mt-2">
+          <Link
+            href="/admin/feedback"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-white px-4 text-xs font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            피드백 관리 페이지 열기
+          </Link>
         </div>
       </section>
     </main>
