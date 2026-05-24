@@ -13,16 +13,48 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#ffffff",
     theme_color: "#0f172a",
     lang: "ko",
+    categories: ["finance", "business", "productivity"],
+    prefer_related_applications: false,
     icons: [
       {
         src: "/icons/icon-192.png",
         sizes: "192x192",
-        type: "image/png"
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "/icons/icon-192-maskable.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable"
       },
       {
         src: "/icons/icon-512.png",
         sizes: "512x512",
-        type: "image/png"
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "/icons/icon-512-maskable.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable"
+      }
+    ],
+    shortcuts: [
+      {
+        name: "종목 검색",
+        short_name: "검색",
+        description: "검색 영역으로 바로 이동",
+        url: "/#search",
+        icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }]
+      },
+      {
+        name: "내 보유종목",
+        short_name: "보유",
+        description: "포트폴리오 진단으로 이동",
+        url: "/portfolio",
+        icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }]
       }
     ]
   };

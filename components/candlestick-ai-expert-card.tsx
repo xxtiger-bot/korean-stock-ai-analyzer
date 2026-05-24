@@ -1,9 +1,17 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { DataAsOfNote } from "@/components/data-as-of-note";
 import { formatKRW, formatPercent } from "@/lib/format";
 import { DISCLAIMER } from "@/lib/insights";
-import type { Candle, PriceGuard, RealtimeQuote, Stock, TechnicalPoint } from "@/lib/types";
+import type {
+  Candle,
+  ForeignOwnershipData,
+  PriceGuard,
+  RealtimeQuote,
+  Stock,
+  TechnicalPoint
+} from "@/lib/types";
 
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -51,12 +59,14 @@ export function CandlestickAiExpertCard({
   candles,
   technicalSeries,
   realtimeQuote,
+  foreignOwnership,
   priceGuard
 }: {
   stock: Stock;
   candles: Candle[];
   technicalSeries: TechnicalPoint[];
   realtimeQuote?: RealtimeQuote | null;
+  foreignOwnership?: ForeignOwnershipData | null;
   priceGuard?: PriceGuard | null;
 }) {
   const safeCandles = Array.isArray(candles) ? candles : [];
@@ -164,6 +174,12 @@ export function CandlestickAiExpertCard({
       <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
         KIS 현재가와 data.go.kr 일별 종가 데이터를 함께 참고한 캔들차트 해석입니다.
       </p>
+      <DataAsOfNote
+        className="mt-3"
+        stockDate={chartBaseDate}
+        realtimeQuote={realtimeQuote}
+        foreignOwnership={foreignOwnership}
+      />
       <div className="mt-3 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
         <p>
           현재가: {formatKRW(currentPrice)} ·{" "}

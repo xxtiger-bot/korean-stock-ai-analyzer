@@ -7,6 +7,7 @@ import {
   getStockDetail,
   getTechnicalIndicators
 } from "@/lib/stock-provider";
+import { resolveForeignOwnershipDisplay } from "@/lib/utils/foreign-ownership";
 import type {
   AiReport,
   Candle,
@@ -54,6 +55,8 @@ type ReportContext = {
     holdingQty: number | null;
     limitQty: number | null;
     exhaustionRate: number | null;
+    effectiveRate: number | null;
+    effectiveLabel: string;
     source: string;
     updatedAt?: string;
   };
@@ -151,6 +154,8 @@ function createReportContext(
   const supportPrice = stock.supportPrice || low20 || latest.close;
   const resistancePrice = stock.resistancePrice || high20 || latest.close;
 
+  const resolvedForeignOwnership = resolveForeignOwnershipDisplay(foreignOwnership);
+
   return {
     stock: {
       name: stock.koreanName,
@@ -186,11 +191,7 @@ function createReportContext(
       volume: item.volume
     })),
     foreignOwnership: {
-      ratio:
-        typeof foreignOwnership?.foreignOwnershipRatio === "number" &&
-        Number.isFinite(foreignOwnership.foreignOwnershipRatio)
-          ? foreignOwnership.foreignOwnershipRatio
-          : null,
+      ratio: resolvedForeignOwnership.effectiveRate,
       holdingQty:
         typeof foreignOwnership?.foreignHoldingQty === "number" &&
         Number.isFinite(foreignOwnership.foreignHoldingQty)
@@ -206,6 +207,8 @@ function createReportContext(
         Number.isFinite(foreignOwnership.foreignExhaustionRate)
           ? foreignOwnership.foreignExhaustionRate
           : null,
+      effectiveRate: resolvedForeignOwnership.effectiveRate,
+      effectiveLabel: resolvedForeignOwnership.effectiveLabel,
       source: foreignOwnership?.source ?? "KIS 확인 필요",
       updatedAt: foreignOwnership?.updatedAt
     }
@@ -221,12 +224,14 @@ function createLocalReport(context: ReportContext): AiReport {
   const aboveMa60 = technical.ma60 ? stock.price >= technical.ma60 : false;
   const nearSupport = stock.price <= technical.supportPrice * 1.03;
   const nearResistance = stock.price >= technical.resistancePrice * 0.97;
-  const foreignRatioText =
-    foreignOwnership.ratio === null ? "확인 필요" : `${foreignOwnership.ratio.toFixed(2)}%`;
+  const foreignRateText =
+    foreignOwnership.effectiveRate === null
+      ? "확인 필요"
+      : `${foreignOwnership.effectiveRate.toFixed(2)}%`;
   const hasHighForeignRatio =
-    foreignOwnership.ratio !== null && foreignOwnership.ratio >= 20;
+    foreignOwnership.effectiveRate !== null && foreignOwnership.effectiveRate >= 20;
   const hasLowForeignRatio =
-    foreignOwnership.ratio !== null && foreignOwnership.ratio <= 5;
+    foreignOwnership.effectiveRate !== null && foreignOwnership.effectiveRate <= 5;
   const rsiText =
     technical.rsi === null || !Number.isFinite(technical.rsi) ? "N/A" : technical.rsi.toFixed(1);
   const macdLabel = getMacdLabel({
@@ -252,7 +257,7 @@ function createLocalReport(context: ReportContext): AiReport {
       technical.ma20 ? formatKRW(technical.ma20) : "확인 필요"
     }, MA60 ${technical.ma60 ? formatKRW(technical.ma60) : "확인 필요"}입니다. RSI는 ${rsiText}로 ${getRsiLabel(
       technical.rsi
-    )}이며, MACD는 ${macdLabel} 상태입니다. 외국인 보유율은 ${foreignRatioText} (${foreignOwnership.source})로 수급 참고 지표입니다. 20일 고점은 ${formatKRW(
+    )}이며, MACD는 ${macdLabel} 상태입니다. ${foreignOwnership.effectiveLabel}은 ${foreignRateText} (${foreignOwnership.source})로 수급 참고 지표입니다. 20일 고점은 ${formatKRW(
       technical.high20
     )}, 20일 저점은 ${formatKRW(technical.low20)}입니다.`,
     risk: `${nearResistance ? "최근 종가가 20일 고점권에 가까워 단기 변동성 확대를 신중하게 관찰해야 합니다. " : ""}${
@@ -263,17 +268,17 @@ function createLocalReport(context: ReportContext): AiReport {
       aboveMa60 ? "MA60 위" : "MA60 아래"
     }에 있어 추세 확인과 리스크 관리가 함께 필요합니다. ${
       hasHighForeignRatio
-        ? `외국인 보유율 ${foreignRatioText}로 수급 안정 참고 요인이 있으나 변화율 재확인이 필요합니다.`
+        ? `${foreignOwnership.effectiveLabel} ${foreignRateText}로 수급 안정 참고 요인이 있으나 변화율 재확인이 필요합니다.`
         : hasLowForeignRatio
-          ? `외국인 보유율 ${foreignRatioText}로 수급 변동 가능성을 신중하게 관찰해야 합니다.`
-          : "외국인 보유율 변화는 후속 관찰 항목으로 확인 필요합니다."
+          ? `${foreignOwnership.effectiveLabel} ${foreignRateText}로 수급 변동 가능성을 신중하게 관찰해야 합니다.`
+          : "외국인 수급 변화는 후속 관찰 항목으로 확인 필요합니다."
     }`,
     watchPoints: [
       `참고 지지권 ${formatKRW(technical.supportPrice)} 부근에서 종가가 유지되는지 관찰`,
       `참고 저항권 ${formatKRW(technical.resistancePrice)} 부근에서 거래량이 증가하거나 둔화되는지 확인`,
       `MA20 ${technical.ma20 ? formatKRW(technical.ma20) : "확인 필요"} 기준 이탈 또는 재회복 여부 관찰`,
       `RSI ${rsiText}가 과열권 또는 회복권으로 이동하는지 확인`,
-      `외국인 보유율(${foreignRatioText})과 소진율(${foreignOwnership.exhaustionRate === null ? "확인 필요" : `${foreignOwnership.exhaustionRate.toFixed(2)}%`}) 변화 여부 추적`
+      `${foreignOwnership.effectiveLabel}(${foreignRateText})과 소진율(${foreignOwnership.exhaustionRate === null ? "확인 필요" : `${foreignOwnership.exhaustionRate.toFixed(2)}%`}) 변화 여부 추적`
     ],
     shortTermCheckPoints: [
       `최근 K선 종가가 MA5 ${technical.ma5 ? formatKRW(technical.ma5) : "확인 필요"} 위에서 유지되는지 확인`,
@@ -292,10 +297,10 @@ function createLocalReport(context: ReportContext): AiReport {
         aboveMa60 ? "MA60 위" : "MA60 아래"
       }에 있어 추세 확인과 리스크 관리가 함께 필요합니다.`,
       hasHighForeignRatio
-        ? `외국인 보유율 ${foreignRatioText}는 수급 안정 참고 요인이지만 일별 변화 재평가가 필요합니다.`
+        ? `${foreignOwnership.effectiveLabel} ${foreignRateText}는 수급 안정 참고 요인이지만 일별 변화 재평가가 필요합니다.`
         : hasLowForeignRatio
-          ? `외국인 보유율 ${foreignRatioText}로 수급 공백 가능성을 신중하게 관찰해야 합니다.`
-          : "외국인 보유율 데이터 변화는 확인 필요 상태입니다."
+          ? `${foreignOwnership.effectiveLabel} ${foreignRateText}로 수급 공백 가능성을 신중하게 관찰해야 합니다.`
+          : "외국인 수급 데이터 변화는 확인 필요 상태입니다."
     ]
   };
 }

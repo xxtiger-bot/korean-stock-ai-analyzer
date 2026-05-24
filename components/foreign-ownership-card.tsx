@@ -1,6 +1,7 @@
 import { Globe2 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import type { ForeignOwnershipData } from "@/lib/types";
+import { resolveForeignOwnershipDisplay } from "@/lib/utils/foreign-ownership";
 
 function formatRatio(value: number | null) {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
@@ -30,8 +31,10 @@ export function ForeignOwnershipCard({
 }) {
   const ratio = formatRatio(data?.foreignOwnershipRatio ?? null);
   const exhaustionRate = formatRatio(data?.foreignExhaustionRate ?? null);
-  const mainValue = exhaustionRate ?? ratio;
-  const mainLabel = exhaustionRate ? "외국인 소진율" : "외국인 보유율";
+  const resolved = resolveForeignOwnershipDisplay(data);
+  const mainValue =
+    resolved.effectiveRate !== null ? `${resolved.effectiveRate.toFixed(2)}%` : null;
+  const mainLabel = resolved.effectiveLabel;
   const hasHoldingQty =
     typeof data?.foreignHoldingQty === "number" &&
     Number.isFinite(data.foreignHoldingQty) &&

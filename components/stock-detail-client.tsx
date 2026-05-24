@@ -399,6 +399,7 @@ export function StockDetailClient({
             candles={safeCandles}
             technicalSeries={technicalSeries}
             realtimeQuote={realtimeQuote}
+            foreignOwnership={foreignOwnership}
             priceGuard={priceGuard}
           />
         </div>

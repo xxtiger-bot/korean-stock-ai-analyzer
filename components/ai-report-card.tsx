@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+import { DataAsOfNote } from "@/components/data-as-of-note";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
 import { formatKRW } from "@/lib/format";
+import { resolveForeignOwnershipDisplay } from "@/lib/utils/foreign-ownership";
 import type {
   AiReport,
   ForeignOwnershipData,
@@ -88,9 +90,9 @@ function formatGeneratedAt(value: unknown) {
 }
 
 function formatForeignOwnershipRatio(data?: ForeignOwnershipData | null) {
-  const ratio = data?.foreignOwnershipRatio;
-  if (typeof ratio === "number" && Number.isFinite(ratio)) {
-    return `${ratio.toFixed(2)}%`;
+  const resolved = resolveForeignOwnershipDisplay(data);
+  if (resolved.effectiveRate !== null) {
+    return `${resolved.effectiveLabel} ${resolved.effectiveRate.toFixed(2)}%`;
   }
   return "확인 필요";
 }
@@ -172,11 +174,17 @@ export function AiReportCard({
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
             {reportSourceText}
           </p>
+          <DataAsOfNote
+            className="mt-2"
+            stockDate={stock.date}
+            realtimeQuote={realtimeQuote}
+            foreignOwnership={foreignOwnership}
+          />
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
             현재가 {formatKRW(currentPrice)} · {hasRealtimePrice ? "KIS 기준" : "data.go.kr 최근 종가 기준"}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-            수급 참고: 외국인 보유율 {formatForeignOwnershipRatio(foreignOwnership)} (KIS 기준)
+            수급 참고: {formatForeignOwnershipRatio(foreignOwnership)} (KIS 기준)
           </p>
           {hasPriceAnomaly && (
             <p className="mt-1 text-xs font-semibold leading-5 text-amber-700 dark:text-amber-200">

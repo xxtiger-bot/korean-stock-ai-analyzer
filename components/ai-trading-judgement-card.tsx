@@ -1,7 +1,9 @@
 import { Bot, ShieldAlert } from "lucide-react";
+import { DataAsOfNote } from "@/components/data-as-of-note";
 import { EmptyState } from "@/components/ui-states";
 import { formatKRW, formatPercent } from "@/lib/format";
 import { DISCLAIMER } from "@/lib/insights";
+import { resolveForeignOwnershipDisplay } from "@/lib/utils/foreign-ownership";
 import type {
   Candle,
   ForeignOwnershipData,
@@ -122,11 +124,9 @@ function computeJudgement(
   const ma60Gap = ma60 > 0 ? pct(currentPrice, ma60) : 0;
   const high20Distance = high20 > 0 ? ((high20 - currentPrice) / high20) * 100 : 99;
   const low20Distance = low20 > 0 ? ((currentPrice - low20) / low20) * 100 : 99;
-  const foreignOwnershipRatio =
-    typeof foreignOwnership?.foreignOwnershipRatio === "number" &&
-    Number.isFinite(foreignOwnership.foreignOwnershipRatio)
-      ? foreignOwnership.foreignOwnershipRatio
-      : null;
+  const foreignResolved = resolveForeignOwnershipDisplay(foreignOwnership);
+  const foreignOwnershipRatio = foreignResolved.effectiveRate;
+  const foreignOwnershipLabel = foreignResolved.effectiveLabel;
 
   let score = 48;
 
@@ -186,7 +186,7 @@ function computeJudgement(
   }
   if (foreignOwnershipRatio !== null && foreignOwnershipRatio >= 20) {
     entryReasons.push(
-      `외국인 보유율 ${foreignOwnershipRatio.toFixed(2)}%로 수급 안정 참고 구간입니다.`
+      `${foreignOwnershipLabel} ${foreignOwnershipRatio.toFixed(2)}%로 수급 안정 참고 구간입니다.`
     );
   }
 
@@ -210,7 +210,7 @@ function computeJudgement(
   }
   if (foreignOwnershipRatio !== null && foreignOwnershipRatio <= 5) {
     cautionReasons.push(
-      `외국인 보유율 ${foreignOwnershipRatio.toFixed(2)}%로 수급 변동성 확인이 필요합니다.`
+      `${foreignOwnershipLabel} ${foreignOwnershipRatio.toFixed(2)}%로 수급 변동성 확인이 필요합니다.`
     );
   }
   if (hasPriceAnomaly) {
@@ -260,8 +260,8 @@ function computeJudgement(
     "기술지표(MA5/MA20/MA60, RSI, MACD)는 data.go.kr 일별 종가 데이터 기준으로 계산됩니다.";
   const foreignOwnershipText =
     foreignOwnershipRatio !== null
-      ? `외국인 보유율 ${foreignOwnershipRatio.toFixed(2)}% (KIS 기준)도 수급 참고 요소로 반영했습니다.`
-      : "외국인 보유율 데이터는 확인 필요 상태이며 판단 점수 계산에는 영향 없이 처리했습니다.";
+      ? `${foreignOwnershipLabel} ${foreignOwnershipRatio.toFixed(2)}% (KIS 기준)도 수급 참고 요소로 반영했습니다.`
+      : "외국인 수급 데이터는 확인 필요 상태이며 판단 점수 계산에는 영향 없이 처리했습니다.";
   const priceAnomalyNote = hasPriceAnomaly
     ? "현재가 데이터 차이가 커서 보수적으로 해석해야 합니다."
     : "";
@@ -346,6 +346,12 @@ export function AiTradingJudgementCard({
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
             KIS 현재가와 data.go.kr 일별 종가·기술 지표를 함께 반영한 참고 정보입니다.
           </p>
+          <DataAsOfNote
+            className="mt-2"
+            stockDate={stock.date}
+            realtimeQuote={realtimeQuote}
+            foreignOwnership={foreignOwnership}
+          />
         </div>
         <Bot className="h-5 w-5 text-brand" />
       </div>
