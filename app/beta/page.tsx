@@ -27,6 +27,14 @@ const howToUseSteps = [
   "피드백을 보내 개선에 참여"
 ];
 
+const fiveMinuteMission = [
+  "종목 검색하기",
+  "AI 분석 확인하기",
+  "관심종목 추가하기",
+  "보유종목 추가하기",
+  "피드백 남기기"
+];
+
 export const metadata: Metadata = {
   title: "KRX Insight 베타 테스트 | Korean Stock AI Analyzer",
   description:
@@ -126,6 +134,23 @@ export default function BetaPage({ searchParams }: BetaPageProps) {
               className="rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
             >
               {index + 1}. {step}
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="mt-4 rounded-xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <h2 className="text-lg font-bold text-ink dark:text-white">5분 테스트 미션</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+          아래 순서대로 진행하면 핵심 기능을 빠르게 체험할 수 있습니다.
+        </p>
+        <ol className="mt-3 grid gap-2">
+          {fiveMinuteMission.map((mission, index) => (
+            <li
+              key={mission}
+              className="rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
+            >
+              {index + 1}. {mission}
             </li>
           ))}
         </ol>

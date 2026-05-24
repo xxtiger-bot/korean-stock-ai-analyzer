@@ -15,6 +15,14 @@ type AdminStats = {
   snapshots: number;
 };
 
+type TodayOpsSummary = {
+  newUsers: number;
+  feedback: number;
+  waitlist: number;
+  referrals: number;
+  reports: number;
+};
+
 type FeedbackItem = {
   id: string;
   email: string;
@@ -48,6 +56,14 @@ const EMPTY_STATS: AdminStats = {
   holdings: 0,
   reports: 0,
   snapshots: 0
+};
+
+const EMPTY_TODAY_OPS: TodayOpsSummary = {
+  newUsers: 0,
+  feedback: 0,
+  waitlist: 0,
+  referrals: 0,
+  reports: 0
 };
 
 function safeText(value: unknown, fallback = "") {
@@ -119,6 +135,7 @@ export function AdminDashboardPageClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState<AdminStats>(EMPTY_STATS);
+  const [todayOps, setTodayOps] = useState<TodayOpsSummary>(EMPTY_TODAY_OPS);
   const [recentFeedback, setRecentFeedback] = useState<FeedbackItem[]>([]);
   const [recentWaitlist, setRecentWaitlist] = useState<WaitlistItem[]>([]);
   const [recentReferrals, setRecentReferrals] = useState<ReferralItem[]>([]);
@@ -139,6 +156,11 @@ export function AdminDashboardPageClient() {
       setError("");
 
       try {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfTodayIso = startOfToday.toISOString();
+        const todayDate = new Date().toLocaleDateString("en-CA");
+
         const [
           profilesCount,
           feedbackCount,
@@ -148,6 +170,11 @@ export function AdminDashboardPageClient() {
           holdingsCount,
           reportsCount,
           snapshotsCount,
+          todayProfilesCount,
+          todayFeedbackCount,
+          todayWaitlistCount,
+          todayReferralsCount,
+          todayReportsCount,
           feedbackRowsResult,
           waitlistRowsResult,
           referralsRowsResult
@@ -160,6 +187,26 @@ export function AdminDashboardPageClient() {
           supabase.from("portfolio_holdings").select("id", { count: "exact", head: true }),
           supabase.from("portfolio_reports").select("id", { count: "exact", head: true }),
           supabase.from("portfolio_risk_snapshots").select("id", { count: "exact", head: true }),
+          supabase
+            .from("profiles")
+            .select("id", { count: "exact", head: true })
+            .gte("created_at", startOfTodayIso),
+          supabase
+            .from("user_feedback")
+            .select("id", { count: "exact", head: true })
+            .gte("created_at", startOfTodayIso),
+          supabase
+            .from("pro_waitlist")
+            .select("id", { count: "exact", head: true })
+            .gte("created_at", startOfTodayIso),
+          supabase
+            .from("referrals")
+            .select("id", { count: "exact", head: true })
+            .gte("created_at", startOfTodayIso),
+          supabase
+            .from("portfolio_reports")
+            .select("id", { count: "exact", head: true })
+            .eq("report_date", todayDate),
           supabase
             .from("user_feedback")
             .select("id,email,category,message,rating,created_at")
@@ -187,7 +234,12 @@ export function AdminDashboardPageClient() {
           Boolean(watchlistCount.error) ||
           Boolean(holdingsCount.error) ||
           Boolean(reportsCount.error) ||
-          Boolean(snapshotsCount.error);
+          Boolean(snapshotsCount.error) ||
+          Boolean(todayProfilesCount.error) ||
+          Boolean(todayFeedbackCount.error) ||
+          Boolean(todayWaitlistCount.error) ||
+          Boolean(todayReferralsCount.error) ||
+          Boolean(todayReportsCount.error);
         const hasListError =
           Boolean(feedbackRowsResult.error) ||
           Boolean(waitlistRowsResult.error) ||
@@ -206,6 +258,14 @@ export function AdminDashboardPageClient() {
           holdings: safeCount(holdingsCount.count),
           reports: safeCount(reportsCount.count),
           snapshots: safeCount(snapshotsCount.count)
+        });
+
+        setTodayOps({
+          newUsers: safeCount(todayProfilesCount.count),
+          feedback: safeCount(todayFeedbackCount.count),
+          waitlist: safeCount(todayWaitlistCount.count),
+          referrals: safeCount(todayReferralsCount.count),
+          reports: safeCount(todayReportsCount.count)
         });
 
         const feedbackList = Array.isArray(feedbackRowsResult.data)
@@ -279,6 +339,32 @@ export function AdminDashboardPageClient() {
       ) : null}
 
       <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-lg border border-brand/30 bg-blue-50 p-4 shadow-soft dark:border-brand/40 dark:bg-blue-950/40 xl:col-span-4">
+          <p className="text-[11px] font-bold text-brand">오늘 운영 요약</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            <div className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-[11px] font-bold text-slate-500">오늘 신규 사용자</p>
+              <p className="mt-1 text-base font-bold text-ink dark:text-white">{todayOps.newUsers}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-[11px] font-bold text-slate-500">오늘 피드백</p>
+              <p className="mt-1 text-base font-bold text-ink dark:text-white">{todayOps.feedback}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-[11px] font-bold text-slate-500">오늘 Pro 신청</p>
+              <p className="mt-1 text-base font-bold text-ink dark:text-white">{todayOps.waitlist}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-[11px] font-bold text-slate-500">오늘 초대 성공</p>
+              <p className="mt-1 text-base font-bold text-ink dark:text-white">{todayOps.referrals}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-[11px] font-bold text-slate-500">오늘 저장된 리포트</p>
+              <p className="mt-1 text-base font-bold text-ink dark:text-white">{todayOps.reports}</p>
+            </div>
+          </div>
+        </article>
+
         <article className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
           <p className="text-[11px] font-bold text-slate-500">전체 사용자 수</p>
           <p className="mt-1 text-xl font-bold text-ink dark:text-white">{stats.profiles}</p>

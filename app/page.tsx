@@ -1,5 +1,6 @@
 import { DangerWarningList } from "@/components/danger-warning-list";
 import { MarketBriefing } from "@/components/market-briefing";
+import { HomeBetaOnboarding } from "@/components/home-beta-onboarding";
 import { OpportunityRadar } from "@/components/opportunity-radar";
 import { PotentialRadar } from "@/components/potential-radar";
 import { StockCardGrid } from "@/components/stock-card-grid";
@@ -17,23 +18,9 @@ import {
   getStocksWithPreferredQuote,
   searchStocks
 } from "@/lib/stock-provider";
-import { formatPercent } from "@/lib/format";
-import type { MarketSignal } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function formatMarketSignalValue(signal: MarketSignal) {
-  const safeValue = Number.isFinite(signal.value) ? signal.value : null;
-  if (safeValue === null) return "데이터 없음";
-  if (signal.code === "KRW/USD") {
-    return `${safeValue.toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}원`;
-  }
-  if (signal.code === "심리 지수") {
-    return `${Math.round(safeValue)}점`;
-  }
-  return safeValue.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 export default async function Home() {
   const [
@@ -64,7 +51,6 @@ export default async function Home() {
   const safePotentialRadar = Array.isArray(potentialRadar) ? potentialRadar : [];
   const safeDangerWarnings = Array.isArray(dangerWarnings) ? dangerWarnings : [];
   const signals = Array.isArray(marketOverview?.signals) ? marketOverview.signals : [];
-  const mobileSignals = signals.slice(0, 3);
   const kospiStocks = safeAllStocks.filter((stock) => stock.market === "KOSPI").slice(0, 6);
   const kosdaqStocks = safeAllStocks.filter((stock) => stock.market === "KOSDAQ").slice(0, 6);
   const mobilePopularStocks = safePopularStocks.slice(0, 3);
@@ -72,6 +58,10 @@ export default async function Home() {
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
       <section className="md:hidden">
+        <section className="mb-3">
+          <HomeBetaOnboarding compact />
+        </section>
+
         <TodayMarketBrief
           signals={signals}
           stocks={safeAllStocks}
@@ -82,48 +72,19 @@ export default async function Home() {
           <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
         </section>
 
-        <section id="home-market" className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-xs font-bold tracking-normal text-brand">시장 요약</p>
-              <h2 className="mt-1 text-base font-bold text-ink dark:text-white">오늘의 핵심 지표</h2>
-            </div>
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
-              data.go.kr 기준
-            </span>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {mobileSignals.map((signal) => (
-              <article key={`mobile-signal-${signal.code}`} className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
-                <p className="text-[11px] font-bold text-slate-400">{signal.code}</p>
-                <p className="mt-1 text-sm font-bold text-ink dark:text-white">{formatMarketSignalValue(signal)}</p>
-                <p className={`mt-1 text-xs font-bold ${signal.change >= 0 ? "text-red-600 dark:text-red-300" : "text-blue-600 dark:text-blue-300"}`}>
-                  {signal.change > 0 ? "+" : ""}
-                  {signal.change.toFixed(signal.code === "심리 지수" ? 0 : 2)} · {formatPercent(signal.changeRate)}
-                </p>
-              </article>
-            ))}
-          </div>
-          <details className="mt-3 rounded-md border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-            <summary className="cursor-pointer list-none text-xs font-bold text-slate-600 dark:text-slate-300">
-              시장 요약 자세히 보기
-            </summary>
-            <div className="mt-3">
-              <MarketBriefing signals={signals} />
-            </div>
-          </details>
-        </section>
-
         <section id="search" className="mt-3">
           <StockSearch stocks={safeAllStocks} />
         </section>
 
-        <section className="mt-3">
+        <section id="home-interest" className="mt-3">
           <StockCardGrid title="인기 종목" stocks={mobilePopularStocks} />
         </section>
       </section>
 
       <div className="hidden md:block">
+      <section className="mb-3">
+        <HomeBetaOnboarding />
+      </section>
       <section className="mb-3">
         <TodayMarketBrief
           signals={signals}
