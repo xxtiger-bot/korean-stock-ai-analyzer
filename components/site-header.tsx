@@ -5,6 +5,7 @@ import { BarChart3, BriefcaseBusiness, Mail, Search, UserCircle2, X } from "luci
 import { useCallback, useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/components/auth-provider";
+import { AuthModal } from "@/components/auth-modal";
 
 const AUTH_EMAIL_COOLDOWN_KEY = "authEmailCooldownUntil";
 const AUTH_EMAIL_COOLDOWN_REASON_KEY = "authEmailCooldownReason";
@@ -624,176 +625,166 @@ export function SiteHeader() {
           </p>
         </div>
       )}
-      {isLoginModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4"
-          onClick={() => setIsLoginModalOpen(false)}
-        >
-          <div
-            className="w-[calc(100vw-32px)] max-w-[420px] max-h-[85vh] overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel"
-            onClick={(event) => event.stopPropagation()}
+      <AuthModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)}>
+        <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-2 flex items-start justify-between gap-2 border-b border-line bg-white px-4 py-3 dark:border-dark-line dark:bg-dark-panel">
+          <div>
+            <p className="text-xs font-bold tracking-normal text-brand">로그인</p>
+            <h3 className="mt-1 text-base font-bold text-ink dark:text-white">이메일 인증 로그인</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLoginModalOpen(false)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-slate-50 text-slate-500 hover:text-slate-700 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
+            aria-label="닫기"
           >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-bold tracking-normal text-brand">로그인</p>
-                <h3 className="mt-1 text-base font-bold text-ink dark:text-white">이메일 인증 로그인</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsLoginModalOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-slate-50 text-slate-500 hover:text-slate-700 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300"
-                aria-label="닫기"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              이메일로 받은 인증코드를 입력해 로그인할 수 있습니다.
-            </p>
-            <div className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300">
-              <p>현재 모드：로컬 모드</p>
-              <p className="mt-1">로그인 후 클라우드 동기화를 사용할 수 있습니다.</p>
-              <p className="mt-1">Supabase URL 상태：{supabaseUrlStatusLabel}</p>
-            </div>
-            {user ? (
-              <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-semibold text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
-                <p>이미 로그인되었습니다.</p>
-                <p className="mt-1 break-all">{userDisplayLabel}</p>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="mt-2 inline-flex h-11 items-center justify-center rounded-md border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200"
-                >
-                  로그아웃
-                </button>
-              </div>
-            ) : (
-              <>
-                <section className="mt-3">
-                  <p className="text-xs font-bold text-ink dark:text-white">간편 로그인</p>
-                  <div className="mt-2 grid gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleOAuthLogin("google")}
-                      disabled={Boolean(oauthLoadingProvider) || authModalState === "sending"}
-                      className="inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
-                    >
-                      {oauthLoadingProvider === "google"
-                        ? "Google 로그인 연결 중..."
-                        : "Google로 계속하기"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={true}
-                      className="inline-flex h-11 w-full items-center justify-center rounded-md border border-yellow-300 bg-[#FEE500] px-3 text-sm font-bold text-[#3C1E1E] opacity-60 disabled:cursor-not-allowed"
-                    >
-                      Kakao 로그인 준비 중
-                    </button>
-                  </div>
-                  <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400">
-                    Kakao 로그인은 이메일 권한 설정 후 제공될 예정입니다.
-                  </p>
-                </section>
-
-                <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  또는 이메일 인증코드로 로그인
-                </p>
-
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    이메일
-                  </span>
-                  <input
-                    type="email"
-                    value={loginEmail}
-                    onChange={(event) => setLoginEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
-                {loginStep === "code" && (
-                  <label className="mt-2 block">
-                    <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      이메일 인증코드
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={8}
-                      value={otpCode}
-                      onChange={(event) =>
-                        setOtpCode(event.target.value.replace(/[^0-9]/g, "").slice(0, 8))
-                      }
-                      placeholder="6~8자리 숫자 코드 입력"
-                      className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
-                    />
-                    <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                      이메일로 받은 인증코드를 입력해주세요.
-                    </p>
-                  </label>
-                )}
-                {modalNotice && (
-                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
-                    {modalNotice}
-                  </p>
-                )}
-                <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  쿨다운 상태: {cooldownReason ?? "없음"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void handleSendOtpCode()}
-                  disabled={authModalState === "sending" || cooldownSeconds > 0}
-                  className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  <Mail className="h-4 w-4" />
-                  {authModalState === "sending"
-                    ? "전송 중..."
-                    : cooldownSeconds > 0
-                      ? cooldownReason === "rateLimit"
-                        ? `3분 후 다시 시도 · ${cooldownSeconds}초`
-                        : `다시 보내기까지 ${cooldownSeconds}초`
-                      : loginStep === "code"
-                        ? "인증코드 다시 보내기"
-                        : "인증코드 보내기"}
-                </button>
-                {loginStep === "code" && (
-                  <button
-                    type="button"
-                    onClick={() => void handleVerifyOtpCode()}
-                    disabled={authModalState === "sending"}
-                    className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
-                  >
-                    {authModalState === "sending" ? "확인 중..." : "인증코드 확인"}
-                  </button>
-                )}
-              </>
-            )}
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+          이메일로 받은 인증코드를 입력해 로그인할 수 있습니다.
+        </p>
+        <div className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600 dark:border-dark-line dark:bg-slate-900 dark:text-slate-300">
+          <p>현재 모드：로컬 모드</p>
+          <p className="mt-1">로그인 후 클라우드 동기화를 사용할 수 있습니다.</p>
+          <p className="mt-1">Supabase URL 상태：{supabaseUrlStatusLabel}</p>
+        </div>
+        {user ? (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-semibold text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+            <p>이미 로그인되었습니다.</p>
+            <p className="mt-1 break-all">{userDisplayLabel}</p>
             <button
               type="button"
-              onClick={handleContinueLocalMode}
-              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+              onClick={handleSignOut}
+              className="mt-2 inline-flex h-11 items-center justify-center rounded-md border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200"
             >
-              클라우드 로그인 없이 계속 사용
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenGuide}
-              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 md:hidden"
-            >
-              사용 가이드 보기
-            </button>
-            <button
-              type="button"
-              onClick={handleResetCooldown}
-              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
-            >
-              쿨다운 초기화
+              로그아웃
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <section className="mt-3">
+              <p className="text-xs font-bold text-ink dark:text-white">간편 로그인</p>
+              <div className="mt-2 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleOAuthLogin("google")}
+                  disabled={Boolean(oauthLoadingProvider) || authModalState === "sending"}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
+                >
+                  {oauthLoadingProvider === "google"
+                    ? "Google 로그인 연결 중..."
+                    : "Google로 계속하기"}
+                </button>
+                <button
+                  type="button"
+                  disabled={true}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-md border border-yellow-300 bg-[#FEE500] px-3 text-sm font-bold text-[#3C1E1E] opacity-60 disabled:cursor-not-allowed"
+                >
+                  Kakao 로그인 준비 중
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                Kakao 로그인은 이메일 권한 설정 후 제공될 예정입니다.
+              </p>
+            </section>
+
+            <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              또는 이메일 인증코드로 로그인
+            </p>
+
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                이메일
+              </span>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+                placeholder="you@example.com"
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+            {loginStep === "code" && (
+              <label className="mt-2 block">
+                <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  이메일 인증코드
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  value={otpCode}
+                  onChange={(event) =>
+                    setOtpCode(event.target.value.replace(/[^0-9]/g, "").slice(0, 8))
+                  }
+                  placeholder="6~8자리 숫자 코드 입력"
+                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none ring-brand/20 focus:ring dark:border-dark-line dark:bg-slate-950 dark:text-white"
+                />
+                <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  이메일로 받은 인증코드를 입력해주세요.
+                </p>
+              </label>
+            )}
+            {modalNotice && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                {modalNotice}
+              </p>
+            )}
+            <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              쿨다운 상태: {cooldownReason ?? "없음"}
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleSendOtpCode()}
+              disabled={authModalState === "sending" || cooldownSeconds > 0}
+              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              <Mail className="h-4 w-4" />
+              {authModalState === "sending"
+                ? "전송 중..."
+                : cooldownSeconds > 0
+                  ? cooldownReason === "rateLimit"
+                    ? `3분 후 다시 시도 · ${cooldownSeconds}초`
+                    : `다시 보내기까지 ${cooldownSeconds}초`
+                  : loginStep === "code"
+                    ? "인증코드 다시 보내기"
+                    : "인증코드 보내기"}
+            </button>
+            {loginStep === "code" && (
+              <button
+                type="button"
+                onClick={() => void handleVerifyOtpCode()}
+                disabled={authModalState === "sending"}
+                className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-slate-400 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 dark:disabled:text-slate-500"
+              >
+                {authModalState === "sending" ? "확인 중..." : "인증코드 확인"}
+              </button>
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={handleContinueLocalMode}
+          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+        >
+          클라우드 로그인 없이 계속 사용
+        </button>
+        <button
+          type="button"
+          onClick={handleOpenGuide}
+          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200 md:hidden"
+        >
+          사용 가이드 보기
+        </button>
+        <button
+          type="button"
+          onClick={handleResetCooldown}
+          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-md border border-dashed border-line bg-transparent px-2 text-[11px] font-semibold text-slate-500 hover:text-brand dark:border-dark-line dark:text-slate-400"
+        >
+          쿨다운 초기화
+        </button>
+      </AuthModal>
       {isGuideOpen && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 px-3 py-3 md:items-center md:px-4">
           <div className="flex max-h-[85vh] w-full max-w-2xl max-w-full flex-col overflow-hidden rounded-t-xl border border-line bg-white shadow-soft dark:border-dark-line dark:bg-dark-panel md:rounded-xl">
