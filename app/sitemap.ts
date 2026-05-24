@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/stocks/005930",
     "/portfolio",
     "/pricing",
+    "/beta",
     "/mypage",
     "/about",
     "/privacy",

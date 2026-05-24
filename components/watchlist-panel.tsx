@@ -128,7 +128,7 @@ export function WatchlistPanel({
         ) : null}
         {(isWatchlistLimitReached || isWatchlistNearLimit) && watchlistLimit !== null ? (
           <Link
-            href="/pricing#pro-plan"
+            href="/pricing#pro"
             className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
           >
             요금제 보기

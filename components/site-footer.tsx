@@ -20,6 +20,10 @@ export function SiteFooter() {
             면책 안내
           </Link>
           <span>·</span>
+          <Link href="/beta" className="hover:text-brand">
+            Beta
+          </Link>
+          <span>·</span>
           <FeedbackTrigger
             label="피드백"
             source="footer"

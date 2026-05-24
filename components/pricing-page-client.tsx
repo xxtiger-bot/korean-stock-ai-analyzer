@@ -21,7 +21,7 @@ const PLAN_CARDS: PlanCard[] = [
     items: ["종목 검색", "기본 AI 분석", "로컬 모드", "하루 리포트 저장 1회"]
   },
   {
-    id: "pro-plan",
+    id: "pro",
     name: "Pro",
     badgeClass:
       "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200",

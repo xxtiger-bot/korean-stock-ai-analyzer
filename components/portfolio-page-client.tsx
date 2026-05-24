@@ -2715,7 +2715,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
           )}
           {(isFreePlan && (showNearLimitNotice || reportLimitReached)) || hasPlanOverLimitData ? (
               <a
-                href="/pricing#pro-plan"
+                href="/pricing#pro"
                 className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
               >
                 요금제 보기
@@ -3004,7 +3004,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
             ) : null}
             {isFreePlan ? (
               <a
-                href="/pricing#pro-plan"
+                href="/pricing#pro"
                 className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 sm:h-8"
               >
                 Pro 기능 보기
@@ -3428,7 +3428,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
             {isFreePlan && holdingLimit !== null && safeEntries.length >= holdingLimit ? (
               <p className="text-xs font-semibold text-red-700 dark:text-red-200">
                 Free 플랜에서는 보유종목을 최대 3개까지 관리할 수 있습니다.{" "}
-                <a href="/pricing#pro-plan" className="underline underline-offset-2">
+                <a href="/pricing#pro" className="underline underline-offset-2">
                   요금제 보기
                 </a>
               </p>
