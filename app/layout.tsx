@@ -14,6 +14,7 @@ const metadataDescription =
 export const metadata: Metadata = {
   title: "KRX Insight | Korean Stock AI Analyzer",
   description: metadataDescription,
+  manifest: "/manifest.webmanifest",
   keywords: [
     "한국 주식",
     "KRX",

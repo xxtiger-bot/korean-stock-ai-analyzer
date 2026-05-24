@@ -74,6 +74,17 @@ export default function BetaPage({ searchParams }: BetaPageProps) {
           한국 주식 현재가, AI 분석, 보유종목 진단, 리스크 변화 추적을 한 곳에서 확인할 수 있는 투자 참고 도구입니다.
         </p>
         <BetaReferralBanner referralCode={referralCode} />
+        <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900/60 dark:bg-blue-950/30">
+          <p className="text-xs font-semibold leading-5 text-blue-800 dark:text-blue-200">
+            홈 화면에 추가하면 앱처럼 사용할 수 있습니다.
+          </p>
+          <Link
+            href="/pwa"
+            className="mt-2 inline-flex min-h-11 items-center justify-center rounded-md border border-blue-200 bg-white px-3 text-xs font-bold text-blue-700 hover:border-blue-400 dark:border-blue-800/70 dark:bg-slate-950 dark:text-blue-200"
+          >
+            설치 안내 보기
+          </Link>
+        </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <Link
             href="/"
