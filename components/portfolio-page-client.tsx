@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Bell, ChevronDown, ChevronUp, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { MobileTabNav } from "@/components/mobile-tab-nav";
+import { TodayMarketBrief } from "@/components/today-market-brief";
 import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
@@ -14,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { PORTFOLIO_DIAGNOSIS_STORAGE_KEY } from "@/lib/storage-keys";
 import type {
   InvestmentHorizon,
+  MarketSignal,
   PortfolioDiagnosis,
   PortfolioPositionInput,
   RiskProfile
@@ -1308,7 +1310,7 @@ function buildPortfolioRiskAlerts(
   return alerts.sort((left, right) => right.priority - left.priority);
 }
 
-export function PortfolioPageClient() {
+export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
   const { user } = useAuth();
   const { symbols: watchlistSymbols } = useWatchlist();
   const {
@@ -1420,6 +1422,10 @@ export function PortfolioPageClient() {
   const safeEntries = useMemo(
     () => (Array.isArray(entries) ? entries : []),
     [entries]
+  );
+  const safeSignals = useMemo(
+    () => (Array.isArray(signals) ? signals : []),
+    [signals]
   );
   const safeWatchlistSymbols = useMemo(
     () =>
@@ -2658,6 +2664,13 @@ export function PortfolioPageClient() {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+      <section className={`mb-4 ${mobileTabClass("summary")} md:block`}>
+        <TodayMarketBrief
+          signals={safeSignals}
+          variant="portfolio"
+          sectionId="portfolio-morning-brief"
+        />
+      </section>
       <section className={`mb-4 ${mobileTabClass("summary")} md:block`}>
         <TodayInvestmentChecklist variant="portfolio" sectionId="portfolio-checklist" />
       </section>

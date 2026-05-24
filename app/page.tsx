@@ -5,6 +5,7 @@ import { PotentialRadar } from "@/components/potential-radar";
 import { StockCardGrid } from "@/components/stock-card-grid";
 import { StockSearch } from "@/components/stock-search";
 import { StockTable } from "@/components/stock-table";
+import { TodayMarketBrief } from "@/components/today-market-brief";
 import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import {
@@ -71,7 +72,15 @@ export default async function Home() {
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
       <section className="md:hidden">
-        <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
+        <TodayMarketBrief
+          signals={signals}
+          stocks={safeAllStocks}
+          sectionId="home-morning-brief"
+        />
+
+        <section className="mt-3">
+          <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
+        </section>
 
         <section id="home-market" className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
           <div className="flex items-start justify-between gap-2">
@@ -115,6 +124,13 @@ export default async function Home() {
       </section>
 
       <div className="hidden md:block">
+      <section className="mb-3">
+        <TodayMarketBrief
+          signals={signals}
+          stocks={safeAllStocks}
+          sectionId="home-morning-brief"
+        />
+      </section>
       <section className="mb-3">
         <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
       </section>

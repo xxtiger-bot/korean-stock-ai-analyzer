@@ -7,8 +7,10 @@ import { ArrowRight, BarChart3, BriefcaseBusiness, LogOut, ShieldCheck } from "l
 import { useAuth } from "@/components/auth-provider";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatPercent } from "@/lib/format";
+import { marketDirectionBadgeClass, resolveMarketDirection } from "@/lib/morning-brief";
 import { FREE_LIMITS, isPaidPlan, normalizeUserPlan, toPlanLabel as toPlanBadgeLabel } from "@/lib/plan";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import type { MarketSignal } from "@/lib/types";
 
 type PlanLabel = "Free" | "Pro" | "Business";
 
@@ -194,6 +196,33 @@ function getRiskDirectionBadgeLabel(direction: RiskChangeDirection) {
   return "비교 불가";
 }
 
+function marketDirectionText(direction: ReturnType<typeof resolveMarketDirection>) {
+  if (direction === "강세") return "강세";
+  if (direction === "약세") return "약세";
+  if (direction === "혼조") return "혼조";
+  if (direction === "관망") return "관망";
+  return "데이터 확인 필요";
+}
+
+function buildMyPageBriefingSummary(
+  direction: ReturnType<typeof resolveMarketDirection>,
+  riskSummary: string
+) {
+  if (direction === "강세") {
+    return `최근 시장 방향은 강세이며, ${riskSummary}`;
+  }
+  if (direction === "약세") {
+    return `최근 시장 방향은 약세이며, ${riskSummary}`;
+  }
+  if (direction === "혼조") {
+    return `최근 시장 방향은 혼조이며, ${riskSummary}`;
+  }
+  if (direction === "관망") {
+    return `최근 시장 방향은 관망 구간이며, ${riskSummary}`;
+  }
+  return `시장 방향 데이터 확인이 필요하며, ${riskSummary}`;
+}
+
 function normalizeRiskSnapshotRow(value: unknown): RiskSnapshotRow | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
@@ -280,7 +309,7 @@ function buildRecentRiskChanges(rows: RiskSnapshotRow[]) {
   });
 }
 
-export function MyPagePageClient() {
+export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   const router = useRouter();
   const { user, isLoading, signOut } = useAuth();
   const { cloudSyncStatus, isCloudSyncing, cloudSyncNotice } = usePortfolio();
@@ -555,6 +584,7 @@ export function MyPagePageClient() {
 
   const safeReports = Array.isArray(recentReports) ? recentReports : [];
   const safeRecentRiskChanges = Array.isArray(recentRiskChanges) ? recentRiskChanges : [];
+  const safeSignals = Array.isArray(signals) ? signals : [];
   const safeCloudNotice = safeText(cloudSyncNotice);
   const normalizedPlan = normalizeUserPlan(plan);
   const isFreePlan = !isPaidPlan(normalizedPlan);
@@ -604,6 +634,16 @@ export function MyPagePageClient() {
     }
     return "최근 리스크 상태는 큰 변화 없이 유지 관찰 구간입니다.";
   }, [safeRecentRiskChanges]);
+
+  const recentMarketDirection = useMemo(
+    () => resolveMarketDirection(safeSignals),
+    [safeSignals]
+  );
+
+  const recentBriefingSummary = useMemo(
+    () => buildMyPageBriefingSummary(recentMarketDirection, recentRiskChangeSummary),
+    [recentMarketDirection, recentRiskChangeSummary]
+  );
 
   if (isLoading) {
     return (
@@ -739,6 +779,25 @@ export function MyPagePageClient() {
           {fetchError}
         </section>
       )}
+
+      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <h2 className="text-sm font-bold text-ink dark:text-white">최근 브리핑 상태</h2>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${marketDirectionBadgeClass(
+              recentMarketDirection
+            )}`}
+          >
+            최근 시장 방향: {marketDirectionText(recentMarketDirection)}
+          </span>
+          <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            최근 저장한 리포트 수: {Number.isFinite(stats.reportsCount) ? stats.reportsCount : 0}
+          </span>
+        </div>
+        <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-700 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200">
+          최근 리스크 변화 요약: {recentBriefingSummary}
+        </p>
+      </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
         <div className="flex flex-wrap items-center gap-2">
