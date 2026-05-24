@@ -9,7 +9,13 @@ import {
   useState
 } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { FREE_LIMITS, isPaidPlan, normalizeUserPlan, type UserPlan } from "@/lib/plan";
+import {
+  FREE_LIMITS,
+  isPaidPlan,
+  resolvePlanFromProfile,
+  toPlanStatusLabel,
+  type UserPlan
+} from "@/lib/plan";
 import { isSupabaseConfigured, supabase, supabaseConfigMessage } from "@/lib/supabase";
 import { PORTFOLIO_ENTRIES_STORAGE_KEY } from "@/lib/storage-keys";
 import type { InvestmentHorizon, PortfolioPositionInput, RiskProfile } from "@/lib/types";
@@ -37,6 +43,7 @@ type CloudSyncStatus = "local" | "synced" | "failed";
 type PortfolioContextValue = {
   entries: PortfolioPositionInput[];
   plan: UserPlan;
+  planStatusLabel: string;
   holdingLimit: number | null;
   isHoldingLimitReached: boolean;
   isHoldingNearLimit: boolean;
@@ -191,6 +198,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [entries, setEntries] = useState<PortfolioPositionInput[]>([]);
   const [plan, setPlan] = useState<UserPlan>("free");
+  const [planStatusLabel, setPlanStatusLabel] = useState("Free");
   const [localEntries, setLocalEntries] = useState<PortfolioPositionInput[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
@@ -206,6 +214,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured || !supabase) {
       setPlan("free");
+      setPlanStatusLabel("Free");
       return;
     }
 
@@ -214,19 +223,27 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("plan")
+          .select("plan,pro_expires_at")
           .eq("id", user.id)
           .limit(1);
         if (cancelled) return;
         if (error) {
           setPlan("free");
+          setPlanStatusLabel("Free");
           return;
         }
         const row =
-          Array.isArray(data) && data.length > 0 ? (data[0] as { plan?: unknown }) : null;
-        setPlan(normalizeUserPlan(row?.plan));
+          Array.isArray(data) && data.length > 0
+            ? (data[0] as { plan?: unknown; pro_expires_at?: unknown })
+            : null;
+        const planInfo = resolvePlanFromProfile(row);
+        setPlan(planInfo.effectivePlan);
+        setPlanStatusLabel(toPlanStatusLabel(planInfo));
       } catch {
-        if (!cancelled) setPlan("free");
+        if (!cancelled) {
+          setPlan("free");
+          setPlanStatusLabel("Free");
+        }
       }
     })();
 
@@ -574,6 +591,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     () => ({
       entries,
       plan,
+      planStatusLabel,
       holdingLimit,
       isHoldingLimitReached,
       isHoldingNearLimit,
@@ -598,6 +616,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       removeEntry,
       updateEntry,
       plan,
+      planStatusLabel,
       planLimitNotice,
       canSyncLocalToCloud,
       syncLocalToCloud,

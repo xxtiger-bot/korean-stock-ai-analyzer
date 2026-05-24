@@ -9,11 +9,15 @@ import { FeedbackTrigger } from "@/components/feedback-trigger";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatPercent } from "@/lib/format";
 import { marketDirectionBadgeClass, resolveMarketDirection } from "@/lib/morning-brief";
-import { FREE_LIMITS, isPaidPlan, normalizeUserPlan, toPlanLabel as toPlanBadgeLabel } from "@/lib/plan";
+import {
+  FREE_LIMITS,
+  isPaidPlan,
+  resolvePlanFromProfile,
+  toPlanStatusLabel,
+  type UserPlan
+} from "@/lib/plan";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { MarketSignal } from "@/lib/types";
-
-type PlanLabel = "Free" | "Pro" | "Business";
 
 type CloudStats = {
   holdingsCount: number;
@@ -78,10 +82,6 @@ function safeNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function toPlanLabel(value: unknown): PlanLabel {
-  return toPlanBadgeLabel(normalizeUserPlan(value));
-}
-
 function toCloudStatusLabel(status: "local" | "synced" | "failed", isSyncing: boolean) {
   if (isSyncing) return "클라우드 동기화 중";
   if (status === "synced") return "클라우드 동기화됨";
@@ -137,6 +137,18 @@ function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString("ko-KR");
+}
+
+function formatExpiryDate(value: string) {
+  if (!value) return "데이터 없음";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "데이터 없음";
+  return date.toLocaleString("ko-KR");
+}
+
+function buildInviteLink(referralCode: string) {
+  if (!referralCode) return "";
+  return `https://korean-stock-ai-analyzer.vercel.app/beta?ref=${encodeURIComponent(referralCode)}`;
 }
 
 function extractSupabaseMessage(error: unknown) {
@@ -315,7 +327,12 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   const { user, isLoading, signOut } = useAuth();
   const { cloudSyncStatus, isCloudSyncing, cloudSyncNotice } = usePortfolio();
 
-  const [plan, setPlan] = useState<PlanLabel>("Free");
+  const [plan, setPlan] = useState<UserPlan>("free");
+  const [planStatusLabel, setPlanStatusLabel] = useState("Free");
+  const [proExpiresAt, setProExpiresAt] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [referralSuccessCount, setReferralSuccessCount] = useState(0);
+  const [inviteNotice, setInviteNotice] = useState("");
   const [stats, setStats] = useState<CloudStats>({
     holdingsCount: 0,
     watchlistCount: 0,
@@ -340,7 +357,12 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   useEffect(() => {
     const supabaseClient = supabase;
     if (!user?.id) {
-      setPlan("Free");
+      setPlan("free");
+      setPlanStatusLabel("Free");
+      setProExpiresAt("");
+      setReferralCode("");
+      setReferralSuccessCount(0);
+      setInviteNotice("");
       setStats({
         holdingsCount: 0,
         watchlistCount: 0,
@@ -361,6 +383,11 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
 
     if (!isSupabaseConfigured || !supabaseClient) {
       setFetchError("계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      setPlan("free");
+      setPlanStatusLabel("Free");
+      setProExpiresAt("");
+      setReferralCode("");
+      setReferralSuccessCount(0);
       setStats({
         holdingsCount: 0,
         watchlistCount: 0,
@@ -372,7 +399,6 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
       setRecentReports([]);
       setRecentRiskChanges([]);
       setIsProWaitlistApplied(false);
-      setPlan("Free");
       setRiskTrackStartDate("");
       setIsFetching(false);
       return;
@@ -398,9 +424,14 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
         riskTrackStartResult,
         recentReportsResult,
         riskTimelineResult,
-        proWaitlistResult
+        proWaitlistResult,
+        referralCountResult
       ] = await Promise.allSettled([
-        client.from("profiles").select("plan").eq("id", userId).limit(1),
+        client
+          .from("profiles")
+          .select("plan,pro_expires_at,referral_code")
+          .eq("id", userId)
+          .limit(1),
         client.from("portfolio_holdings").select("id", { count: "exact", head: true }).eq("user_id", userId),
         client.from("watchlist_items").select("symbol", { count: "exact", head: true }).eq("user_id", userId),
         client
@@ -436,26 +467,43 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
           .gte("snapshot_date", getKstDateDaysAgo(6))
           .order("snapshot_date", { ascending: false })
           .limit(300),
-        client.from("pro_waitlist").select("id", { count: "exact", head: true }).eq("user_id", userId)
+        client.from("pro_waitlist").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        client.from("referrals").select("id", { count: "exact", head: true }).eq("referrer_user_id", userId)
       ]);
 
       if (cancelled) return;
 
       let hasError = false;
 
-      const nextPlan = (() => {
+      const nextPlanInfo = (() => {
+        const fallback = resolvePlanFromProfile(null);
         if (profileResult.status !== "fulfilled") {
           hasError = true;
-          return "Free" as PlanLabel;
+          return {
+            ...fallback,
+            statusLabel: toPlanStatusLabel(fallback),
+            referralCode: ""
+          };
         }
         if (profileResult.value.error) {
           hasError = true;
-          return "Free" as PlanLabel;
+          return {
+            ...fallback,
+            statusLabel: toPlanStatusLabel(fallback),
+            referralCode: ""
+          };
         }
         const rows = Array.isArray(profileResult.value.data) ? profileResult.value.data : [];
-        const firstRow = rows.length > 0 ? rows[0] : null;
-        const safePlan = firstRow ? toPlanLabel((firstRow as { plan?: unknown }).plan) : "Free";
-        return safePlan;
+        const firstRow =
+          rows.length > 0
+            ? (rows[0] as { plan?: unknown; pro_expires_at?: unknown; referral_code?: unknown })
+            : null;
+        const resolvedPlan = resolvePlanFromProfile(firstRow);
+        return {
+          ...resolvedPlan,
+          statusLabel: toPlanStatusLabel(resolvedPlan),
+          referralCode: safeText(firstRow?.referral_code)
+        };
       })();
 
       const countFromResult = (
@@ -545,7 +593,27 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
         return count > 0;
       })();
 
-      setPlan(nextPlan);
+      const nextReferralSuccessCount = (() => {
+        if (referralCountResult.status !== "fulfilled") {
+          return 0;
+        }
+        if (referralCountResult.value.error) {
+          console.warn(
+            "[mypage-referral] referral count fetch failed:",
+            referralCountResult.value.error.message ?? "unknown error"
+          );
+          return 0;
+        }
+        return Number.isFinite(referralCountResult.value.count ?? NaN)
+          ? Number(referralCountResult.value.count)
+          : 0;
+      })();
+
+      setPlan(nextPlanInfo.effectivePlan);
+      setPlanStatusLabel(nextPlanInfo.statusLabel);
+      setProExpiresAt(nextPlanInfo.proExpiresAt ?? "");
+      setReferralCode(nextPlanInfo.referralCode);
+      setReferralSuccessCount(nextReferralSuccessCount);
       setStats(nextStats);
       setRiskTrackStartDate(nextRiskTrackStartDate);
       setRecentReports(nextRecentReports);
@@ -571,6 +639,25 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
     router.push("/");
   }
 
+  const inviteLink = useMemo(() => buildInviteLink(referralCode), [referralCode]);
+
+  useEffect(() => {
+    setInviteNotice("");
+  }, [inviteLink]);
+
+  async function handleCopyInviteLink() {
+    if (!inviteLink || typeof window === "undefined") {
+      setInviteNotice("초대 코드를 먼저 확인해주세요.");
+      return;
+    }
+    try {
+      await window.navigator.clipboard.writeText(inviteLink);
+      setInviteNotice("초대 링크가 복사되었습니다.");
+    } catch {
+      setInviteNotice("초대 링크 복사에 실패했습니다.");
+    }
+  }
+
   function triggerHeaderLogin() {
     if (typeof window === "undefined") return;
     const loginButton = window.document.querySelector<HTMLButtonElement>(
@@ -587,8 +674,7 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   const safeRecentRiskChanges = Array.isArray(recentRiskChanges) ? recentRiskChanges : [];
   const safeSignals = Array.isArray(signals) ? signals : [];
   const safeCloudNotice = safeText(cloudSyncNotice);
-  const normalizedPlan = normalizeUserPlan(plan);
-  const isFreePlan = !isPaidPlan(normalizedPlan);
+  const isFreePlan = !isPaidPlan(plan);
   const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;
   const holdingsLimit = isFreePlan ? FREE_LIMITS.holdings : null;
   const reportLimit = isFreePlan ? FREE_LIMITS.dailyReportSave : null;
@@ -699,7 +785,9 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
             </div>
             <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
               <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">현재 플랜</dt>
-              <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{plan}</dd>
+              <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {planStatusLabel}
+              </dd>
             </div>
             <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
               <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">클라우드 동기화 상태</dt>
@@ -773,6 +861,63 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
             최근 리스크 변화 추적 시작일: {riskTrackStartDate || "데이터 없음"}
           </p>
         </article>
+      </section>
+
+      <section className="mt-4 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <h2 className="text-sm font-bold text-ink dark:text-white">친구 초대 리워드</h2>
+        <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+          친구를 초대하면 Pro 3일 체험권을 받을 수 있습니다.
+        </p>
+        <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+            <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">내 초대 코드</dt>
+            <dd className="mt-1 break-all text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {referralCode || "데이터 없음"}
+            </dd>
+          </div>
+          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+            <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">현재 상태</dt>
+            <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {planStatusLabel}
+            </dd>
+          </div>
+          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60 sm:col-span-2">
+            <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">내 초대 링크</dt>
+            <dd className="mt-1 break-all text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {inviteLink || "데이터 없음"}
+            </dd>
+          </div>
+          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+            <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">초대 성공 수</dt>
+            <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {Number.isFinite(referralSuccessCount) ? referralSuccessCount : 0}
+            </dd>
+          </div>
+          <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+            <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Pro 체험 만료일</dt>
+            <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {formatExpiryDate(proExpiresAt)}
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleCopyInviteLink()}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            초대 링크 복사
+          </button>
+          <Link
+            href="/beta"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            베타 페이지로 이동
+          </Link>
+        </div>
+        {inviteNotice ? (
+          <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">{inviteNotice}</p>
+        ) : null}
       </section>
 
       {fetchError && (

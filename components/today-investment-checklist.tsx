@@ -8,7 +8,7 @@ import { usePortfolio } from "@/components/portfolio-provider";
 import { useWatchlist } from "@/components/watchlist-provider";
 import { EmptyState } from "@/components/ui-states";
 import { formatKRW, formatPercent } from "@/lib/format";
-import { FREE_LIMITS, isPaidPlan, normalizeUserPlan } from "@/lib/plan";
+import { FREE_LIMITS, isPaidPlan, resolveEffectivePlan } from "@/lib/plan";
 import { supabase } from "@/lib/supabase";
 import { PORTFOLIO_DIAGNOSIS_STORAGE_KEY } from "@/lib/storage-keys";
 import type { PortfolioDiagnosis, Stock } from "@/lib/types";
@@ -694,7 +694,7 @@ export function TodayInvestmentChecklist({
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("plan")
+          .select("plan,pro_expires_at")
           .eq("id", user.id)
           .limit(1);
         if (cancelled) return;
@@ -703,8 +703,10 @@ export function TodayInvestmentChecklist({
           return;
         }
         const row =
-          Array.isArray(data) && data.length > 0 ? (data[0] as { plan?: unknown }) : null;
-        setPlan(normalizeUserPlan(row?.plan));
+          Array.isArray(data) && data.length > 0
+            ? (data[0] as { plan?: unknown; pro_expires_at?: unknown })
+            : null;
+        setPlan(resolveEffectivePlan(row?.plan, row?.pro_expires_at));
       } catch {
         if (!cancelled) setPlan("free");
       }

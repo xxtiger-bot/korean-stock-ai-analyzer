@@ -32,7 +32,7 @@ export function WatchlistPanel({
 }) {
   const {
     symbols,
-    plan,
+    planStatusLabel,
     watchlistLimit,
     isWatchlistLimitReached,
     isWatchlistNearLimit,
@@ -111,7 +111,7 @@ export function WatchlistPanel({
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
-          현재 플랜: {plan === "pro" ? "Pro" : plan === "business" ? "Business" : "Free"}
+          현재 플랜: {planStatusLabel}
         </span>
         {watchlistLimit !== null ? (
           <span

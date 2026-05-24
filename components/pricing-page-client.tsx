@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { normalizeUserPlan, toPlanLabel } from "@/lib/plan";
+import { resolvePlanFromProfile, toPlanStatusLabel, type UserPlan } from "@/lib/plan";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type PlanCard = {
@@ -70,7 +70,8 @@ function isDuplicateError(error: unknown) {
 export function PricingPageClient() {
   const { user } = useAuth();
   const isLoggedIn = Boolean(user);
-  const [profilePlan, setProfilePlan] = useState("free");
+  const [profilePlan, setProfilePlan] = useState<UserPlan>("free");
+  const [profileProExpiresAt, setProfileProExpiresAt] = useState<string | null>(null);
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
   const [isWaitlistSubmitting, setIsWaitlistSubmitting] = useState(false);
   const [waitlistNotice, setWaitlistNotice] = useState("");
@@ -89,6 +90,7 @@ export function PricingPageClient() {
     const userId = user?.id ?? "";
     if (!isLoggedIn || !isSupabaseConfigured || !supabaseClient || !userId) {
       setProfilePlan("free");
+      setProfileProExpiresAt(null);
       setWaitlistApplied(false);
       return;
     }
@@ -100,7 +102,7 @@ export function PricingPageClient() {
       try {
         const [{ data: profileRows, error: profileError }, { data: waitlistRows, error: waitlistError }] =
           await Promise.all([
-            client.from("profiles").select("plan").eq("id", userId).limit(1),
+            client.from("profiles").select("plan,pro_expires_at").eq("id", userId).limit(1),
             client.from("pro_waitlist").select("id").eq("user_id", userId).limit(1)
           ]);
 
@@ -108,12 +110,15 @@ export function PricingPageClient() {
 
         if (profileError) {
           setProfilePlan("free");
+          setProfileProExpiresAt(null);
         } else {
           const firstProfile =
             Array.isArray(profileRows) && profileRows.length > 0
-              ? (profileRows[0] as { plan?: unknown })
+              ? (profileRows[0] as { plan?: unknown; pro_expires_at?: unknown })
               : null;
-          setProfilePlan(normalizeUserPlan(firstProfile?.plan));
+          const resolvedPlan = resolvePlanFromProfile(firstProfile);
+          setProfilePlan(resolvedPlan.basePlan);
+          setProfileProExpiresAt(resolvedPlan.proExpiresAt);
         }
 
         if (waitlistError) {
@@ -124,6 +129,7 @@ export function PricingPageClient() {
       } catch {
         if (!cancelled) {
           setProfilePlan("free");
+          setProfileProExpiresAt(null);
           setWaitlistApplied(false);
         }
       }
@@ -136,13 +142,18 @@ export function PricingPageClient() {
     };
   }, [isLoggedIn, user?.id]);
 
-  const currentPlanLabel = useMemo(() => toPlanLabel(normalizeUserPlan(profilePlan)), [profilePlan]);
+  const planResolution = useMemo(
+    () => resolvePlanFromProfile({ plan: profilePlan, pro_expires_at: profileProExpiresAt }),
+    [profilePlan, profileProExpiresAt]
+  );
+
+  const currentPlanLabel = useMemo(() => toPlanStatusLabel(planResolution), [planResolution]);
 
   const currentPlanCardName = useMemo(() => {
-    if (currentPlanLabel === "Pro") return "Pro";
-    if (currentPlanLabel === "Business") return "Business";
+    if (planResolution.effectivePlan === "pro") return "Pro";
+    if (planResolution.effectivePlan === "business") return "Business";
     return "무료";
-  }, [currentPlanLabel]);
+  }, [planResolution.effectivePlan]);
 
   const toggleFeature = (feature: string) => {
     setSelectedFeatures((current) => {
@@ -271,6 +282,11 @@ export function PricingPageClient() {
                 </li>
               ))}
             </ul>
+            {plan.name === "Pro" ? (
+              <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                친구를 초대하고 Pro 3일 체험권을 받아보세요.
+              </p>
+            ) : null}
 
             {plan.name === "Pro" ? (
               <div className="mt-4 space-y-2">

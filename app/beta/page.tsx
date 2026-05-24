@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Beaker, MessageSquare, Sparkles } from "lucide-react";
+import { ArrowRight, Beaker, Sparkles } from "lucide-react";
+import { BetaReferralBanner } from "@/components/beta-referral-banner";
 import { FeedbackTrigger } from "@/components/feedback-trigger";
 
 const testerProfiles = [
@@ -32,7 +33,22 @@ export const metadata: Metadata = {
     "한국 주식 AI 분석, 보유종목 진단, 리스크 변화 추적을 테스트할 수 있는 KRX Insight 베타 페이지"
 };
 
-export default function BetaPage() {
+type BetaPageProps = {
+  searchParams?: {
+    ref?: string | string[];
+  };
+};
+
+function firstQueryValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return typeof value[0] === "string" ? value[0] : "";
+  }
+  return typeof value === "string" ? value : "";
+}
+
+export default function BetaPage({ searchParams }: BetaPageProps) {
+  const referralCode = firstQueryValue(searchParams?.ref);
+
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <section className="rounded-xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
@@ -49,6 +65,7 @@ export default function BetaPage() {
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
           한국 주식 현재가, AI 분석, 보유종목 진단, 리스크 변화 추적을 한 곳에서 확인할 수 있는 투자 참고 도구입니다.
         </p>
+        <BetaReferralBanner referralCode={referralCode} />
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <Link
             href="/"

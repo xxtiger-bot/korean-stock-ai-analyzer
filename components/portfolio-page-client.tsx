@@ -10,7 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { useWatchlist } from "@/components/watchlist-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
-import { FREE_LIMITS, isPaidPlan, toPlanLabel } from "@/lib/plan";
+import { FREE_LIMITS, isPaidPlan } from "@/lib/plan";
 import { supabase } from "@/lib/supabase";
 import { PORTFOLIO_DIAGNOSIS_STORAGE_KEY } from "@/lib/storage-keys";
 import type {
@@ -1316,6 +1316,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
   const {
     entries,
     plan,
+    planStatusLabel,
     holdingLimit,
     isHoldingLimitReached,
     isHoldingNearLimit,
@@ -1434,7 +1435,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
       ),
     [watchlistSymbols]
   );
-  const currentPlanLabel = toPlanLabel(plan);
+  const currentPlanLabel = planStatusLabel;
   const isFreePlan = !isPaidPlan(plan);
   const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;
   const reportDailyLimit = isFreePlan ? FREE_LIMITS.dailyReportSave : null;
