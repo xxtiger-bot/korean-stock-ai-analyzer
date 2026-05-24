@@ -9,6 +9,7 @@ import {
   useState
 } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { FREE_LIMITS, isPaidPlan, normalizeUserPlan, type UserPlan } from "@/lib/plan";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type WatchlistItem = {
@@ -21,6 +22,10 @@ type WatchlistItem = {
 type WatchlistContextValue = {
   symbols: string[];
   items: WatchlistItem[];
+  plan: UserPlan;
+  watchlistLimit: number | null;
+  isWatchlistLimitReached: boolean;
+  isWatchlistNearLimit: boolean;
   add: (symbol: string, metadata?: { stockName?: string | null; market?: string | null }) => void;
   remove: (symbol: string) => void;
   toggle: (symbol: string, metadata?: { stockName?: string | null; market?: string | null }) => void;
@@ -88,6 +93,7 @@ function parseStoredWatchlist() {
 export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const { user, isSupabaseReady } = useAuth();
   const [items, setItems] = useState<WatchlistItem[]>([]);
+  const [plan, setPlan] = useState<UserPlan>("free");
   const [initialLocalItems, setInitialLocalItems] = useState<WatchlistItem[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [syncNotice, setSyncNotice] = useState("");
@@ -124,6 +130,54 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     if (user?.id) return;
     setInitialLocalItems(Array.isArray(items) ? items : []);
   }, [isReady, items, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseReady || !isSupabaseConfigured || !supabase) {
+      setPlan("free");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("plan")
+          .eq("id", user.id)
+          .limit(1);
+        if (cancelled) return;
+        if (error) {
+          setPlan("free");
+          return;
+        }
+        const row =
+          Array.isArray(data) && data.length > 0 ? (data[0] as { plan?: unknown }) : null;
+        setPlan(normalizeUserPlan(row?.plan));
+      } catch {
+        if (!cancelled) setPlan("free");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSupabaseReady, user?.id]);
+
+  const isFreePlan = !isPaidPlan(plan);
+  const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;
+  const watchlistCount = symbols.length;
+  const isWatchlistLimitReached = Boolean(watchlistLimit !== null && watchlistCount >= watchlistLimit);
+  const isWatchlistNearLimit = Boolean(
+    watchlistLimit !== null && watchlistCount >= watchlistLimit - 1 && watchlistCount < watchlistLimit
+  );
+
+  useEffect(() => {
+    if (!isReady) return;
+    if (!isFreePlan || watchlistLimit === null) return;
+    if (watchlistCount > watchlistLimit) {
+      setSyncNotice("현재 Free 한도를 초과한 데이터가 있습니다. 기존 데이터는 유지됩니다.");
+    }
+  }, [isFreePlan, isReady, watchlistCount, watchlistLimit]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -225,13 +279,21 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       setItems((current) => {
         const safeCurrent = Array.isArray(current) ? current : [];
         if (safeCurrent.some((item) => item.symbol === normalized)) return safeCurrent;
+        if (isFreePlan && safeCurrent.length >= FREE_LIMITS.watchlist) {
+          setSyncNotice(
+            user?.id
+              ? "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다."
+              : "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
+          );
+          return safeCurrent;
+        }
         return [...safeCurrent, nextItem];
       });
       if (user?.id && isSupabaseReady && isSupabaseConfigured && supabase) {
         void upsertCloudWatchlistItem(nextItem);
       }
     },
-    [isSupabaseReady, upsertCloudWatchlistItem, user?.id]
+    [isFreePlan, isSupabaseReady, upsertCloudWatchlistItem, user?.id]
   );
 
   const remove = useCallback(
@@ -256,6 +318,14 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
         const safeCurrent = Array.isArray(current) ? current : [];
         const exists = safeCurrent.some((item) => item.symbol === normalized);
         if (exists) return safeCurrent.filter((item) => item.symbol !== normalized);
+        if (isFreePlan && safeCurrent.length >= FREE_LIMITS.watchlist) {
+          setSyncNotice(
+            user?.id
+              ? "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다."
+              : "Free 플랜에서는 관심종목을 최대 5개까지 추가할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
+          );
+          return safeCurrent;
+        }
         return [
           ...safeCurrent,
           {
@@ -282,6 +352,7 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     },
     [
       deleteCloudWatchlistItem,
+      isFreePlan,
       isSupabaseReady,
       symbols,
       upsertCloudWatchlistItem,
@@ -353,6 +424,10 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     () => ({
       symbols,
       items,
+      plan,
+      watchlistLimit,
+      isWatchlistLimitReached,
+      isWatchlistNearLimit,
       add,
       remove,
       toggle,
@@ -366,12 +441,16 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       add,
       canSyncLocalToCloud,
       isCloudSyncing,
+      isWatchlistLimitReached,
+      isWatchlistNearLimit,
       items,
+      plan,
       remove,
       symbols,
       syncLocalToCloud,
       syncNotice,
-      toggle
+      toggle,
+      watchlistLimit
     ]
   );
 

@@ -7,7 +7,9 @@ import { MobileTabNav } from "@/components/mobile-tab-nav";
 import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { usePortfolio } from "@/components/portfolio-provider";
+import { useWatchlist } from "@/components/watchlist-provider";
 import { changeColorClass, formatKRW, formatNumber, formatPercent } from "@/lib/format";
+import { FREE_LIMITS, isPaidPlan, toPlanLabel } from "@/lib/plan";
 import { supabase } from "@/lib/supabase";
 import { PORTFOLIO_DIAGNOSIS_STORAGE_KEY } from "@/lib/storage-keys";
 import type {
@@ -1308,8 +1310,14 @@ function buildPortfolioRiskAlerts(
 
 export function PortfolioPageClient() {
   const { user } = useAuth();
+  const { symbols: watchlistSymbols } = useWatchlist();
   const {
     entries,
+    plan,
+    holdingLimit,
+    isHoldingLimitReached,
+    isHoldingNearLimit,
+    planLimitNotice,
     addEntry,
     removeEntry,
     canSyncLocalToCloud,
@@ -1339,6 +1347,7 @@ export function PortfolioPageClient() {
   const [dailyReportImageNotice, setDailyReportImageNotice] = useState("");
   const [dailyReportCloudNotice, setDailyReportCloudNotice] = useState("");
   const [isSavingDailyReport, setIsSavingDailyReport] = useState(false);
+  const [todaySavedReportCount, setTodaySavedReportCount] = useState(0);
   const [recentSavedReports, setRecentSavedReports] = useState<PortfolioReportHistoryItem[]>([]);
   const [isRecentReportsLoading, setIsRecentReportsLoading] = useState(false);
   const [recentReportsNotice, setRecentReportsNotice] = useState("");
@@ -1411,6 +1420,30 @@ export function PortfolioPageClient() {
   const safeEntries = useMemo(
     () => (Array.isArray(entries) ? entries : []),
     [entries]
+  );
+  const safeWatchlistSymbols = useMemo(
+    () =>
+      (Array.isArray(watchlistSymbols) ? watchlistSymbols : []).filter(
+        (item): item is string => typeof item === "string" && Boolean(item)
+      ),
+    [watchlistSymbols]
+  );
+  const currentPlanLabel = toPlanLabel(plan);
+  const isFreePlan = !isPaidPlan(plan);
+  const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;
+  const reportDailyLimit = isFreePlan ? FREE_LIMITS.dailyReportSave : null;
+  const watchlistCount = safeWatchlistSymbols.length;
+  const reportLimitReached = Boolean(
+    reportDailyLimit !== null && todaySavedReportCount >= reportDailyLimit
+  );
+  const isWatchlistNearLimit = Boolean(
+    watchlistLimit !== null && watchlistCount >= watchlistLimit - 1 && watchlistCount < watchlistLimit
+  );
+  const showNearLimitNotice = isFreePlan && (isWatchlistNearLimit || isHoldingNearLimit);
+  const hasPlanOverLimitData = Boolean(
+    isFreePlan &&
+      ((watchlistLimit !== null && watchlistCount > watchlistLimit) ||
+        (holdingLimit !== null && safeEntries.length > holdingLimit))
   );
   const cloudSyncStatusLabel = useMemo(() => {
     if (cloudSyncStatus === "failed") return "동기화 실패";
@@ -1857,6 +1890,7 @@ export function PortfolioPageClient() {
   const fetchRecentSavedReports = useCallback(async () => {
     if (!isSupabaseReady || !supabase || !user?.id) {
       setRecentSavedReports([]);
+      setTodaySavedReportCount(0);
       setRecentReportsNotice(
         isSupabaseReady
           ? "로그인하면 저장한 AI 리포트를 확인할 수 있습니다."
@@ -1867,15 +1901,25 @@ export function PortfolioPageClient() {
 
     setIsRecentReportsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("portfolio_reports")
-        .select("id,user_id,report_date,summary,payload,created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const [{ data, error }, { count, error: countError }] = await Promise.all([
+        supabase
+          .from("portfolio_reports")
+          .select("id,user_id,report_date,summary,payload,created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("portfolio_reports")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("report_date", dailyReportDateText)
+      ]);
 
       if (error) {
         throw error;
+      }
+      if (countError) {
+        throw countError;
       }
 
       const safeRows = Array.isArray(data) ? data : [];
@@ -1898,18 +1942,21 @@ export function PortfolioPageClient() {
         .filter((item): item is PortfolioReportHistoryItem => Boolean(item));
 
       setRecentSavedReports(normalized);
+      setTodaySavedReportCount(Number.isFinite(count ?? NaN) ? Number(count) : 0);
       setRecentReportsNotice("");
     } catch {
       setRecentSavedReports([]);
+      setTodaySavedReportCount(0);
       setRecentReportsNotice("리포트 클라우드 저장을 사용할 수 없습니다.");
     } finally {
       setIsRecentReportsLoading(false);
     }
-  }, [isSupabaseReady, user?.id]);
+  }, [dailyReportDateText, isSupabaseReady, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
       setRecentSavedReports([]);
+      setTodaySavedReportCount(0);
       setExpandedSavedReportId(null);
       setRecentReportsNotice("로그인하면 저장한 AI 리포트를 확인할 수 있습니다.");
       return;
@@ -2266,6 +2313,15 @@ export function PortfolioPageClient() {
     const quantity = parseNumber(draft.quantity);
     if (!symbol || buyPrice <= 0 || quantity <= 0) return;
 
+    if (isFreePlan && holdingLimit !== null && safeEntries.length >= holdingLimit) {
+      setCloudSyncActionNotice(
+        user?.id
+          ? "Free 플랜에서는 보유종목을 최대 3개까지 관리할 수 있습니다."
+          : "Free 플랜에서는 보유종목을 최대 3개까지 관리할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
+      );
+      return;
+    }
+
     addEntry({
       symbol,
       stockName: symbolLookup?.symbol === symbol ? symbolLookup.name : "",
@@ -2278,6 +2334,7 @@ export function PortfolioPageClient() {
       memo: draft.memo
     });
 
+    setCloudSyncActionNotice("");
     setDraft((current) => ({
       ...current,
       symbol: "",
@@ -2562,6 +2619,10 @@ export function PortfolioPageClient() {
       setDailyReportCloudNotice("리포트 클라우드 저장을 사용할 수 없습니다.");
       return;
     }
+    if (isFreePlan && reportDailyLimit !== null && todaySavedReportCount >= reportDailyLimit) {
+      setDailyReportCloudNotice("Free 플랜에서는 AI 리포트를 하루 1회 저장할 수 있습니다.");
+      return;
+    }
 
     setIsSavingDailyReport(true);
     try {
@@ -2583,6 +2644,7 @@ export function PortfolioPageClient() {
       }
 
       setDailyReportCloudNotice("오늘의 AI 리포트를 저장했습니다.");
+      setTodaySavedReportCount((current) => current + 1);
       await fetchRecentSavedReports();
     } catch (error) {
       const message = extractSupabaseErrorMessage(error);
@@ -2623,6 +2685,40 @@ export function PortfolioPageClient() {
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
           KIS 현재가와 data.go.kr 일별 종가 데이터를 기반으로 보유 상태를 관찰하고, 확인 필요 구간을 정리하는 참고 정보입니다.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            현재 플랜: {currentPlanLabel}
+          </span>
+          {isFreePlan ? (
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              관심종목 {watchlistCount}/{watchlistLimit ?? FREE_LIMITS.watchlist} · 보유종목 {safeEntries.length}/
+              {holdingLimit ?? FREE_LIMITS.holdings} · 리포트 저장 {todaySavedReportCount}/
+              {reportDailyLimit ?? FREE_LIMITS.dailyReportSave}
+            </span>
+          ) : (
+            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+              관심종목 · 보유종목 · 리포트 저장 한도 없음
+            </span>
+          )}
+          {(isFreePlan && (showNearLimitNotice || reportLimitReached)) || hasPlanOverLimitData ? (
+            <a
+              href="/pricing"
+              className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+            >
+              요금제 보기
+            </a>
+          ) : null}
+        </div>
+        {showNearLimitNotice ? (
+          <p className="mt-2 text-xs font-semibold leading-5 text-amber-700 dark:text-amber-200">
+            곧 Free 한도에 도달합니다.
+          </p>
+        ) : null}
+        {hasPlanOverLimitData ? (
+          <p className="mt-2 text-xs font-semibold leading-5 text-red-700 dark:text-red-200">
+            현재 Free 한도를 초과한 데이터가 있습니다. 기존 데이터는 유지됩니다.
+          </p>
+        ) : null}
         <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button
             type="button"
@@ -2676,6 +2772,11 @@ export function PortfolioPageClient() {
             {alertRuleSyncNotice}
           </p>
         )}
+        {planLimitNotice ? (
+          <p className="mt-2 text-xs font-semibold leading-5 text-red-700 dark:text-red-200">
+            {planLimitNotice}
+          </p>
+        ) : null}
         {!isSupabaseReady && (
           <p className="mt-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
             {cloudSyncActionNotice || "클라우드 동기화 미설정"}
@@ -2862,7 +2963,7 @@ export function PortfolioPageClient() {
             <button
               type="button"
               onClick={() => void handleSaveDailyReportToCloud()}
-              disabled={isSavingDailyReport}
+              disabled={isSavingDailyReport || reportLimitReached}
               className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:text-brand disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 sm:h-8"
             >
               {isSavingDailyReport ? "저장 중..." : "리포트 저장"}
@@ -2877,6 +2978,25 @@ export function PortfolioPageClient() {
             <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               전체 포트폴리오 상태: {portfolioStatusLabel}
             </span>
+            {isFreePlan ? (
+              <span
+                className={`rounded-md border px-2 py-1 text-xs font-bold ${
+                  reportLimitReached
+                    ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+                    : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+                }`}
+              >
+                리포트 저장 {todaySavedReportCount}/{reportDailyLimit ?? FREE_LIMITS.dailyReportSave}
+              </span>
+            ) : null}
+            {isFreePlan ? (
+              <a
+                href="/pricing"
+                className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-xs font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200 sm:h-8"
+              >
+                Pro 기능 보기
+              </a>
+            ) : null}
           </div>
         </div>
         {dailyReportCopyNotice && (
@@ -3286,11 +3406,20 @@ export function PortfolioPageClient() {
             </label>
             <button
               type="submit"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-bold text-white hover:bg-blue-700"
+              disabled={isFreePlan && holdingLimit !== null && safeEntries.length >= holdingLimit}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               <Plus className="h-4 w-4" />
               보유종목 추가
             </button>
+            {isFreePlan && holdingLimit !== null && safeEntries.length >= holdingLimit ? (
+              <p className="text-xs font-semibold text-red-700 dark:text-red-200">
+                Free 플랜에서는 보유종목을 최대 3개까지 관리할 수 있습니다.{" "}
+                <a href="/pricing" className="underline underline-offset-2">
+                  요금제 보기
+                </a>
+              </p>
+            ) : null}
           </div>
         </form>
 

@@ -98,6 +98,11 @@ export function PricingPageClient() {
     if (profilePlan === "business") return "Business";
     return "Free";
   }, [profilePlan]);
+  const currentPlanCardName = useMemo(() => {
+    if (currentPlanLabel === "Pro") return "Pro";
+    if (currentPlanLabel === "Business") return "Business";
+    return "무료";
+  }, [currentPlanLabel]);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-5 lg:px-7">
@@ -122,7 +127,11 @@ export function PricingPageClient() {
         {PLAN_CARDS.map((plan) => (
           <article
             key={plan.name}
-            className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel"
+            className={`rounded-lg border bg-white p-4 shadow-soft dark:bg-dark-panel ${
+              currentPlanCardName === plan.name
+                ? "border-brand ring-1 ring-brand/30 dark:border-blue-500/70 dark:ring-blue-500/30"
+                : "border-line dark:border-dark-line"
+            }`}
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-bold text-ink dark:text-white">{plan.name}</h2>
@@ -145,7 +154,7 @@ export function PricingPageClient() {
               className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
               disabled
             >
-              준비 중
+              {plan.name === "Pro" ? "Pro 준비 중" : "준비 중"}
             </button>
           </article>
         ))}

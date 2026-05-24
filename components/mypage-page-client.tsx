@@ -7,6 +7,7 @@ import { ArrowRight, BarChart3, BriefcaseBusiness, LogOut, ShieldCheck } from "l
 import { useAuth } from "@/components/auth-provider";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { changeColorClass, formatPercent } from "@/lib/format";
+import { FREE_LIMITS, isPaidPlan, normalizeUserPlan, toPlanLabel as toPlanBadgeLabel } from "@/lib/plan";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type PlanLabel = "Free" | "Pro" | "Business";
@@ -17,6 +18,7 @@ type CloudStats = {
   alertRulesCount: number;
   reportsCount: number;
   riskSnapshotsCount: number;
+  todayReportCount: number;
 };
 
 type SavedReportPayloadItem = {
@@ -74,11 +76,7 @@ function safeNumber(value: unknown, fallback = 0) {
 }
 
 function toPlanLabel(value: unknown): PlanLabel {
-  if (typeof value !== "string") return "Free";
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "pro") return "Pro";
-  if (normalized === "business") return "Business";
-  return "Free";
+  return toPlanBadgeLabel(normalizeUserPlan(value));
 }
 
 function toCloudStatusLabel(status: "local" | "synced" | "failed", isSyncing: boolean) {
@@ -293,7 +291,8 @@ export function MyPagePageClient() {
     watchlistCount: 0,
     alertRulesCount: 0,
     reportsCount: 0,
-    riskSnapshotsCount: 0
+    riskSnapshotsCount: 0,
+    todayReportCount: 0
   });
   const [riskTrackStartDate, setRiskTrackStartDate] = useState("");
   const [recentReports, setRecentReports] = useState<SavedReport[]>([]);
@@ -316,7 +315,8 @@ export function MyPagePageClient() {
         watchlistCount: 0,
         alertRulesCount: 0,
         reportsCount: 0,
-        riskSnapshotsCount: 0
+        riskSnapshotsCount: 0,
+        todayReportCount: 0
       });
       setRecentReports([]);
       setRecentRiskChanges([]);
@@ -334,7 +334,8 @@ export function MyPagePageClient() {
         watchlistCount: 0,
         alertRulesCount: 0,
         reportsCount: 0,
-        riskSnapshotsCount: 0
+        riskSnapshotsCount: 0,
+        todayReportCount: 0
       });
       setRecentReports([]);
       setRecentRiskChanges([]);
@@ -351,6 +352,7 @@ export function MyPagePageClient() {
     async function fetchMyPageData() {
       setIsFetching(true);
       setFetchError("");
+      const todayDate = getKstDateDaysAgo(0);
 
       const [
         profileResult,
@@ -358,6 +360,7 @@ export function MyPagePageClient() {
         watchlistCountResult,
         alertRulesCountResult,
         reportsCountResult,
+        todayReportsCountResult,
         riskSnapshotsCountResult,
         riskTrackStartResult,
         recentReportsResult,
@@ -371,6 +374,11 @@ export function MyPagePageClient() {
           .select("id", { count: "exact", head: true })
           .eq("user_id", userId),
         client.from("portfolio_reports").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        client
+          .from("portfolio_reports")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("report_date", todayDate),
         client
           .from("portfolio_risk_snapshots")
           .select("id", { count: "exact", head: true })
@@ -434,7 +442,8 @@ export function MyPagePageClient() {
         watchlistCount: countFromResult(watchlistCountResult),
         alertRulesCount: countFromResult(alertRulesCountResult),
         reportsCount: countFromResult(reportsCountResult),
-        riskSnapshotsCount: countFromResult(riskSnapshotsCountResult)
+        riskSnapshotsCount: countFromResult(riskSnapshotsCountResult),
+        todayReportCount: countFromResult(todayReportsCountResult)
       };
 
       const nextRiskTrackStartDate = (() => {
@@ -526,6 +535,23 @@ export function MyPagePageClient() {
   const safeReports = Array.isArray(recentReports) ? recentReports : [];
   const safeRecentRiskChanges = Array.isArray(recentRiskChanges) ? recentRiskChanges : [];
   const safeCloudNotice = safeText(cloudSyncNotice);
+  const normalizedPlan = normalizeUserPlan(plan);
+  const isFreePlan = !isPaidPlan(normalizedPlan);
+  const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;
+  const holdingsLimit = isFreePlan ? FREE_LIMITS.holdings : null;
+  const reportLimit = isFreePlan ? FREE_LIMITS.dailyReportSave : null;
+  const isNearFreeLimit =
+    isFreePlan &&
+    ((watchlistLimit !== null &&
+      stats.watchlistCount >= watchlistLimit - 1 &&
+      stats.watchlistCount < watchlistLimit) ||
+      (holdingsLimit !== null &&
+        stats.holdingsCount >= holdingsLimit - 1 &&
+        stats.holdingsCount < holdingsLimit));
+  const isOverFreeLimit =
+    isFreePlan &&
+    ((watchlistLimit !== null && stats.watchlistCount > watchlistLimit) ||
+      (holdingsLimit !== null && stats.holdingsCount > holdingsLimit));
   const recentRiskChangeSummary = useMemo(() => {
     if (safeRecentRiskChanges.length === 0) {
       return "아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.";
@@ -623,7 +649,25 @@ export function MyPagePageClient() {
                 {safeCloudNotice || "클라우드 동기화 사용 가능"}
               </dd>
             </div>
+            <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60 sm:col-span-2">
+              <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">플랜 사용량</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {isFreePlan
+                  ? `관심종목 ${stats.watchlistCount}/${watchlistLimit ?? FREE_LIMITS.watchlist} · 보유종목 ${stats.holdingsCount}/${holdingsLimit ?? FREE_LIMITS.holdings} · 오늘 리포트 ${stats.todayReportCount}/${reportLimit ?? FREE_LIMITS.dailyReportSave}`
+                  : "관심종목 · 보유종목 · 리포트 저장 한도 없음"}
+              </dd>
+            </div>
           </dl>
+          {isNearFreeLimit ? (
+            <p className="mt-3 text-xs font-semibold text-amber-700 dark:text-amber-200">
+              곧 Free 한도에 도달합니다.
+            </p>
+          ) : null}
+          {isOverFreeLimit ? (
+            <p className="mt-2 text-xs font-semibold text-red-700 dark:text-red-200">
+              현재 Free 한도를 초과한 데이터가 있습니다. 기존 데이터는 유지됩니다.
+            </p>
+          ) : null}
         </article>
 
         <article className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
@@ -644,6 +688,13 @@ export function MyPagePageClient() {
             <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
               <span>portfolio_reports</span>
               <strong>{Number.isFinite(stats.reportsCount) ? stats.reportsCount : 0}</strong>
+            </li>
+            <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
+              <span>오늘 리포트 저장 횟수</span>
+              <strong>
+                {Number.isFinite(stats.todayReportCount) ? stats.todayReportCount : 0}
+                {isFreePlan ? `/${reportLimit ?? FREE_LIMITS.dailyReportSave}` : ""}
+              </strong>
             </li>
             <li className="flex items-center justify-between rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">
               <span>portfolio_risk_snapshots</span>

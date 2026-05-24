@@ -8,6 +8,7 @@ import { usePortfolio } from "@/components/portfolio-provider";
 import { useWatchlist } from "@/components/watchlist-provider";
 import { EmptyState } from "@/components/ui-states";
 import { formatKRW, formatPercent } from "@/lib/format";
+import { FREE_LIMITS, isPaidPlan, normalizeUserPlan } from "@/lib/plan";
 import { supabase } from "@/lib/supabase";
 import { PORTFOLIO_DIAGNOSIS_STORAGE_KEY } from "@/lib/storage-keys";
 import type { PortfolioDiagnosis, Stock } from "@/lib/types";
@@ -669,6 +670,7 @@ export function TodayInvestmentChecklist({
   const [isAlertLoading, setIsAlertLoading] = useState(false);
   const [riskSnapshots, setRiskSnapshots] = useState<RiskSnapshot[]>([]);
   const [snapshotNotice, setSnapshotNotice] = useState("");
+  const [plan, setPlan] = useState<"free" | "pro" | "business">("free");
   const persistSignatureRef = useRef("");
 
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
@@ -680,6 +682,38 @@ export function TodayInvestmentChecklist({
       ),
     [watchlistSymbols]
   );
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseReady || !supabase) {
+      setPlan("free");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("plan")
+          .eq("id", user.id)
+          .limit(1);
+        if (cancelled) return;
+        if (error) {
+          setPlan("free");
+          return;
+        }
+        const row =
+          Array.isArray(data) && data.length > 0 ? (data[0] as { plan?: unknown }) : null;
+        setPlan(normalizeUserPlan(row?.plan));
+      } catch {
+        if (!cancelled) setPlan("free");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSupabaseReady, user?.id]);
 
   useEffect(() => {
     setDiagnoses(parseStoredDiagnoses());
@@ -1264,6 +1298,20 @@ export function TodayInvestmentChecklist({
     };
   }, [holdingItems, riskSnapshots]);
 
+  const isFreePlan = !isPaidPlan(plan);
+  const riskTimelineLimit = variant === "portfolio" && isFreePlan ? FREE_LIMITS.riskTimelineItems : null;
+  const visibleRiskChanges = useMemo(() => {
+    const safeItems = Array.isArray(riskChangesSorted) ? riskChangesSorted : [];
+    if (variant === "home") return safeItems.slice(0, 3);
+    if (riskTimelineLimit !== null) return safeItems.slice(0, riskTimelineLimit);
+    return safeItems;
+  }, [riskChangesSorted, riskTimelineLimit, variant]);
+  const visibleRiskTimelineEntries = useMemo(() => {
+    const safeItems = Array.isArray(riskTimelineData.entries) ? riskTimelineData.entries : [];
+    if (riskTimelineLimit !== null) return safeItems.slice(0, riskTimelineLimit);
+    return safeItems;
+  }, [riskTimelineData.entries, riskTimelineLimit]);
+
   const headline = useMemo(() => {
     if (riskAiSummary.hasHistory) {
       return riskAiSummary.oneLineSummary;
@@ -1450,7 +1498,7 @@ export function TodayInvestmentChecklist({
               </p>
             ) : (
               <ul className="mt-2 grid gap-2">
-                {(variant === "home" ? riskChangesSorted.slice(0, 3) : riskChangesSorted).map((item) => (
+                {visibleRiskChanges.map((item) => (
                   <li key={`${item.symbol}-${item.direction}`} className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-bold text-ink dark:text-white">
@@ -1482,13 +1530,13 @@ export function TodayInvestmentChecklist({
                 <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   아직 비교할 이전 기록이 없습니다. 오늘부터 리스크 변화를 추적합니다.
                 </p>
-              ) : riskTimelineData.entries.length === 0 ? (
+              ) : visibleRiskTimelineEntries.length === 0 ? (
                 <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   최근 7일 기준으로 표시할 리스크 변화 기록이 없습니다.
                 </p>
               ) : (
                 <ul className="mt-2 grid gap-2">
-                  {riskTimelineData.entries.map((entry) => (
+                  {visibleRiskTimelineEntries.map((entry) => (
                     <li
                       key={entry.key}
                       className="rounded-md border border-line bg-white px-3 py-2 dark:border-dark-line dark:bg-dark-panel"
@@ -1533,6 +1581,14 @@ export function TodayInvestmentChecklist({
                   ))}
                 </ul>
               )}
+              {riskTimelineLimit !== null && riskTimelineData.entries.length > riskTimelineLimit ? (
+                <div className="mt-2 rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+                  Free 플랜에서는 최근 3개의 리스크 변화만 확인할 수 있습니다.
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    전체 기록은 Pro에서 제공될 예정입니다.
+                  </p>
+                </div>
+              ) : null}
             </article>
           ) : null}
 

@@ -9,6 +9,7 @@ import {
   useState
 } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { FREE_LIMITS, isPaidPlan, normalizeUserPlan, type UserPlan } from "@/lib/plan";
 import { isSupabaseConfigured, supabase, supabaseConfigMessage } from "@/lib/supabase";
 import { PORTFOLIO_ENTRIES_STORAGE_KEY } from "@/lib/storage-keys";
 import type { InvestmentHorizon, PortfolioPositionInput, RiskProfile } from "@/lib/types";
@@ -35,6 +36,11 @@ type CloudSyncStatus = "local" | "synced" | "failed";
 
 type PortfolioContextValue = {
   entries: PortfolioPositionInput[];
+  plan: UserPlan;
+  holdingLimit: number | null;
+  isHoldingLimitReached: boolean;
+  isHoldingNearLimit: boolean;
+  planLimitNotice: string;
   addEntry: (draft: PortfolioDraftInput) => void;
   removeEntry: (id: string) => void;
   updateEntry: (id: string, patch: Partial<PortfolioDraftInput>) => void;
@@ -184,14 +190,68 @@ function dedupeEntries(entries: PortfolioPositionInput[]) {
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [entries, setEntries] = useState<PortfolioPositionInput[]>([]);
+  const [plan, setPlan] = useState<UserPlan>("free");
   const [localEntries, setLocalEntries] = useState<PortfolioPositionInput[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncNotice, setCloudSyncNotice] = useState("");
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>("local");
+  const [planLimitNotice, setPlanLimitNotice] = useState("");
   const [localSyncDismissed, setLocalSyncDismissed] = useState(false);
 
   const isCloudSyncEnabled = Boolean(isSupabaseConfigured && supabase && user?.id);
+  const isFreePlan = !isPaidPlan(plan);
+  const holdingLimit = isFreePlan ? FREE_LIMITS.holdings : null;
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured || !supabase) {
+      setPlan("free");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("plan")
+          .eq("id", user.id)
+          .limit(1);
+        if (cancelled) return;
+        if (error) {
+          setPlan("free");
+          return;
+        }
+        const row =
+          Array.isArray(data) && data.length > 0 ? (data[0] as { plan?: unknown }) : null;
+        setPlan(normalizeUserPlan(row?.plan));
+      } catch {
+        if (!cancelled) setPlan("free");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const activeEntries = useMemo(
+    () => (isCloudSyncEnabled ? entries : localEntries),
+    [entries, isCloudSyncEnabled, localEntries]
+  );
+  const holdingCount = Array.isArray(activeEntries) ? activeEntries.length : 0;
+  const isHoldingLimitReached = Boolean(holdingLimit !== null && holdingCount >= holdingLimit);
+  const isHoldingNearLimit = Boolean(
+    holdingLimit !== null && holdingCount >= holdingLimit - 1 && holdingCount < holdingLimit
+  );
+
+  useEffect(() => {
+    if (!isReady) return;
+    if (!isFreePlan || holdingLimit === null) return;
+    if (holdingCount > holdingLimit) {
+      setPlanLimitNotice("현재 Free 한도를 초과한 데이터가 있습니다. 기존 데이터는 유지됩니다.");
+    }
+  }, [holdingCount, holdingLimit, isFreePlan, isReady]);
 
   useEffect(() => {
     try {
@@ -377,6 +437,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const quantity = safeNumber(draft.quantity);
       if (!symbol || buyPrice <= 0 || quantity <= 0) return;
 
+      const currentCount = Array.isArray(activeEntries) ? activeEntries.length : 0;
+      if (isFreePlan && currentCount >= FREE_LIMITS.holdings) {
+        setPlanLimitNotice(
+          user?.id
+            ? "Free 플랜에서는 보유종목을 최대 3개까지 관리할 수 있습니다."
+            : "Free 플랜에서는 보유종목을 최대 3개까지 관리할 수 있습니다. 로그인하면 클라우드 동기화와 요금제 기능을 사용할 수 있습니다."
+        );
+        return;
+      }
+
       const entry: PortfolioPositionInput = {
         id: buildEntryId(symbol),
         symbol,
@@ -393,13 +463,15 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       if (isCloudSyncEnabled) {
         setEntries((current) => [...current, entry]);
         setLocalEntries((current) => dedupeEntries([...current, entry]));
+        setPlanLimitNotice("");
         void persistCloudEntry(entry);
         return;
       }
 
+      setPlanLimitNotice("");
       setLocalEntries((current) => [...current, entry]);
     },
-    [isCloudSyncEnabled, persistCloudEntry]
+    [activeEntries, isCloudSyncEnabled, isFreePlan, persistCloudEntry, user?.id]
   );
 
   const removeEntry = useCallback(
@@ -501,6 +573,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       entries,
+      plan,
+      holdingLimit,
+      isHoldingLimitReached,
+      isHoldingNearLimit,
+      planLimitNotice,
       addEntry,
       removeEntry,
       updateEntry,
@@ -514,9 +591,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       entries,
+      holdingLimit,
+      isHoldingLimitReached,
+      isHoldingNearLimit,
       addEntry,
       removeEntry,
       updateEntry,
+      plan,
+      planLimitNotice,
       canSyncLocalToCloud,
       syncLocalToCloud,
       isCloudSyncEnabled,

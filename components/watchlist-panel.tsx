@@ -32,6 +32,10 @@ export function WatchlistPanel({
 }) {
   const {
     symbols,
+    plan,
+    watchlistLimit,
+    isWatchlistLimitReached,
+    isWatchlistNearLimit,
     remove,
     canSyncLocalToCloud,
     isCloudSyncing,
@@ -104,6 +108,32 @@ export function WatchlistPanel({
         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:bg-slate-900/70 dark:text-slate-300">
           {selected.length}
         </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+          현재 플랜: {plan === "pro" ? "Pro" : plan === "business" ? "Business" : "Free"}
+        </span>
+        {watchlistLimit !== null ? (
+          <span
+            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${
+              isWatchlistLimitReached
+                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+                : isWatchlistNearLimit
+                  ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+            }`}
+          >
+            관심종목 {selected.length}/{watchlistLimit}
+          </span>
+        ) : null}
+        {(isWatchlistLimitReached || isWatchlistNearLimit) && watchlistLimit !== null ? (
+          <Link
+            href="/pricing"
+            className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+          >
+            요금제 보기
+          </Link>
+        ) : null}
       </div>
       {canSyncLocalToCloud ? (
         <div className="mt-3">
