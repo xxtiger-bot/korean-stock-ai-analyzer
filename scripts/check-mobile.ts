@@ -61,6 +61,7 @@ const ROUTES: RouteSpec[] = [
   { route: "/pricing", slug: "pricing" },
   { route: "/mypage", slug: "mypage" },
   { route: "/admin", slug: "admin" },
+  { route: "/admin/beta-kit", slug: "admin-beta-kit" },
   { route: "/debug/market-data", slug: "debug-market-data" },
   { route: "/admin/checklist", slug: "admin-checklist" }
 ];

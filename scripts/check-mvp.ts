@@ -18,6 +18,7 @@ const ROUTES_TO_CHECK = [
   "/pricing",
   "/mypage",
   "/admin",
+  "/admin/beta-kit",
   "/about",
   "/privacy",
   "/disclaimer",
