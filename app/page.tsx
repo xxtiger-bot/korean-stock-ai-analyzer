@@ -24,6 +24,13 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const previewToneClass: Record<"brand" | "violet" | "emerald" | "amber", string> = {
+  brand: "bg-brand/10 text-brand dark:bg-brand/15 dark:text-blue-200",
+  violet: "bg-violet-100 text-violet-700 dark:bg-violet-900/35 dark:text-violet-200",
+  emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-200",
+  amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/35 dark:text-amber-200"
+};
+
 export default async function Home() {
   const [
     fetchedAllStocks,
@@ -59,40 +66,54 @@ export default async function Home() {
   const previewItems = [
     {
       title: "오늘 시장 브리핑",
-      desc: "시장 방향과 우선 확인 종목을 빠르게 요약합니다.",
-      tags: ["시장 방향", "TOP 3", "리스크 요약"]
+      desc: "시장 방향과 우선 확인 종목을 한 줄 요약으로 빠르게 확인합니다.",
+      tags: ["시장 방향", "TOP 3", "리스크 요약"],
+      tone: "brand"
     },
     {
       title: "AI 종목 분석",
-      desc: "기술지표와 리스크 포인트를 한 화면에서 확인합니다.",
-      tags: ["AI 점수", "지표 해석", "관찰 포인트"]
+      desc: "기술지표, 리스크 포인트, 관찰 조건을 같은 화면에서 확인합니다.",
+      tags: ["AI 점수", "지표 해석", "관찰 포인트"],
+      tone: "violet"
     },
     {
       title: "보유종목 진단",
-      desc: "수익률과 리스크 변화를 기준으로 보유 상태를 점검합니다.",
-      tags: ["수익률", "리스크 변화", "알림 조건"]
+      desc: "수익률 변화와 알림 근접 상태를 기준으로 보유 전략을 점검합니다.",
+      tags: ["수익률", "리스크 변화", "알림 조건"],
+      tone: "emerald"
     },
     {
       title: "기회 레이더",
-      desc: "오늘 확인할 기회/위험 신호를 데이터 기반으로 정리합니다.",
-      tags: ["레이더", "데이터 기준", "위험 구분"]
+      desc: "오늘 확인할 기회·위험 신호를 데이터 기준으로 구분해 보여줍니다.",
+      tags: ["레이더", "데이터 기준", "위험 구분"],
+      tone: "amber"
     }
   ] as const;
   const trustItems = [
     {
       icon: BarChart3,
       title: "데이터 출처",
-      body: "KIS 현재가와 data.go.kr 일별 종가를 함께 참고합니다."
+      body: "현재가는 KIS, 기술지표와 일별 기준값은 data.go.kr 데이터를 기준으로 제공합니다."
     },
     {
       icon: ShieldCheck,
       title: "로컬 모드 우선",
-      body: "로그인 없이도 핵심 기능을 사용하고 브라우저에만 저장할 수 있습니다."
+      body: "로그인 없이도 핵심 기능을 사용할 수 있으며 데이터는 기본적으로 브라우저에 저장됩니다."
     },
     {
       icon: Target,
       title: "투자 참고 정보",
-      body: "매수/매도 추천이 아닌 참고 정보 중심 분석 경험을 제공합니다."
+      body: "매수/매도 추천이 아닌 참고 정보 중심으로 분석 흐름을 제공합니다."
+    }
+  ] as const;
+  const userVoices = [
+    {
+      role: "베타 사용자",
+      comment: "아침에 브리핑과 TOP 3만 먼저 확인해도 점검 순서가 훨씬 명확해졌습니다."
+    },
+    {
+      role: "개인 투자자",
+      comment: "보유종목 리스크 변화와 알림 근접 상태를 함께 보니 재평가 타이밍을 잡기 쉬웠습니다."
     }
   ] as const;
 
@@ -152,13 +173,18 @@ export default async function Home() {
             {previewItems.map((item) => (
               <article
                 key={item.title}
-                className="rounded-xl border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
+                className="rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/50"
               >
-                <h3 className="text-sm font-bold text-ink dark:text-white">{item.title}</h3>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-[15px] font-bold tracking-tight text-ink dark:text-white">{item.title}</h3>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[item.tone]}`}>
+                    핵심
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
                   {item.desc}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {item.tags.map((tag) => (
                     <span
                       key={`${item.title}-${tag}`}
@@ -210,37 +236,104 @@ export default async function Home() {
             </div>
           </div>
 
-          <aside className="rounded-2xl border border-line bg-white/95 p-4 shadow-soft dark:border-dark-line dark:bg-slate-900/75">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-bold text-brand">대시보드 미리보기</p>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                LIVE
+          <aside className="relative overflow-hidden rounded-2xl border border-line/90 bg-white/95 p-4 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.52)] ring-1 ring-slate-200/75 dark:border-dark-line/85 dark:bg-slate-900/80 dark:ring-slate-700/70">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white via-slate-100/70 to-transparent dark:from-slate-900 dark:via-slate-900/70" />
+            <div className="relative -mx-4 -mt-4 mb-3 flex items-center gap-1.5 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-slate-100 px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-slate-700/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm" />
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
+              <span className="ml-2 text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-300">
+                KRX Insight - Dashboard
+              </span>
+              <span className="ml-auto rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">
+                BETA LIVE
               </span>
             </div>
-            <div className="rounded-xl border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  관망
-                </span>
-              </div>
-              <div className="mt-3 space-y-2">
-                {["삼성전자", "SK하이닉스", "NAVER"].map((name, index) => (
-                  <div
-                    key={name}
-                    className="flex items-center justify-between rounded-lg border border-line bg-slate-50 px-2.5 py-2 text-xs dark:border-dark-line dark:bg-slate-900/70"
-                  >
-                    <span className="font-semibold text-slate-700 dark:text-slate-200">{name}</span>
-                    <span className="text-[11px] font-bold text-slate-500">TOP {index + 1}</span>
+            <div className="relative mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold text-brand">대시보드 미리보기</p>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                실시간 흐름
+              </span>
+            </div>
+            <div className="relative rounded-xl border border-line bg-white p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_28px_-20px_rgba(15,23,42,0.4)] dark:border-dark-line dark:bg-dark-panel">
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      관망
+                    </span>
                   </div>
-                ))}
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div className="h-full w-[62%] rounded-full bg-gradient-to-r from-slate-500/80 to-brand/90" />
+                  </div>
+                  <p className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    방향 강도 62%
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">리스크 변화</p>
+                  <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">유지 관찰</p>
+                  <div className="mt-2 flex items-end gap-1.5">
+                    {[18, 23, 21, 27, 24, 31].map((height, index) => (
+                      <div
+                        key={`hero-mini-bar-${index}`}
+                        className="w-2.5 rounded-sm bg-gradient-to-t from-brand/45 to-brand/90"
+                        style={{ height: `${height}px` }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                <div className="h-full w-[71%] rounded-full bg-brand" />
+              <div className="mt-2.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">오늘 먼저 확인할 종목</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">TOP 3</span>
+                </div>
+                <div className="mt-2 space-y-1.5">
+                  {[
+                    { name: "삼성전자", state: "유지 관찰" },
+                    { name: "SK하이닉스", state: "관찰 필요" },
+                    { name: "NAVER", state: "데이터 확인" }
+                  ].map((item, index) => (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between rounded-lg border border-line bg-white px-2.5 py-2 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:border-dark-line dark:bg-dark-panel"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          {index + 1}
+                        </span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">{item.name}</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500">{item.state}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                데이터 기준: KIS + data.go.kr
-              </p>
+              <div className="mt-2.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 흐름 미니 차트</p>
+                <div className="mt-1.5 rounded-md border border-slate-200/70 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/70">
+                  <svg viewBox="0 0 220 64" className="h-14 w-full">
+                    <defs>
+                      <linearGradient id="homeChartLine" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0.4" />
+                      </linearGradient>
+                      <linearGradient id="homeChartFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#60A5FA" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#60A5FA" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0 42 L26 38 L52 41 L78 32 L104 36 L130 24 L156 28 L182 18 L208 20" fill="none" stroke="url(#homeChartLine)" strokeWidth="2.5" />
+                    <path d="M0 42 L26 38 L52 41 L78 32 L104 36 L130 24 L156 28 L182 18 L208 20 L208 64 L0 64 Z" fill="url(#homeChartFill)" />
+                    <line x1="0" y1="49" x2="220" y2="49" stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth="1" />
+                  </svg>
+                </div>
+                <p className="mt-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  데이터 기준: KIS + data.go.kr
+                </p>
+              </div>
             </div>
           </aside>
         </div>
@@ -325,11 +418,16 @@ export default async function Home() {
               key={item.title}
               className="rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/50"
             >
-              <h3 className="text-sm font-bold text-ink dark:text-white">{item.title}</h3>
-              <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-[15px] font-bold tracking-tight text-ink dark:text-white">{item.title}</h3>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[item.tone]}`}>
+                  핵심
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
                 {item.desc}
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
                 {item.tags.map((tag) => (
                   <span
                     key={`${item.title}-${tag}`}
@@ -393,6 +491,19 @@ export default async function Home() {
               </article>
             );
           })}
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {userVoices.map((voice) => (
+            <article
+              key={voice.role}
+              className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-slate-700 dark:bg-slate-900/55"
+            >
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{voice.role}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
+                “{voice.comment}”
+              </p>
+            </article>
+          ))}
         </div>
       </section>
 
