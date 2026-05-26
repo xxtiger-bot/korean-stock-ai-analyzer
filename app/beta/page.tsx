@@ -9,8 +9,9 @@ import {
   ChevronRight,
   Cloud,
   CloudOff,
-  Flame,
   Gift,
+  LineChart,
+  Lock,
   MessageSquareText,
   RefreshCcw,
   Rocket,
@@ -19,11 +20,13 @@ import {
   Sparkles,
   Star,
   Target,
-  TrendingUp
+  TrendingUp,
+  Users
 } from "lucide-react";
 import { FeedbackTrigger } from "@/components/feedback-trigger";
 
 type MissionAction = "link" | "feedback";
+
 type Mission = {
   id: string;
   title: string;
@@ -31,6 +34,14 @@ type Mission = {
   actionLabel: string;
   actionType: MissionAction;
   href?: string;
+};
+
+type PreviewCard = {
+  title: string;
+  description: string;
+  mockLines: string[];
+  tags: string[];
+  href: string;
 };
 
 const MISSION_STORAGE_KEY = "krx_beta_test_mission";
@@ -78,28 +89,50 @@ const missions: Mission[] = [
   }
 ];
 
-const featureCards = [
+const previewCards: PreviewCard[] = [
   {
     title: "오늘 시장 브리핑",
-    description: "KOSPI/KOSDAQ 흐름과 오늘 먼저 확인할 종목을 요약합니다.",
-    tags: ["시장 방향", "한 줄 브리핑", "TOP 3 종목"]
+    description: "시장 방향과 오늘 먼저 확인할 종목을 빠르게 파악합니다.",
+    mockLines: ["시장 방향: 관망", "TOP 3: 삼성전자 · SK하이닉스 · NAVER", "리스크 변화: 유지 관찰"],
+    tags: ["시장 요약", "TOP 3", "한 줄 브리핑"],
+    href: "/"
   },
   {
     title: "AI 종목 분석",
-    description: "기술지표, 수급, 리스크 포인트를 참고용으로 정리합니다.",
-    tags: ["삼성전자 · 005930", "AI 분석 점수", "관찰 포인트"]
+    description: "기술지표와 리스크 포인트를 한 화면에서 확인합니다.",
+    mockLines: ["삼성전자 · 005930", "AI 분석 점수: 74", "관찰 포인트: 거래량 재확인"],
+    tags: ["AI 점수", "기술지표", "관찰 포인트"],
+    href: "/stocks/005930"
   },
   {
     title: "보유종목 리스크 진단",
-    description: "내 보유종목의 수익률, 알림 조건, 리스크 변화를 추적합니다.",
-    tags: ["수익률", "리스크 변화", "알림 근접"]
+    description: "수익률과 리스크 변화를 바탕으로 보유 상태를 점검합니다.",
+    mockLines: ["보유 건강 점수: 82", "리스크 변화: 하락", "알림 조건 근접: 1개"],
+    tags: ["수익률", "리스크 변화", "알림 근접"],
+    href: "/portfolio"
   },
   {
-    title: "관심종목 클라우드 동기화",
-    description: "로그인 후 관심종목을 여러 기기에서 확인할 수 있습니다.",
-    tags: ["관심종목 리스트", "로그인 후 동기화", "멀티 디바이스"]
+    title: "기회 레이더",
+    description: "데이터 기반으로 오늘 눈여겨볼 후보를 정리합니다.",
+    mockLines: ["거래량 이슈: 2종목", "추세 확인 필요: 3종목", "데이터 기준: KIS + data.go.kr"],
+    tags: ["기회 레이더", "데이터 기반", "리스크 구분"],
+    href: "/"
+  },
+  {
+    title: "관심종목 동기화",
+    description: "로그인 후 관심종목을 여러 기기에서 이어서 확인합니다.",
+    mockLines: ["관심종목: 5개", "클라우드 동기화 상태: 정상", "로컬 모드 fallback 지원"],
+    tags: ["클라우드", "멀티 디바이스", "fallback"],
+    href: "/mypage"
+  },
+  {
+    title: "AI 리포트 저장",
+    description: "오늘의 분석 결과를 저장하고 다시 확인할 수 있습니다.",
+    mockLines: ["오늘 리포트 저장: 1회", "최근 리포트: 3건", "리포트 공유: 복사/이미지"],
+    tags: ["리포트", "저장", "공유"],
+    href: "/portfolio#reports"
   }
-] as const;
+];
 
 const trustCards = [
   {
@@ -113,14 +146,25 @@ const trustCards = [
     body: "매수/매도 추천이 아니라 투자 판단을 돕는 참고 정보입니다."
   },
   {
-    icon: ShieldCheck,
-    title: "개인정보 보호",
-    body: "로그인 없이도 기본 기능을 사용할 수 있으며, 클라우드 동기화는 로그인 후 선택적으로 사용합니다."
+    icon: Lock,
+    title: "로컬 모드 우선",
+    body: "로그인 없이도 주요 기능을 체험할 수 있으며, 데이터는 브라우저에 저장됩니다."
   },
   {
     icon: BadgeCheck,
     title: "베타 투명성",
-    body: "현재 MVP 베타 단계이며, 일부 데이터는 지연되거나 확인이 필요할 수 있습니다."
+    body: "현재 MVP 베타 단계이며 일부 데이터는 지연되거나 확인이 필요할 수 있습니다."
+  }
+] as const;
+
+const userVoices = [
+  {
+    role: "베타 테스터",
+    comment: "시장 브리핑이 짧고 명확해서 아침 점검 시간이 줄었습니다."
+  },
+  {
+    role: "개인 투자자",
+    comment: "보유종목 리스크 변화를 한눈에 볼 수 있어 관찰 흐름이 좋아졌습니다."
   }
 ] as const;
 
@@ -154,7 +198,7 @@ function writeMissionState(next: Record<string, boolean>) {
   try {
     window.localStorage.setItem(MISSION_STORAGE_KEY, JSON.stringify(next));
   } catch {
-    // localStorage 저장 실패는 무시합니다.
+    // localStorage 저장 실패 시에도 페이지 동작은 유지합니다.
   }
 }
 
@@ -167,6 +211,53 @@ function ActionLinkButton({ href, label }: { href: string; label: string }) {
       {label}
       <ChevronRight className="h-3.5 w-3.5" />
     </Link>
+  );
+}
+
+function ScreenshotCard({ card }: { card: PreviewCard }) {
+  return (
+    <article className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+      <div className="rounded-xl border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400">UI PREVIEW</p>
+          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-bold text-brand">
+            SCREEN
+          </span>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {card.mockLines.map((line) => (
+            <div
+              key={`${card.title}-${line}`}
+              className="rounded-md border border-line bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          <div className="h-full w-[62%] rounded-full bg-brand" />
+        </div>
+      </div>
+      <h3 className="mt-3 text-sm font-bold text-ink dark:text-white sm:text-base">{card.title}</h3>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{card.description}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {card.tags.map((tag) => (
+          <span
+            key={`${card.title}-${tag}`}
+            className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+      <Link
+        href={card.href}
+        className="mt-3 inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900 sm:text-sm"
+      >
+        미리보기 열기
+        <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
+    </article>
   );
 }
 
@@ -238,32 +329,32 @@ export default function BetaPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-      <div className="space-y-4">
+    <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="space-y-6 sm:space-y-7">
         {showRefNotice ? (
           <section className="rounded-xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-semibold text-brand dark:border-brand/40 dark:bg-brand/15">
             초대 링크로 방문했습니다. 로그인하면 초대한 사용자에게 Pro 리워드가 지급됩니다.
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-6">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="rounded-3xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-7">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="min-w-0">
               <p className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-bold text-brand">
-                <Flame className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5" />
                 Beta Program
               </p>
-              <h1 className="mt-3 text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
+              <h1 className="mt-3 text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-4xl">
                 KRX Insight 베타 테스트
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200 sm:text-base">
                 한국 주식 AI 분석, 오늘 시장 브리핑, 보유종목 리스크 진단을 무료로 테스트해보세요.
               </p>
-              <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300 sm:text-base">
                 5분이면 관심종목 검색부터 AI 분석, 보유종목 리스크 점검까지 확인할 수 있습니다.
               </p>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {["오늘 시장 브리핑", "AI 종목 분석", "보유종목 리스크 추적"].map((item) => (
                   <span
                     key={item}
@@ -277,14 +368,14 @@ export default function BetaPage() {
               <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
                 <Link
                   href="/#search"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
                 >
                   <Rocket className="h-4 w-4" />
-                  지금 바로 테스트 시작하기
+                  지금 바로 무료 테스트 시작하기
                 </Link>
                 <Link
                   href="/stocks/005930"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
                 >
                   <TrendingUp className="h-4 w-4" />
                   삼성전자 분석 예시 보기
@@ -292,14 +383,19 @@ export default function BetaPage() {
                 <FeedbackTrigger
                   label="피드백 보내기"
                   source="beta-hero"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
                 />
               </div>
             </div>
 
-            <aside className="rounded-2xl border border-line bg-white/90 p-4 dark:border-dark-line dark:bg-slate-900/70">
-              <p className="text-xs font-bold text-brand">제품 미리보기</p>
-              <h2 className="mt-1 text-sm font-bold text-ink dark:text-white">오늘 시장 브리핑</h2>
+            <aside className="rounded-2xl border border-line bg-white/90 p-4 shadow-soft dark:border-dark-line dark:bg-slate-900/70">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-brand">PRODUCT PREVIEW</p>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  LIVE MOCKUP
+                </span>
+              </div>
+              <h2 className="mt-2 text-sm font-bold text-ink dark:text-white">오늘 시장 브리핑</h2>
 
               <div className="mt-3 rounded-xl border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
                 <div className="flex items-center justify-between gap-2">
@@ -308,34 +404,32 @@ export default function BetaPage() {
                     관망
                   </span>
                 </div>
-
                 <div className="mt-3 space-y-2">
                   {["삼성전자", "SK하이닉스", "NAVER"].map((name, index) => (
                     <div
                       key={name}
-                      className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-2 text-xs dark:bg-slate-900/70"
+                      className="flex items-center justify-between rounded-lg border border-line bg-slate-50 px-2.5 py-2 text-xs dark:border-dark-line dark:bg-slate-900/70"
                     >
                       <span className="font-semibold text-slate-700 dark:text-slate-200">{name}</span>
                       <span className="text-[11px] font-bold text-slate-500">TOP {index + 1}</span>
                     </div>
                   ))}
                 </div>
-
                 <div className="mt-3 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-900/70">
                   <div className="flex items-end gap-1.5">
-                    {[28, 36, 30, 44, 34, 48].map((height, index) => (
+                    {[24, 30, 26, 34, 28, 38].map((height, index) => (
                       <div
-                        key={`mini-bar-${index}`}
-                        className="w-3 rounded-sm bg-brand/80"
+                        key={`preview-bar-${index}`}
+                        className="w-3 rounded-sm bg-brand/85"
                         style={{ height: `${height}px` }}
                       />
                     ))}
                   </div>
-                  <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    리스크 변화: 유지 관찰
-                  </p>
+                  <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    <span>리스크 변화: 유지 관찰</span>
+                    <LineChart className="h-3.5 w-3.5" />
+                  </div>
                 </div>
-
                 <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   데이터 기준: KIS + data.go.kr
                 </p>
@@ -345,40 +439,19 @@ export default function BetaPage() {
         </section>
 
         <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-          <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">핵심 기능 미리보기</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">핵심 기능 미리보기</h2>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              4~6개 핵심 화면
+            </span>
+          </div>
           <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-            KRX Insight에서 테스트할 수 있는 주요 기능입니다.
+            베타 테스트에서 실제로 확인할 수 있는 주요 흐름을 먼저 살펴보세요.
           </p>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {featureCards.map((feature) => (
-              <article
-                key={feature.title}
-                className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45"
-              >
-                <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-bold text-ink dark:text-white">{feature.title}</h3>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      Preview
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {feature.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
-                    <div className="h-full w-[68%] rounded-full bg-brand" />
-                  </div>
-                </div>
-                <p className="mt-2.5 text-sm text-slate-600 dark:text-slate-300">{feature.description}</p>
-              </article>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {previewCards.map((card) => (
+              <ScreenshotCard key={card.title} card={card} />
             ))}
           </div>
         </section>
@@ -388,7 +461,7 @@ export default function BetaPage() {
             <div>
               <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">5분 테스트 미션</h2>
               <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-                아래 5가지만 확인하면 KRX Insight의 핵심 기능을 빠르게 테스트할 수 있습니다.
+                아래 5가지만 완료하면 KRX Insight의 핵심 흐름을 빠르게 체험할 수 있습니다.
               </p>
             </div>
             <button
@@ -498,12 +571,43 @@ export default function BetaPage() {
                   href="/mypage"
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
-                  <Star className="h-4 w-4" />
+                  <Users className="h-4 w-4" />
                   친구에게 공유하기
                 </Link>
               </div>
             </div>
           ) : null}
+        </section>
+
+        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+          <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">처음 사용 가이드</h2>
+          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+            처음 방문했다면 아래 순서대로 진행하면 빠르게 적응할 수 있습니다.
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+              <p className="text-xs font-bold text-brand">STEP 1</p>
+              <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">종목 검색</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                관심 종목 코드를 검색하고 상세 화면에서 흐름을 확인하세요.
+              </p>
+            </article>
+            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+              <p className="text-xs font-bold text-brand">STEP 2</p>
+              <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">보유종목 등록</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                매수가와 수량을 등록하면 리스크 변화 추적과 알림 점검이 가능합니다.
+              </p>
+            </article>
+            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+              <p className="text-xs font-bold text-brand">STEP 3</p>
+              <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">피드백 전달</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                불편했던 지점을 피드백으로 남겨주시면 베타 개선에 빠르게 반영됩니다.
+              </p>
+            </article>
+          </div>
         </section>
 
         <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
@@ -528,6 +632,18 @@ export default function BetaPage() {
                 </article>
               );
             })}
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {userVoices.map((voice, index) => (
+              <article
+                key={`${voice.role}-${index}`}
+                className="rounded-xl border border-line bg-white p-4 dark:border-dark-line dark:bg-slate-900/40"
+              >
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{voice.role}</p>
+                <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">“{voice.comment}”</p>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -597,19 +713,23 @@ export default function BetaPage() {
           <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
             <Link
               href="/#search"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
             >
               <Search className="h-4 w-4" />
-              지금 바로 테스트 시작하기
+              지금 바로 무료 테스트 시작하기
             </Link>
             <FeedbackTrigger
               label="피드백 보내기"
               source="beta-bottom-cta"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
             />
           </div>
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            이 페이지의 내용은 투자 참고를 위한 제품 소개이며, 매수/매도 추천이 아닙니다.
+          </p>
         </section>
       </div>
     </main>
   );
 }
+
