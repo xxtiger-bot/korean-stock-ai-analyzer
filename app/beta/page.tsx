@@ -52,6 +52,14 @@ const primaryCtaClass =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg dark:bg-brand dark:hover:bg-blue-500";
 const secondaryCtaClass =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900";
+const completePrimaryClass =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-md transition hover:-translate-y-1 hover:bg-slate-800 hover:shadow-xl dark:bg-brand dark:hover:bg-blue-500";
+const completeOutlineClass =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-brand/60 bg-transparent px-4 text-sm font-bold text-brand shadow-sm transition hover:-translate-y-0.5 hover:bg-brand/10 hover:shadow-md";
+const completeSoftClass =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand/12 px-4 text-sm font-semibold text-brand transition hover:-translate-y-0.5 hover:bg-brand/20";
+const completeTextClass =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100";
 
 const missions: Mission[] = [
   {
@@ -394,13 +402,13 @@ export default function BetaPage() {
               </div>
             </div>
 
-            <aside className="relative overflow-hidden rounded-2xl border border-line bg-white/95 p-4 shadow-soft ring-1 ring-slate-100 dark:border-dark-line dark:bg-slate-900/75 dark:ring-slate-800">
-              <div className="mb-3 flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            <aside className="relative overflow-hidden rounded-2xl border border-line bg-white/95 p-4 shadow-[0_20px_45px_-24px_rgba(15,23,42,0.45)] ring-1 ring-slate-100 dark:border-dark-line dark:bg-slate-900/75 dark:ring-slate-800">
+              <div className="-mx-4 -mt-4 mb-3 flex items-center gap-1.5 border-b border-slate-200/75 bg-gradient-to-r from-slate-50 to-white px-4 py-2.5 dark:border-slate-700/70 dark:from-slate-900 dark:to-slate-850">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
                 <span className="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  KRX Insight Preview
+                  KRX Insight - Dashboard
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -411,41 +419,48 @@ export default function BetaPage() {
               </div>
               <h2 className="mt-2 text-sm font-bold text-ink dark:text-white">오늘 시장 브리핑</h2>
 
-              <div className="mt-3 rounded-xl border border-line bg-white p-3 shadow-sm dark:border-dark-line dark:bg-dark-panel">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                    관망
-                  </span>
+              <div className="mt-3 rounded-xl border border-line bg-white p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_20px_-16px_rgba(15,23,42,0.35)] dark:border-dark-line dark:bg-dark-panel">
+                <div className="rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 dark:border-slate-700 dark:bg-slate-900/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      관망
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {["삼성전자", "SK하이닉스", "NAVER"].map((name, index) => (
-                    <div
-                      key={name}
-                      className="flex items-center justify-between rounded-lg border border-line bg-slate-50 px-2.5 py-2 text-xs dark:border-dark-line dark:bg-slate-900/70"
-                    >
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">{name}</span>
-                      <span className="text-[11px] font-bold text-slate-500">TOP {index + 1}</span>
-                    </div>
-                  ))}
+                <div className="mt-3 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 dark:border-slate-700 dark:bg-slate-900/70">
+                  <div className="space-y-2">
+                    {["삼성전자", "SK하이닉스", "NAVER"].map((name, index) => (
+                      <div
+                        key={name}
+                        className="flex items-center justify-between rounded-lg border border-line bg-white px-2.5 py-2 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:border-dark-line dark:bg-dark-panel"
+                      >
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">{name}</span>
+                        <span className="text-[11px] font-bold text-slate-500">TOP {index + 1}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-3 rounded-lg border border-line bg-slate-50 p-2.5 dark:border-dark-line dark:bg-slate-900/70">
+
+                <div className="mt-3 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 dark:border-slate-700 dark:bg-slate-900/70">
                   <div className="flex items-end gap-1.5">
                     {[24, 30, 26, 34, 28, 38].map((height, index) => (
                       <div
                         key={`preview-bar-${index}`}
-                        className="w-3 rounded-sm bg-brand/85"
+                        className="w-3 rounded-sm bg-gradient-to-t from-brand/60 to-brand/95"
                         style={{ height: `${height}px` }}
                       />
                     ))}
                   </div>
+                  <div className="mt-2 h-[2px] w-full rounded-full bg-slate-300/80 dark:bg-slate-600/80" />
                   <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                     <span>리스크 변화: 유지 관찰</span>
                     <LineChart className="h-3.5 w-3.5" />
                   </div>
                 </div>
+
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                  <div className="h-full w-[74%] rounded-full bg-brand/80" />
+                  <div className="h-full w-[74%] rounded-full bg-gradient-to-r from-brand/70 to-brand" />
                 </div>
                 <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   데이터 기준: KIS + data.go.kr
@@ -571,29 +586,31 @@ export default function BetaPage() {
               <p className="mt-1 text-sm text-slate-700">
                 테스트에 참여해주셔서 감사합니다. 다음 단계로 이동해 실제 사용 흐름을 계속 확인해보세요.
               </p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <div className="mt-4">
                 <Link
                   href="/#search"
-                  className={`${primaryCtaClass} w-full sm:w-auto sm:min-w-[210px]`}
+                  className={`${completePrimaryClass} w-full sm:min-w-[220px] sm:w-auto`}
                 >
                   <Rocket className="h-4 w-4" />
                   계속 사용하기
                 </Link>
+              </div>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <FeedbackTrigger
                   label="제출 상세 피드백"
                   source="beta-mission-complete"
-                  className={`${secondaryCtaClass} w-full bg-white/95 sm:w-auto`}
+                  className={`${completeOutlineClass} w-full sm:w-auto`}
                 />
                 <Link
                   href="/pricing#pro"
-                  className={`${secondaryCtaClass} w-full bg-white/95 sm:w-auto`}
+                  className={`${completeSoftClass} w-full sm:w-auto`}
                 >
                   <Gift className="h-4 w-4" />
                   Pro 알림 신청
                 </Link>
                 <Link
                   href="/mypage"
-                  className={`${secondaryCtaClass} w-full bg-white/95 sm:w-auto`}
+                  className={`${completeTextClass} w-full sm:w-auto`}
                 >
                   <Users className="h-4 w-4" />
                   친구에게 공유하기
