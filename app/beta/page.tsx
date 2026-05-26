@@ -47,11 +47,11 @@ const MISSION_STORAGE_KEY = "krx_beta_test_mission";
 const REF_STORAGE_KEY = "krx_referral_code";
 
 const sectionCardClass =
-  "rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6";
+  "rounded-2xl border border-line bg-white p-5 shadow-soft transition-shadow hover:shadow-lg dark:border-dark-line dark:bg-dark-panel sm:p-6";
 const primaryCtaClass =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg dark:bg-brand dark:hover:bg-blue-500";
 const secondaryCtaClass =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900";
 
 const missions: Mission[] = [
   {
@@ -166,11 +166,11 @@ const trustCards = [
 const userVoices = [
   {
     role: "베타 테스터",
-    comment: "시장 브리핑이 짧고 명확해서 아침 점검 시간이 줄었습니다."
+    comment: "아침에 시장 방향과 확인 종목 TOP 3만 먼저 보고 빠르게 체크할 수 있어 편했습니다."
   },
   {
     role: "개인 투자자",
-    comment: "보유종목 리스크 변화를 한눈에 볼 수 있어 관찰 흐름이 좋아졌습니다."
+    comment: "보유종목 수익률 변화와 알림 조건 근접 상태를 함께 보니 리스크 점검 순서가 명확해졌습니다."
   }
 ] as const;
 
@@ -222,7 +222,7 @@ function ActionLinkButton({ href, label }: { href: string; label: string }) {
 
 function ScreenshotCard({ card }: { card: PreviewCard }) {
   return (
-    <article className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+    <article className="rounded-2xl border border-line bg-white p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel">
       <div className="rounded-xl border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-500 dark:text-slate-400">UI PREVIEW</p>
@@ -258,7 +258,7 @@ function ScreenshotCard({ card }: { card: PreviewCard }) {
       </div>
       <Link
         href={card.href}
-        className="mt-3 inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900 sm:text-sm"
+        className="mt-3 inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 hover:shadow-sm dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900 sm:text-sm"
       >
         미리보기 열기
         <ChevronRight className="h-3.5 w-3.5" />
@@ -394,7 +394,15 @@ export default function BetaPage() {
               </div>
             </div>
 
-            <aside className="rounded-2xl border border-line bg-white/90 p-4 shadow-soft dark:border-dark-line dark:bg-slate-900/70">
+            <aside className="relative overflow-hidden rounded-2xl border border-line bg-white/95 p-4 shadow-soft ring-1 ring-slate-100 dark:border-dark-line dark:bg-slate-900/75 dark:ring-slate-800">
+              <div className="mb-3 flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                <span className="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  KRX Insight Preview
+                </span>
+              </div>
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-brand">제품 미리보기</p>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -403,7 +411,7 @@ export default function BetaPage() {
               </div>
               <h2 className="mt-2 text-sm font-bold text-ink dark:text-white">오늘 시장 브리핑</h2>
 
-              <div className="mt-3 rounded-xl border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
+              <div className="mt-3 rounded-xl border border-line bg-white p-3 shadow-sm dark:border-dark-line dark:bg-dark-panel">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -421,7 +429,7 @@ export default function BetaPage() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-900/70">
+                <div className="mt-3 rounded-lg border border-line bg-slate-50 p-2.5 dark:border-dark-line dark:bg-slate-900/70">
                   <div className="flex items-end gap-1.5">
                     {[24, 30, 26, 34, 28, 38].map((height, index) => (
                       <div
@@ -435,6 +443,9 @@ export default function BetaPage() {
                     <span>리스크 변화: 유지 관찰</span>
                     <LineChart className="h-3.5 w-3.5" />
                   </div>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div className="h-full w-[74%] rounded-full bg-brand/80" />
                 </div>
                 <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   데이터 기준: KIS + data.go.kr
@@ -555,7 +566,7 @@ export default function BetaPage() {
           </div>
 
           {allComplete ? (
-            <div className="mt-5 rounded-xl border border-mint/40 bg-mint/10 p-4 sm:p-5">
+            <div className="mt-5 rounded-xl border border-mint/40 bg-gradient-to-r from-mint/10 to-emerald-50 p-4 shadow-sm sm:p-5 dark:to-emerald-900/15">
               <h3 className="text-base font-bold text-ink">베타 테스트 미션 완료!</h3>
               <p className="mt-1 text-sm text-slate-700">
                 테스트에 참여해주셔서 감사합니다. 다음 단계로 이동해 실제 사용 흐름을 계속 확인해보세요.
@@ -563,7 +574,7 @@ export default function BetaPage() {
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Link
                   href="/#search"
-                  className={`${primaryCtaClass} w-full sm:w-auto`}
+                  className={`${primaryCtaClass} w-full sm:w-auto sm:min-w-[210px]`}
                 >
                   <Rocket className="h-4 w-4" />
                   계속 사용하기
@@ -571,18 +582,18 @@ export default function BetaPage() {
                 <FeedbackTrigger
                   label="제출 상세 피드백"
                   source="beta-mission-complete"
-                  className={`${secondaryCtaClass} w-full sm:w-auto`}
+                  className={`${secondaryCtaClass} w-full bg-white/95 sm:w-auto`}
                 />
                 <Link
                   href="/pricing#pro"
-                  className={`${secondaryCtaClass} w-full sm:w-auto`}
+                  className={`${secondaryCtaClass} w-full bg-white/95 sm:w-auto`}
                 >
                   <Gift className="h-4 w-4" />
                   Pro 알림 신청
                 </Link>
                 <Link
                   href="/mypage"
-                  className={`${secondaryCtaClass} w-full sm:w-auto`}
+                  className={`${secondaryCtaClass} w-full bg-white/95 sm:w-auto`}
                 >
                   <Users className="h-4 w-4" />
                   친구에게 공유하기
