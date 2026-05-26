@@ -12,7 +12,6 @@ import {
   Gift,
   LineChart,
   Lock,
-  MessageSquareText,
   RefreshCcw,
   Rocket,
   Search,
@@ -46,6 +45,13 @@ type PreviewCard = {
 
 const MISSION_STORAGE_KEY = "krx_beta_test_mission";
 const REF_STORAGE_KEY = "krx_referral_code";
+
+const sectionCardClass =
+  "rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6";
+const primaryCtaClass =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500";
+const secondaryCtaClass =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900";
 
 const missions: Mission[] = [
   {
@@ -329,16 +335,16 @@ export default function BetaPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="space-y-6 sm:space-y-7">
+    <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+      <div className="space-y-8 sm:space-y-10">
         {showRefNotice ? (
           <section className="rounded-xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-semibold text-brand dark:border-brand/40 dark:bg-brand/15">
             초대 링크로 방문했습니다. 로그인하면 초대한 사용자에게 Pro 리워드가 지급됩니다.
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-7">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="rounded-3xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-8">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="min-w-0">
               <p className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-bold text-brand">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -365,17 +371,17 @@ export default function BetaPage() {
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+              <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
                 <Link
                   href="/#search"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
+                  className={`${primaryCtaClass} w-full sm:w-auto`}
                 >
                   <Rocket className="h-4 w-4" />
                   지금 바로 무료 테스트 시작하기
                 </Link>
                 <Link
                   href="/stocks/005930"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
+                  className={`${secondaryCtaClass} w-full sm:w-auto`}
                 >
                   <TrendingUp className="h-4 w-4" />
                   삼성전자 분석 예시 보기
@@ -383,16 +389,16 @@ export default function BetaPage() {
                 <FeedbackTrigger
                   label="피드백 보내기"
                   source="beta-hero"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
+                  className={`${secondaryCtaClass} w-full sm:w-auto`}
                 />
               </div>
             </div>
 
             <aside className="rounded-2xl border border-line bg-white/90 p-4 shadow-soft dark:border-dark-line dark:bg-slate-900/70">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-brand">PRODUCT PREVIEW</p>
+                <p className="text-xs font-bold text-brand">제품 미리보기</p>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  LIVE MOCKUP
+                  대시보드 목업
                 </span>
               </div>
               <h2 className="mt-2 text-sm font-bold text-ink dark:text-white">오늘 시장 브리핑</h2>
@@ -438,7 +444,7 @@ export default function BetaPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <section className={sectionCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">핵심 기능 미리보기</h2>
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -449,14 +455,14 @@ export default function BetaPage() {
             베타 테스트에서 실제로 확인할 수 있는 주요 흐름을 먼저 살펴보세요.
           </p>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {previewCards.map((card) => (
               <ScreenshotCard key={card.title} card={card} />
             ))}
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <section className={sectionCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">5분 테스트 미션</h2>
@@ -467,7 +473,7 @@ export default function BetaPage() {
             <button
               type="button"
               onClick={resetMission}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-dark-line dark:text-slate-300 dark:hover:bg-slate-900/70"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-dark-line dark:text-slate-300 dark:hover:bg-slate-900/70"
             >
               <RefreshCcw className="h-4 w-4" />
               진행 상황 초기화
@@ -491,7 +497,7 @@ export default function BetaPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-5 grid gap-3.5">
             {missions.map((mission, index) => {
               const done = Boolean(missionState[mission.id]);
               return (
@@ -549,27 +555,34 @@ export default function BetaPage() {
           </div>
 
           {allComplete ? (
-            <div className="mt-4 rounded-xl border border-mint/40 bg-mint/10 p-4">
+            <div className="mt-5 rounded-xl border border-mint/40 bg-mint/10 p-4 sm:p-5">
               <h3 className="text-base font-bold text-ink">베타 테스트 미션 완료!</h3>
               <p className="mt-1 text-sm text-slate-700">
-                피드백을 남겨주시면 제품 개선에 큰 도움이 됩니다.
+                테스트에 참여해주셔서 감사합니다. 다음 단계로 이동해 실제 사용 흐름을 계속 확인해보세요.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Link
+                  href="/#search"
+                  className={`${primaryCtaClass} w-full sm:w-auto`}
+                >
+                  <Rocket className="h-4 w-4" />
+                  계속 사용하기
+                </Link>
                 <FeedbackTrigger
-                  label="피드백 보내기"
+                  label="제출 상세 피드백"
                   source="beta-mission-complete"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                  className={`${secondaryCtaClass} w-full sm:w-auto`}
                 />
                 <Link
                   href="/pricing#pro"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  className={`${secondaryCtaClass} w-full sm:w-auto`}
                 >
                   <Gift className="h-4 w-4" />
                   Pro 알림 신청
                 </Link>
                 <Link
                   href="/mypage"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  className={`${secondaryCtaClass} w-full sm:w-auto`}
                 >
                   <Users className="h-4 w-4" />
                   친구에게 공유하기
@@ -579,13 +592,13 @@ export default function BetaPage() {
           ) : null}
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <section className={sectionCardClass}>
           <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">처음 사용 가이드</h2>
           <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
             처음 방문했다면 아래 순서대로 진행하면 빠르게 적응할 수 있습니다.
           </p>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
             <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
               <p className="text-xs font-bold text-brand">STEP 1</p>
               <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">종목 검색</h3>
@@ -610,11 +623,11 @@ export default function BetaPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <section className={sectionCardClass}>
           <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">
             왜 믿고 테스트할 수 있나요?
           </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
             {trustCards.map((card) => {
               const Icon = card.icon;
               return (
@@ -634,7 +647,7 @@ export default function BetaPage() {
             })}
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
             {userVoices.map((voice, index) => (
               <article
                 key={`${voice.role}-${index}`}
@@ -647,11 +660,11 @@ export default function BetaPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <section className={sectionCardClass}>
           <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">
             로컬 모드와 클라우드 동기화
           </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
               <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 <CloudOff className="h-3.5 w-3.5" />
@@ -680,24 +693,24 @@ export default function BetaPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <section className={sectionCardClass}>
           <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">베타 참여 혜택</h2>
           <ul className="mt-3 space-y-1.5 text-sm leading-6 text-slate-600 dark:text-slate-300">
             <li>- 친구를 초대하면 Pro 3일 체험권을 받을 수 있습니다.</li>
             <li>- 좋은 피드백은 정식 출시 기능 개선에 우선 반영됩니다.</li>
             <li>- Pro 알림 신청자는 정식 출시 소식을 먼저 받을 수 있습니다.</li>
           </ul>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
             <Link
               href="/mypage"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
+              className={`${secondaryCtaClass} w-full sm:w-auto`}
             >
               <Star className="h-4 w-4" />
               내 초대 링크 보기
             </Link>
             <Link
               href="/pricing#pro"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
+              className={`${primaryCtaClass} w-full sm:w-auto`}
             >
               <Gift className="h-4 w-4" />
               Pro 알림 신청
@@ -713,7 +726,7 @@ export default function BetaPage() {
           <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
             <Link
               href="/#search"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
+              className={`${primaryCtaClass} w-full sm:w-auto`}
             >
               <Search className="h-4 w-4" />
               지금 바로 무료 테스트 시작하기
@@ -721,7 +734,7 @@ export default function BetaPage() {
             <FeedbackTrigger
               label="피드백 보내기"
               source="beta-bottom-cta"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900"
+              className={`${secondaryCtaClass} w-full sm:w-auto`}
             />
           </div>
           <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
@@ -732,4 +745,3 @@ export default function BetaPage() {
     </main>
   );
 }
-
