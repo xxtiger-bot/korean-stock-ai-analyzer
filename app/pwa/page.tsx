@@ -95,15 +95,17 @@ function InstallStepCard({ title, steps, platform, screenshotMap }: InstallStepC
               <p className="pt-0.5 text-sm font-semibold leading-5 text-slate-700 dark:text-slate-200">{step}</p>
             </div>
             {screenshotMap?.[index + 1] ? (
-              <div className="mt-2 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900/70">
-                <Image
-                  src={screenshotMap[index + 1].src}
-                  alt={screenshotMap[index + 1].alt}
-                  width={1080}
-                  height={2340}
-                  className="h-auto max-h-[440px] w-full rounded-lg object-contain"
-                  sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 420px"
-                />
+              <div className="mt-3 overflow-hidden rounded-xl border border-line bg-slate-50 p-2 shadow-sm dark:border-dark-line dark:bg-slate-900/60">
+                <div className="relative w-full rounded-lg border border-slate-200/80 bg-white/90 p-1 dark:border-slate-700 dark:bg-slate-900/80">
+                  <Image
+                    src={screenshotMap[index + 1].src}
+                    alt={screenshotMap[index + 1].alt}
+                    width={1080}
+                    height={2340}
+                    className="h-auto max-h-[280px] w-full rounded-md object-contain"
+                    sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 420px"
+                  />
+                </div>
               </div>
             ) : (
               <ScreenshotPlaceholder label={`${platform} Step ${index + 1}`} />
