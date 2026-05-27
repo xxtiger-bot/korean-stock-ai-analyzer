@@ -30,6 +30,11 @@ const previewToneClass: Record<"brand" | "violet" | "emerald" | "amber", string>
   amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/35 dark:text-amber-200"
 };
 
+const cardShellClass =
+  "rounded-2xl border border-line/90 bg-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel";
+const cardSubtleClass =
+  "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
+
 export default async function Home() {
   const [
     fetchedAllStocks,
@@ -151,7 +156,7 @@ export default async function Home() {
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
       <section className="md:hidden">
-        <section className="mb-3 rounded-2xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-4 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950">
+        <section className="mb-4 rounded-2xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-4 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950">
           <p className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold text-brand">
             <Sparkles className="h-3.5 w-3.5" />
             KRX Insight
@@ -176,7 +181,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="mb-3">
+        <section className="mb-4">
           <HomeBetaOnboarding compact />
         </section>
 
@@ -186,19 +191,19 @@ export default async function Home() {
           sectionId="home-morning-brief"
         />
 
-        <section className="mt-3">
+        <section className="mt-4">
           <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
         </section>
 
-        <section id="search" className="mt-3">
+        <section id="search" className="mt-4">
           <StockSearch stocks={safeAllStocks} />
         </section>
 
-        <section id="home-interest" className="mt-3">
+        <section id="home-interest" className="mt-4">
           <StockCardGrid title="인기 종목" stocks={mobilePopularStocks} />
         </section>
 
-        <section className="mt-3 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <section className={`mt-4 p-4 ${cardShellClass}`}>
           <h2 className="text-base font-bold text-ink dark:text-white">핵심 기능 미리보기</h2>
           <div className="mt-3 grid gap-2.5">
             {previewItems.map((item) => (
@@ -232,8 +237,8 @@ export default async function Home() {
       </section>
 
       <div className="hidden md:block">
-      <section className="mb-3 rounded-3xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_410px]">
+      <section className="mb-4 rounded-3xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_410px]">
           <div className="min-w-0">
             <p className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-bold text-brand">
               <Sparkles className="h-3.5 w-3.5" />
@@ -267,14 +272,17 @@ export default async function Home() {
             </div>
           </div>
 
-          <aside className="relative overflow-hidden rounded-2xl border border-line/90 bg-white/95 p-4 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.52)] ring-1 ring-slate-200/75 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:1px_520px] dark:border-dark-line/85 dark:bg-slate-900/80 dark:ring-slate-700/70">
+          <aside className="relative overflow-hidden rounded-2xl border border-line/90 bg-white/95 p-4 shadow-[0_40px_88px_-36px_rgba(15,23,42,0.62)] ring-1 ring-slate-200/80 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:1px_520px] dark:border-dark-line/85 dark:bg-slate-900/80 dark:ring-slate-700/75">
+            <div className="pointer-events-none absolute inset-px rounded-[15px] border border-white/70 dark:border-slate-600/45" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white via-slate-100/70 to-transparent dark:from-slate-900 dark:via-slate-900/70" />
-            <div className="relative -mx-4 -mt-4 mb-3 flex items-center gap-1.5 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-slate-100 px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-slate-700/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.08),transparent_55%)] dark:bg-[radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.25),transparent_55%)]" />
+            <div className="relative -mx-4 -mt-4 mb-3 flex items-center gap-1.5 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-slate-100 px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-1px_0_rgba(148,163,184,0.2)] dark:border-slate-700/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm" />
               <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" />
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
               <span className="ml-2 text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-300">
-                KRX Insight - Dashboard
+                KRX Insight - Portfolio Dashboard
               </span>
               <span className="ml-auto rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">
                 BETA LIVE
@@ -286,9 +294,9 @@ export default async function Home() {
                 실시간 흐름
               </span>
             </div>
-            <div className="relative rounded-xl border border-line bg-white p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_28px_-20px_rgba(15,23,42,0.4)] dark:border-dark-line dark:bg-dark-panel">
+            <div className="relative rounded-xl border border-line/90 bg-gradient-to-b from-white to-slate-50/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-1px_0_rgba(148,163,184,0.2),0_18px_38px_-24px_rgba(15,23,42,0.48)] dark:border-dark-line dark:bg-gradient-to-b dark:from-dark-panel dark:to-slate-900/90">
               <div className="grid gap-2.5 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+                <div className="rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -302,7 +310,7 @@ export default async function Home() {
                     방향 강도 62%
                   </p>
                 </div>
-                <div className="rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+                <div className="rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">리스크 변화</p>
                   <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">유지 관찰</p>
                   <div className="mt-2 flex items-end gap-1.5">
@@ -316,7 +324,7 @@ export default async function Home() {
                   </div>
                 </div>
               </div>
-              <div className="mt-2.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+              <div className="mt-2.5 rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">오늘 먼저 확인할 종목</span>
                   <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">TOP 3</span>
@@ -342,12 +350,12 @@ export default async function Home() {
                   ))}
                 </div>
               </div>
-              <div className="mt-2.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
+              <div className="mt-2.5 rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 흐름 미니 차트</p>
                 <div className="mt-1.5 rounded-md border border-slate-200/70 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/70">
                   <svg
                     viewBox="0 0 220 64"
-                    className="h-14 w-full text-brand/90"
+                    className="h-14 w-full text-brand/95"
                     preserveAspectRatio="none"
                     aria-hidden="true"
                   >
@@ -355,11 +363,23 @@ export default async function Home() {
                       points="0,42 26,38 52,41 78,32 104,36 130,24 156,28 182,18 208,20"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="2.25"
+                      strokeOpacity="0.18"
+                      strokeWidth="5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
-                    <line x1="0" y1="49" x2="220" y2="49" stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth="1" />
+                    <polyline
+                      points="0,42 26,38 52,41 78,32 104,36 130,24 156,28 182,18 208,20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {[26, 78, 130, 182].map((x, idx) => (
+                      <circle key={`hero-mini-point-${idx}`} cx={x} cy={[38, 32, 24, 18][idx]} r="1.6" fill="currentColor" />
+                    ))}
+                    <line x1="0" y1="50" x2="220" y2="50" stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth="1" />
                   </svg>
                 </div>
                 <p className="mt-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -370,22 +390,22 @@ export default async function Home() {
           </aside>
         </div>
       </section>
-      <section className="mb-3">
+      <section className="mb-4">
         <HomeBetaOnboarding />
       </section>
-      <section className="mb-3">
+      <section className="mb-4">
         <TodayMarketBrief
           signals={signals}
           stocks={safeAllStocks}
           sectionId="home-morning-brief"
         />
       </section>
-      <section className="mb-3">
+      <section className="mb-4">
         <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
       </section>
-      <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
         <div id="home-market" className="grid min-w-0 gap-3 scroll-mt-32">
-          <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+          <div className={`p-4 ${cardShellClass}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-normal text-brand">
@@ -427,17 +447,17 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] [content-visibility:auto] [contain-intrinsic-size:1px_900px]">
+      <section className="mt-4 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] [content-visibility:auto] [contain-intrinsic-size:1px_900px]">
         <OpportunityRadar items={safeOpportunityRadar} />
         <StockCardGrid title="인기 종목" stocks={safePopularStocks} />
       </section>
 
-      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2 [content-visibility:auto] [contain-intrinsic-size:1px_780px]">
+      <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2 [content-visibility:auto] [contain-intrinsic-size:1px_780px]">
         <PotentialRadar items={safePotentialRadar} />
         <DangerWarningList items={safeDangerWarnings} />
       </section>
 
-      <section className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel [content-visibility:auto] [contain-intrinsic-size:1px_620px]">
+      <section className={`mt-4 p-4 [content-visibility:auto] [contain-intrinsic-size:1px_620px] ${cardShellClass}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-bold text-ink dark:text-white">핵심 기능 미리보기</h2>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -474,8 +494,8 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] [content-visibility:auto] [contain-intrinsic-size:1px_420px]">
-        <article className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+      <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] [content-visibility:auto] [contain-intrinsic-size:1px_420px]">
+        <article className={`p-4 ${cardShellClass}`}>
           <h2 className="text-base font-bold text-ink dark:text-white">로컬 모드</h2>
           <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
             <li>- 로그인 없이 바로 사용</li>
@@ -488,7 +508,7 @@ export default async function Home() {
             로컬 우선
           </div>
         </article>
-        <article className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <article className={`p-4 ${cardShellClass}`}>
           <h2 className="text-base font-bold text-ink dark:text-white">클라우드 동기화</h2>
           <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
             <li>- 로그인 후 사용</li>
@@ -503,16 +523,13 @@ export default async function Home() {
         </article>
       </section>
 
-      <section className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel [content-visibility:auto] [contain-intrinsic-size:1px_520px]">
+      <section className={`mt-4 p-4 [content-visibility:auto] [contain-intrinsic-size:1px_520px] ${cardShellClass}`}>
         <h2 className="text-base font-bold text-ink dark:text-white">신뢰와 데이터 기준</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           {trustItems.map((item) => {
             const Icon = item.icon;
             return (
-              <article
-                key={item.title}
-                className="rounded-xl border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
-              >
+              <article key={item.title} className={`p-3 ${cardSubtleClass}`}>
                 <div className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand/10 text-brand">
                   <Icon className="h-4 w-4" />
                 </div>
@@ -526,10 +543,7 @@ export default async function Home() {
         </div>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
           {userVoices.map((voice) => (
-            <article
-              key={voice.role}
-              className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-slate-700 dark:bg-slate-900/55"
-            >
+            <article key={voice.role} className={`p-3 ${cardSubtleClass}`}>
               <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{voice.role}</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
                 “{voice.comment}”
@@ -539,7 +553,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] [content-visibility:auto] [contain-intrinsic-size:1px_760px]">
+      <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] [content-visibility:auto] [contain-intrinsic-size:1px_760px]">
         <WatchlistPanel
           stocks={safeAllStocks}
           sectionIds={{
@@ -554,7 +568,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 rounded-2xl border border-brand/25 bg-gradient-to-r from-white to-blue-50 p-5 shadow-soft dark:border-brand/35 dark:from-dark-panel dark:to-slate-900">
+      <section className="mt-4 rounded-2xl border border-brand/25 bg-gradient-to-r from-white to-blue-50 p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-brand/35 dark:from-dark-panel dark:to-slate-900">
         <h2 className="text-xl font-bold text-ink dark:text-white">지금 KRX Insight를 시작해보세요</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
           종목 검색부터 AI 분석, 보유종목 진단까지 5분 안에 핵심 흐름을 확인할 수 있습니다.
