@@ -267,7 +267,7 @@ export default async function Home() {
             </div>
           </div>
 
-          <aside className="relative overflow-hidden rounded-2xl border border-line/90 bg-white/95 p-4 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.52)] ring-1 ring-slate-200/75 dark:border-dark-line/85 dark:bg-slate-900/80 dark:ring-slate-700/70">
+          <aside className="relative overflow-hidden rounded-2xl border border-line/90 bg-white/95 p-4 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.52)] ring-1 ring-slate-200/75 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:1px_520px] dark:border-dark-line/85 dark:bg-slate-900/80 dark:ring-slate-700/70">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white via-slate-100/70 to-transparent dark:from-slate-900 dark:via-slate-900/70" />
             <div className="relative -mx-4 -mt-4 mb-3 flex items-center gap-1.5 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-slate-100 px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-slate-700/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm" />
@@ -345,19 +345,20 @@ export default async function Home() {
               <div className="mt-2.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-700 dark:bg-slate-900/70">
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 흐름 미니 차트</p>
                 <div className="mt-1.5 rounded-md border border-slate-200/70 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/70">
-                  <svg viewBox="0 0 220 64" className="h-14 w-full">
-                    <defs>
-                      <linearGradient id="homeChartLine" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0.4" />
-                      </linearGradient>
-                      <linearGradient id="homeChartFill" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#60A5FA" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#60A5FA" stopOpacity="0.02" />
-                      </linearGradient>
-                    </defs>
-                    <path d="M0 42 L26 38 L52 41 L78 32 L104 36 L130 24 L156 28 L182 18 L208 20" fill="none" stroke="url(#homeChartLine)" strokeWidth="2.5" />
-                    <path d="M0 42 L26 38 L52 41 L78 32 L104 36 L130 24 L156 28 L182 18 L208 20 L208 64 L0 64 Z" fill="url(#homeChartFill)" />
+                  <svg
+                    viewBox="0 0 220 64"
+                    className="h-14 w-full text-brand/90"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <polyline
+                      points="0,42 26,38 52,41 78,32 104,36 130,24 156,28 182,18 208,20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.25"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                     <line x1="0" y1="49" x2="220" y2="49" stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth="1" />
                   </svg>
                 </div>
