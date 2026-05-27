@@ -21,8 +21,7 @@ import {
   searchStocks
 } from "@/lib/stock-provider";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 const previewToneClass: Record<"brand" | "violet" | "emerald" | "amber", string> = {
   brand: "bg-brand/10 text-brand dark:bg-brand/15 dark:text-blue-200",
@@ -47,15 +46,43 @@ export default async function Home() {
     getPotentialRadar(),
     getDangerWarnings()
   ]);
-  const allStocks = await getStocksWithPreferredQuote(
-    Array.isArray(fetchedAllStocks) ? fetchedAllStocks : []
-  );
-  const popularStocks = await getStocksWithPreferredQuote(
-    Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : []
-  );
+  const rawAllStocks = Array.isArray(fetchedAllStocks) ? fetchedAllStocks : [];
+  const rawPopularStocks = Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : [];
 
-  const safeAllStocks = Array.isArray(allStocks) ? allStocks : [];
-  const safePopularStocks = Array.isArray(popularStocks) ? popularStocks : [];
+  // Home 성능 최적화: 첫 화면과 핵심 섹션에 노출되는 종목만 우선 시세 보정.
+  const stockBySymbol = new Map(rawAllStocks.map((stock) => [stock.symbol, stock]));
+  const quoteCandidateSymbols = new Set<string>();
+
+  rawPopularStocks.slice(0, 12).forEach((stock) => {
+    if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
+  });
+  rawAllStocks.slice(0, 12).forEach((stock) => {
+    if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
+  });
+  rawAllStocks
+    .filter((stock) => stock.market === "KOSPI")
+    .slice(0, 8)
+    .forEach((stock) => {
+      if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
+    });
+  rawAllStocks
+    .filter((stock) => stock.market === "KOSDAQ")
+    .slice(0, 8)
+    .forEach((stock) => {
+      if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
+    });
+
+  const quoteCandidates = Array.from(quoteCandidateSymbols)
+    .map((symbol) => stockBySymbol.get(symbol))
+    .filter((stock): stock is NonNullable<typeof stock> => Boolean(stock));
+
+  const quotedCandidates = await getStocksWithPreferredQuote(quoteCandidates);
+  const quotedBySymbol = new Map(quotedCandidates.map((stock) => [stock.symbol, stock]));
+
+  const safeAllStocks = rawAllStocks.map((stock) => quotedBySymbol.get(stock.symbol) ?? stock);
+  const safePopularStocks = rawPopularStocks.map(
+    (stock) => quotedBySymbol.get(stock.symbol) ?? stock
+  );
   const safeOpportunityRadar = Array.isArray(opportunityRadar) ? opportunityRadar : [];
   const safePotentialRadar = Array.isArray(potentialRadar) ? potentialRadar : [];
   const safeDangerWarnings = Array.isArray(dangerWarnings) ? dangerWarnings : [];
@@ -399,17 +426,17 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <section className="mt-3 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] [content-visibility:auto] [contain-intrinsic-size:1px_900px]">
         <OpportunityRadar items={safeOpportunityRadar} />
         <StockCardGrid title="인기 종목" stocks={safePopularStocks} />
       </section>
 
-      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2">
+      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2 [content-visibility:auto] [contain-intrinsic-size:1px_780px]">
         <PotentialRadar items={safePotentialRadar} />
         <DangerWarningList items={safeDangerWarnings} />
       </section>
 
-      <section className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+      <section className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel [content-visibility:auto] [contain-intrinsic-size:1px_620px]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-bold text-ink dark:text-white">핵심 기능 미리보기</h2>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -446,7 +473,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] [content-visibility:auto] [contain-intrinsic-size:1px_420px]">
         <article className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
           <h2 className="text-base font-bold text-ink dark:text-white">로컬 모드</h2>
           <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -475,7 +502,7 @@ export default async function Home() {
         </article>
       </section>
 
-      <section className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+      <section className="mt-3 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel [content-visibility:auto] [contain-intrinsic-size:1px_520px]">
         <h2 className="text-base font-bold text-ink dark:text-white">신뢰와 데이터 기준</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           {trustItems.map((item) => {
@@ -511,7 +538,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
+      <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] [content-visibility:auto] [contain-intrinsic-size:1px_760px]">
         <WatchlistPanel
           stocks={safeAllStocks}
           sectionIds={{
