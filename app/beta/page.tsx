@@ -47,7 +47,11 @@ const MISSION_STORAGE_KEY = "krx_beta_test_mission";
 const REF_STORAGE_KEY = "krx_referral_code";
 
 const sectionCardClass =
-  "rounded-2xl border border-line bg-white p-5 shadow-soft transition-shadow hover:shadow-lg dark:border-dark-line dark:bg-dark-panel sm:p-6";
+  "rounded-2xl border border-line/90 bg-white p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel sm:p-6";
+const cardSubtleClass =
+  "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
+const sectionTitleClass = "text-lg font-bold tracking-tight text-ink dark:text-white sm:text-xl";
+const sectionDescClass = "mt-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400";
 const primaryCtaClass =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg dark:bg-brand dark:hover:bg-blue-500";
 const secondaryCtaClass =
@@ -230,8 +234,8 @@ function ActionLinkButton({ href, label }: { href: string; label: string }) {
 
 function ScreenshotCard({ card }: { card: PreviewCard }) {
   return (
-    <article className="rounded-2xl border border-line bg-white p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel">
-      <div className="rounded-xl border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
+    <article className={`${sectionCardClass} p-4`}>
+      <div className={`${cardSubtleClass} p-3`}>
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-500 dark:text-slate-400">UI PREVIEW</p>
           <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-bold text-brand">
@@ -242,7 +246,7 @@ function ScreenshotCard({ card }: { card: PreviewCard }) {
           {card.mockLines.map((line) => (
             <div
               key={`${card.title}-${line}`}
-              className="rounded-md border border-line bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+              className="rounded-md border border-line/90 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
             >
               {line}
             </div>
@@ -344,7 +348,7 @@ export default function BetaPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
-      <div className="space-y-8 sm:space-y-10">
+      <div className="space-y-6 sm:space-y-8 lg:space-y-10">
         {showRefNotice ? (
           <section className="rounded-xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-semibold text-brand dark:border-brand/40 dark:bg-brand/15">
             초대 링크로 방문했습니다. 로그인하면 초대한 사용자에게 Pro 리워드가 지급됩니다.
@@ -472,12 +476,12 @@ export default function BetaPage() {
 
         <section className={sectionCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">핵심 기능 미리보기</h2>
+            <h2 className={sectionTitleClass}>핵심 기능 미리보기</h2>
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
               4~6개 핵심 화면
             </span>
           </div>
-          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+          <p className={sectionDescClass}>
             베타 테스트에서 실제로 확인할 수 있는 주요 흐름을 먼저 살펴보세요.
           </p>
 
@@ -491,8 +495,8 @@ export default function BetaPage() {
         <section className={sectionCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">5분 테스트 미션</h2>
-              <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+              <h2 className={sectionTitleClass}>5분 테스트 미션</h2>
+              <p className={sectionDescClass}>
                 아래 5가지만 완료하면 KRX Insight의 핵심 흐름을 빠르게 체험할 수 있습니다.
               </p>
             </div>
@@ -506,7 +510,7 @@ export default function BetaPage() {
             </button>
           </div>
 
-          <div className="mt-4 rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/55">
+          <div className={`mt-4 ${cardSubtleClass} p-4`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-bold text-ink dark:text-white">
                 {completedCount}/{totalCount} 완료
@@ -529,7 +533,7 @@ export default function BetaPage() {
               return (
                 <article
                   key={mission.id}
-                  className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45"
+                  className={`${cardSubtleClass} p-4`}
                 >
                   <div className="flex items-start gap-3">
                     <button
@@ -581,7 +585,7 @@ export default function BetaPage() {
           </div>
 
           {allComplete ? (
-            <div className="mt-5 rounded-xl border border-mint/40 bg-gradient-to-r from-mint/10 to-emerald-50 p-4 shadow-sm sm:p-5 dark:to-emerald-900/15">
+            <div className="mt-5 rounded-xl border border-mint/40 bg-gradient-to-r from-mint/10 to-emerald-50 p-4 shadow-soft sm:p-5 dark:to-emerald-900/15">
               <h3 className="text-base font-bold text-ink">베타 테스트 미션 완료!</h3>
               <p className="mt-1 text-sm text-slate-700">
                 테스트에 참여해주셔서 감사합니다. 다음 단계로 이동해 실제 사용 흐름을 계속 확인해보세요.
@@ -621,27 +625,27 @@ export default function BetaPage() {
         </section>
 
         <section className={sectionCardClass}>
-          <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">처음 사용 가이드</h2>
-          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+          <h2 className={sectionTitleClass}>처음 사용 가이드</h2>
+          <p className={sectionDescClass}>
             처음 방문했다면 아래 순서대로 진행하면 빠르게 적응할 수 있습니다.
           </p>
 
           <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+            <article className={`${cardSubtleClass} p-4`}>
               <p className="text-xs font-bold text-brand">STEP 1</p>
               <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">종목 검색</h3>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 관심 종목 코드를 검색하고 상세 화면에서 흐름을 확인하세요.
               </p>
             </article>
-            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+            <article className={`${cardSubtleClass} p-4`}>
               <p className="text-xs font-bold text-brand">STEP 2</p>
               <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">보유종목 등록</h3>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 매수가와 수량을 등록하면 리스크 변화 추적과 알림 점검이 가능합니다.
               </p>
             </article>
-            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+            <article className={`${cardSubtleClass} p-4`}>
               <p className="text-xs font-bold text-brand">STEP 3</p>
               <h3 className="mt-1 text-sm font-bold text-ink dark:text-white">피드백 전달</h3>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
@@ -652,7 +656,7 @@ export default function BetaPage() {
         </section>
 
         <section className={sectionCardClass}>
-          <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">
+          <h2 className={sectionTitleClass}>
             왜 믿고 테스트할 수 있나요?
           </h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -661,7 +665,7 @@ export default function BetaPage() {
               return (
                 <article
                   key={card.title}
-                  className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45"
+                  className={`${cardSubtleClass} p-4`}
                 >
                   <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10 text-brand">
                     <Icon className="h-4.5 w-4.5" />
@@ -679,7 +683,7 @@ export default function BetaPage() {
             {userVoices.map((voice, index) => (
               <article
                 key={`${voice.role}-${index}`}
-                className="rounded-xl border border-line bg-white p-4 dark:border-dark-line dark:bg-slate-900/40"
+                className="rounded-xl border border-line/90 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/40"
               >
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{voice.role}</p>
                 <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">“{voice.comment}”</p>
@@ -689,11 +693,11 @@ export default function BetaPage() {
         </section>
 
         <section className={sectionCardClass}>
-          <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">
+          <h2 className={sectionTitleClass}>
             로컬 모드와 클라우드 동기화
           </h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+            <article className={`${cardSubtleClass} p-4`}>
               <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 <CloudOff className="h-3.5 w-3.5" />
                 로컬 모드
@@ -706,7 +710,7 @@ export default function BetaPage() {
               </ul>
             </article>
 
-            <article className="rounded-xl border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/45">
+            <article className={`${cardSubtleClass} p-4`}>
               <div className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-2.5 py-1 text-xs font-bold text-brand">
                 <Cloud className="h-3.5 w-3.5" />
                 클라우드 동기화
@@ -722,7 +726,7 @@ export default function BetaPage() {
         </section>
 
         <section className={sectionCardClass}>
-          <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">베타 참여 혜택</h2>
+          <h2 className={sectionTitleClass}>베타 참여 혜택</h2>
           <ul className="mt-3 space-y-1.5 text-sm leading-6 text-slate-600 dark:text-slate-300">
             <li>- 친구를 초대하면 Pro 3일 체험권을 받을 수 있습니다.</li>
             <li>- 좋은 피드백은 정식 출시 기능 개선에 우선 반영됩니다.</li>

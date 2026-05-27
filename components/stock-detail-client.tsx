@@ -31,6 +31,12 @@ import { useMemo, useState } from "react";
 
 type MobileDetailTab = "summary" | "chart" | "ai" | "indicators" | "risk";
 
+const cardShellClass =
+  "rounded-2xl border border-line/90 bg-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel";
+const cardSubtleClass =
+  "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
+const sectionTitleClass = "text-base font-bold tracking-tight text-ink dark:text-white";
+
 function formatRealtimeUpdatedAt(value: string | undefined) {
   if (!value) return "";
   if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(value)) return value;
@@ -145,7 +151,7 @@ export function StockDetailClient({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/"
-          className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-line/90 bg-white px-3 text-sm font-bold text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand hover:shadow-md dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
         >
           <ArrowLeft className="h-4 w-4" />
           홈
@@ -169,7 +175,7 @@ export function StockDetailClient({
 
       <section
         id="detail-overview"
-        className={`min-w-0 max-w-full scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+        className={`min-w-0 max-w-full scroll-mt-32 p-4 sm:p-5 ${cardShellClass} ${mobileTabClass(
           "summary"
         )} md:block`}
       >
@@ -179,7 +185,7 @@ export function StockDetailClient({
               {sourceMeta.map(([label, value]) => (
                 <span
                   key={label}
-                  className="inline-flex w-full max-w-full items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300 sm:w-auto"
+                  className="inline-flex w-full max-w-full items-center gap-1 rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300 sm:w-auto"
                 >
                   <span className="text-slate-400">{label}:</span>
                   <span className="break-words text-ink dark:text-white">{value}</span>
@@ -205,7 +211,7 @@ export function StockDetailClient({
               </div>
             )}
             <p className="mt-4 text-xs font-bold tracking-normal text-brand">현재가 요약</p>
-            <h1 className="mt-1 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
+            <h1 className="mt-1 break-words text-2xl font-bold tracking-tight text-ink dark:text-white sm:text-3xl">
               {stock.koreanName}
             </h1>
             {secondaryName && (
@@ -242,7 +248,7 @@ export function StockDetailClient({
             {visibleTags.map((tag) => (
               <span
                 key={tag}
-                className="max-w-full break-words rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+                className="max-w-full break-words rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
               >
                 {tag}
               </span>
@@ -253,30 +259,30 @@ export function StockDetailClient({
           <WatchlistButton symbol={stock.symbol} stockName={stock.koreanName} market={stock.market} />
           <Link
             href="/portfolio#portfolio-add-entry"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-line bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-line/90 bg-slate-50 px-3 text-sm font-bold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand hover:shadow-md dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
           >
             보유 추가
           </Link>
         </div>
-        <div className="mt-4 rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300 md:hidden">
+        <div className="mt-4 rounded-lg border border-line/90 bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300 md:hidden">
           핵심 판단: {mobileSummaryLine}
         </div>
       </section>
 
       <section
         id="detail-price"
-        className={`mt-5 grid min-w-0 max-w-full scroll-mt-32 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 ${mobileTabClass(
+        className={`mt-6 grid min-w-0 max-w-full scroll-mt-32 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 ${mobileTabClass(
           "summary"
         )} md:grid`}
       >
         <div className="sm:col-span-2 xl:col-span-5">
           <p className="text-xs font-bold tracking-normal text-brand">가격 범위</p>
-          <h2 className="mt-1 text-base font-bold text-ink dark:text-white">가격 범위 · 수급 정보</h2>
+          <h2 className="mt-1 text-base font-bold tracking-tight text-ink dark:text-white">가격 범위 · 수급 정보</h2>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               {hasRealtimeQuote ? "KIS 기준" : "data.go.kr 기준"}
             </span>
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               {hasRealtimeQuote ? "현재가 기준" : "최근 종가 기준"}
             </span>
           </div>
@@ -307,7 +313,7 @@ export function StockDetailClient({
           <ForeignOwnershipCard data={foreignOwnership} />
         </div>
         <div className="xl:hidden sm:col-span-2">
-          <details className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+          <details className={`p-4 ${cardShellClass}`}>
             <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
               자세히 보기
             </summary>
@@ -331,17 +337,17 @@ export function StockDetailClient({
           </details>
         </div>
       </section>
-      <div className={`mt-5 md:hidden ${mobileTabClass("summary")}`}>
+      <div className={`mt-6 md:hidden ${mobileTabClass("summary")}`}>
         <EntryRiskScoreCard stock={stock} />
       </div>
 
-      <div className="mt-5 grid min-w-0 max-w-full grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-12">
+      <div className="mt-6 grid min-w-0 max-w-full grid-cols-1 gap-5 xl:grid-cols-12">
         <div id="detail-risk" className={`order-1 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("risk")} md:block xl:order-5 xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               AI 참고
             </span>
-            <h2 className="text-base font-bold text-ink dark:text-white">리스크 및 면책</h2>
+            <h2 className={sectionTitleClass}>리스크 및 면책</h2>
           </div>
           <AiTradingJudgementCard
             stock={stock}
@@ -354,19 +360,19 @@ export function StockDetailClient({
         </div>
         <div id="detail-chart" className={`order-3 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("chart")} md:block xl:order-1 xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               data.go.kr 기준
             </span>
-            <h2 className="text-base font-bold text-ink dark:text-white">K선 차트</h2>
+            <h2 className={sectionTitleClass}>K선 차트</h2>
           </div>
           <CandlestickChart series={technicalSeries} />
         </div>
         <div id="detail-ai" className={`order-5 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 ${mobileTabClass("ai")} md:grid xl:order-2 xl:col-span-4`}>
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               AI 참고
             </span>
-            <h2 className="text-base font-bold text-ink dark:text-white">AI 분석 요약</h2>
+            <h2 className={sectionTitleClass}>AI 분석 요약</h2>
           </div>
           <AiReportCard
             stock={stock}
@@ -378,7 +384,7 @@ export function StockDetailClient({
           {latest && previous ? (
             <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />
           ) : (
-            <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+            <section className={`p-4 sm:p-5 ${cardShellClass}`}>
               <EmptyState
                 compact
                 title="핵심 지표 없음"
@@ -389,10 +395,10 @@ export function StockDetailClient({
         </div>
         <div className={`order-6 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("ai")} md:block xl:order-3 xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               AI 참고
             </span>
-            <h2 className="text-base font-bold text-ink dark:text-white">AI 캔들차트 분석</h2>
+            <h2 className={sectionTitleClass}>AI 캔들차트 분석</h2>
           </div>
           <CandlestickAiExpertCard
             stock={stock}
@@ -410,12 +416,12 @@ export function StockDetailClient({
         </div>
         <div id="detail-indicators" className={`order-4 min-w-0 max-w-full scroll-mt-32 ${mobileTabClass("indicators")} md:block xl:hidden xl:col-span-8`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+            <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
               data.go.kr 기준
             </span>
-            <h2 className="text-base font-bold text-ink dark:text-white">기술 지표</h2>
+            <h2 className={sectionTitleClass}>기술 지표</h2>
           </div>
-          <details className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+          <details className={`p-4 sm:p-5 ${cardShellClass}`}>
             <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
               상세 지표 해석 펼치기
             </summary>
@@ -423,7 +429,7 @@ export function StockDetailClient({
               {latest ? (
                 <IndicatorTranslator stock={stock} latest={latest} />
               ) : (
-                <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+                <section className={`p-4 sm:p-5 ${cardShellClass}`}>
                   <EmptyState
                     compact
                     title="지표 해석 없음"
@@ -437,15 +443,15 @@ export function StockDetailClient({
         <div id="detail-indicators-desktop" className={`order-7 min-w-0 max-w-full ${mobileTabClass("indicators")} md:block xl:col-span-8 xl:order-4`}>
           <div className="hidden xl:block">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-md border border-line bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
                 data.go.kr 기준
               </span>
-              <h2 className="text-base font-bold text-ink dark:text-white">기술 지표</h2>
+              <h2 className={sectionTitleClass}>기술 지표</h2>
             </div>
             {latest ? (
               <IndicatorTranslator stock={stock} latest={latest} />
             ) : (
-              <section className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+              <section className={`p-4 sm:p-5 ${cardShellClass}`}>
                 <EmptyState
                   compact
                   title="지표 해석 없음"
@@ -454,7 +460,7 @@ export function StockDetailClient({
               </section>
             )}
           </div>
-          <details className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 xl:hidden">
+          <details className={`p-4 sm:p-5 xl:hidden ${cardShellClass}`}>
             <summary className="cursor-pointer list-none text-sm font-bold text-ink dark:text-white">
               상세 차트 지표 펼치기
             </summary>

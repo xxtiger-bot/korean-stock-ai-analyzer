@@ -124,6 +124,11 @@ type PortfolioMobileTab = "summary" | "holdings" | "alerts" | "reports";
 const ALERT_CONDITIONS_STORAGE_KEY = "krx-insight-portfolio-alert-conditions";
 const BROWSER_NOTIFICATION_ENABLED_KEY = "portfolioBrowserNotificationEnabled";
 const BROWSER_NOTIFICATION_NOTIFIED_PREFIX = "portfolioAlertNotified";
+const cardShellClass =
+  "rounded-2xl border border-line/90 bg-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel";
+const cardSubtleClass =
+  "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
+const sectionTitleClass = "text-base font-bold tracking-tight text-ink dark:text-white";
 
 type NotificationPermissionState = NotificationPermission | "unsupported";
 
@@ -314,13 +319,13 @@ function formatJudgementLabel(judgement: string) {
 function ListBlock({ title, items }: { title: string; items: string[] }) {
   const safeItems = Array.isArray(items) ? items : [];
   return (
-    <article>
-      <h4 className="text-sm font-bold text-ink dark:text-white">{title}</h4>
+    <article className={`p-3 ${cardSubtleClass}`}>
+      <h4 className="text-sm font-bold tracking-tight text-ink dark:text-white">{title}</h4>
       <ul className="mt-2 grid gap-2">
         {safeItems.map((item, index) => (
           <li
             key={`${title}-${index}-${item}`}
-            className="rounded-md border border-line bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300"
+            className="rounded-lg border border-line/80 bg-white/80 px-3 py-2 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-950/70 dark:text-slate-300"
           >
             {item}
           </li>
@@ -2665,14 +2670,14 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <section className={`mb-4 ${mobileTabClass("summary")} md:block`}>
+      <section className={`mb-5 ${mobileTabClass("summary")} md:block`}>
         <TodayMarketBrief
           signals={safeSignals}
           variant="portfolio"
           sectionId="portfolio-morning-brief"
         />
       </section>
-      <section className={`mb-4 ${mobileTabClass("summary")} md:block`}>
+      <section className={`mb-5 ${mobileTabClass("summary")} md:block`}>
         <TodayInvestmentChecklist variant="portfolio" sectionId="portfolio-checklist" />
       </section>
       <MobileTabNav
@@ -2688,15 +2693,15 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
       />
       <section
         id="portfolio-summary"
-        className={`scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+        className={`scroll-mt-32 p-4 sm:p-5 ${cardShellClass} ${mobileTabClass(
           "summary"
         )} md:block`}
       >
         <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio</p>
-        <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink dark:text-white sm:text-3xl">
           내 보유종목 AI 진단
         </h1>
-        <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
           KIS 현재가와 data.go.kr 일별 종가 데이터를 기반으로 보유 상태를 관찰하고, 확인 필요 구간을 정리하는 참고 정보입니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -2797,7 +2802,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
           </p>
         )}
         {isCloudSyncEnabled && (
-          <div className="mt-3 rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
+          <div className={`mt-3 p-3 ${cardSubtleClass}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold text-ink dark:text-white">클라우드 동기화</p>
               {canSyncLocalToCloud ? (
@@ -2843,14 +2848,14 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
       <section
         id="portfolio-risk"
-        className={`mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+        className={`mt-5 scroll-mt-32 p-4 sm:p-5 ${cardShellClass} ${mobileTabClass(
           "alerts"
         )} md:block`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-normal text-brand">Risk Alert</p>
-            <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
+            <h2 className={`mt-1 ${sectionTitleClass}`}>
               보유종목 리스크 알림
             </h2>
           </div>
@@ -2872,10 +2877,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
         ) : (
           <div className="mt-3 grid gap-2">
             {topRiskAlerts.map((alert) => (
-              <article
-                key={alert.key}
-                className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
-              >
+              <article key={alert.key} className={`p-3 ${cardSubtleClass}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-ink dark:text-white">
@@ -2918,10 +2920,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
               {(Array.isArray(triggeredUserAlertSummaries) ? triggeredUserAlertSummaries : [])
                 .slice(0, 3)
                 .map((summary) => (
-                  <article
-                    key={summary.key}
-                    className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
-                  >
+                  <article key={summary.key} className={`p-3 ${cardSubtleClass}`}>
                     <p className="text-sm font-bold text-ink dark:text-white">
                       {summary.stockName} · {summary.symbol}
                     </p>
@@ -2955,14 +2954,14 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
       <section
         id="reports"
-        className={`mt-4 scroll-mt-32 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5 ${mobileTabClass(
+        className={`mt-5 scroll-mt-32 p-4 sm:p-5 ${cardShellClass} ${mobileTabClass(
           "reports"
         )} md:block`}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-normal text-brand">Daily Report</p>
-            <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
+            <h2 className={`mt-1 ${sectionTitleClass}`}>
               오늘의 내 보유종목 AI 리포트
             </h2>
           </div>
@@ -3030,7 +3029,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
         )}
 
         {safeEntries.length === 0 ? (
-          <div className="mt-3 rounded-md border border-line bg-slate-50 p-4 dark:border-dark-line dark:bg-slate-900/50">
+          <div className={`mt-3 p-4 ${cardSubtleClass}`}>
             <p className="text-sm font-bold text-ink dark:text-white">
               보유종목을 추가하면 오늘의 AI 리포트를 생성할 수 있습니다.
             </p>
@@ -3044,31 +3043,31 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
         ) : (
           <div className="mt-3 grid gap-4">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">총 보유 종목 수</p>
                 <p className="mt-1 text-sm font-bold text-ink dark:text-white">{safeEntries.length}</p>
               </article>
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">평균 수익률</p>
                 <p className={`mt-1 text-sm font-bold ${changeColorClass(summary.avgReturn)}`}>
                   {formatPercent(summary.avgReturn)}
                 </p>
               </article>
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">리스크 상승 종목 수</p>
                 <p className="mt-1 text-sm font-bold text-ink dark:text-white">{riskUpCount}</p>
               </article>
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">유지 관찰 종목 수</p>
                 <p className="mt-1 text-sm font-bold text-ink dark:text-white">{keepObservationCount}</p>
               </article>
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">전체 포트폴리오 상태</p>
                 <p className="mt-1 text-sm font-bold text-ink dark:text-white">{portfolioStatusLabel}</p>
               </article>
             </div>
 
-            <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+            <article className={`p-3 ${cardSubtleClass}`}>
               <h3 className="text-sm font-bold text-ink dark:text-white">AI 요약</h3>
               <div className="mt-2 grid gap-1">
                 {(Array.isArray(portfolioSummaryLines) ? portfolioSummaryLines : []).map((line, index) => (
@@ -3082,7 +3081,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
               </div>
             </article>
 
-            <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+            <article className={`p-3 ${cardSubtleClass}`}>
               <h3 className="text-sm font-bold text-ink dark:text-white">오늘 먼저 확인할 종목 TOP 3</h3>
               <div className="mt-2 grid gap-2">
                 {(Array.isArray(todayPriorityItems) ? todayPriorityItems : []).map((item) => (
@@ -3122,7 +3121,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
             </article>
 
             <div className="grid gap-3 lg:grid-cols-2">
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <h3 className="text-sm font-bold text-ink dark:text-white">유지 관찰 종목</h3>
                 {(Array.isArray(keepObservationItems) ? keepObservationItems : []).length === 0 ? (
                   <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -3147,7 +3146,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
                 )}
               </article>
 
-              <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+              <article className={`p-3 ${cardSubtleClass}`}>
                 <h3 className="text-sm font-bold text-ink dark:text-white">리스크 관리 필요 종목</h3>
                 {(Array.isArray(riskManagementItems) ? riskManagementItems : []).length === 0 ? (
                   <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -3173,7 +3172,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
               </article>
             </div>
 
-            <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+            <article className={`p-3 ${cardSubtleClass}`}>
               <h3 className="text-sm font-bold text-ink dark:text-white">내일 확인 조건</h3>
               <ul className="mt-2 grid gap-1">
                 {(Array.isArray(tomorrowCheckItems) ? tomorrowCheckItems : []).map((item, index) => (
@@ -3189,7 +3188,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
           </div>
         )}
 
-        <article className="mt-4 rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50">
+        <article className={`mt-4 p-3 ${cardSubtleClass}`}>
           <h3 className="text-sm font-bold text-ink dark:text-white">최근 저장한 리포트</h3>
           {!user?.id ? (
             <p className="mt-2 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -3290,30 +3289,30 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
         </article>
       </section>
 
-      <section className={`mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 ${mobileTabClass("summary")} md:grid`}>
-        <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+      <section className={`mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 ${mobileTabClass("summary")} md:grid`}>
+        <article className={`p-4 ${cardShellClass}`}>
           <p className="text-xs font-bold text-slate-400">총 보유 종목 수</p>
           <p className="mt-1 text-xl font-bold text-ink dark:text-white">{safeEntries.length}</p>
         </article>
-        <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+        <article className={`p-4 ${cardShellClass}`}>
           <p className="text-xs font-bold text-slate-400">총 평가금액</p>
           <p className="mt-1 text-xl font-bold text-ink dark:text-white">
             {formatKRW(summary.totalValue)}
           </p>
         </article>
-        <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+        <article className={`p-4 ${cardShellClass}`}>
           <p className="text-xs font-bold text-slate-400">총 평가손익</p>
           <p className={`mt-1 text-xl font-bold ${changeColorClass(summary.totalPnL)}`}>
             {formatKRW(summary.totalPnL)}
           </p>
         </article>
-        <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+        <article className={`p-4 ${cardShellClass}`}>
           <p className="text-xs font-bold text-slate-400">평균 수익률</p>
           <p className={`mt-1 text-xl font-bold ${changeColorClass(summary.avgReturn)}`}>
             {formatPercent(summary.avgReturn)}
           </p>
         </article>
-        <article className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+        <article className={`p-4 ${cardShellClass}`}>
           <p className="text-xs font-bold text-slate-400">오늘 리스크 상승 종목 수</p>
           <p className="mt-1 text-xl font-bold text-ink dark:text-white">{riskUpCount}</p>
         </article>
@@ -3321,14 +3320,14 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
       <section
         id="portfolio-holdings"
-        className={`mt-4 grid min-w-0 scroll-mt-32 gap-4 ${mobileTabClass("holdings")} md:grid xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]`}
+        className={`mt-5 grid min-w-0 scroll-mt-32 gap-5 ${mobileTabClass("holdings")} md:grid xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]`}
       >
         <form
           id="portfolio-add-entry"
           onSubmit={addPortfolioEntry}
-          className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5"
+          className={`p-4 sm:p-5 ${cardShellClass}`}
         >
-          <h2 className="text-base font-bold text-ink dark:text-white">보유종목 추가</h2>
+          <h2 className={sectionTitleClass}>보유종목 추가</h2>
           <div className="mt-4 grid gap-3">
             <label className="grid gap-1">
               <span className="text-xs font-bold text-slate-500">종목코드</span>
@@ -3437,8 +3436,8 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
           </div>
         </form>
 
-        <section className="min-w-0 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-          <h2 className="text-base font-bold text-ink dark:text-white">보유종목 리스트</h2>
+        <section className={`min-w-0 p-4 sm:p-5 ${cardShellClass}`}>
+          <h2 className={sectionTitleClass}>보유종목 리스트</h2>
 
           {error && (
             <div className="mt-4">
@@ -3481,10 +3480,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
                   ? alertConditionsByEntry[entry.id]
                   : [];
                 return (
-                  <article
-                    key={entry.id}
-                    className="rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
-                  >
+                  <article key={entry.id} className={`p-3 ${cardSubtleClass}`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-ink dark:text-white">
@@ -3551,7 +3547,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
                     {isExpanded && (
                       <div className="mt-4 border-t border-line pt-3 dark:border-dark-line">
-                        <section className="mb-4 rounded-md border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
+                        <section className={`mb-4 p-3 ${cardSubtleClass}`}>
                           <h3 className="text-sm font-bold text-ink dark:text-white">알림 조건 설정</h3>
                           <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_auto]">
                             <select
@@ -3660,7 +3656,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
                           />
                         ) : (
                           <div className="grid gap-4">
-                            <div className="grid gap-2 rounded-md border border-line bg-white p-3 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+                            <div className={`grid gap-2 p-3 text-xs font-semibold text-slate-600 dark:text-slate-300 ${cardSubtleClass}`}>
                               <p>
                                 현재 평가금액{" "}
                                 <span className="font-bold text-ink dark:text-white">
@@ -3703,7 +3699,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
                                 </p>
                               )}
                             </div>
-                            <article className="rounded-md border border-line bg-white p-3 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+                            <article className={`p-3 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300 ${cardSubtleClass}`}>
                               <p className="font-bold text-ink dark:text-white">왜 이런 판단인가?</p>
                               <p className="mt-1">{safeText(diagnosis.why)}</p>
                             </article>

@@ -47,7 +47,7 @@ export function ForeignOwnershipCard({
     mainValue !== null || hasHoldingQty || hasLimitQty;
 
   return (
-    <article className="min-w-0 max-w-full overflow-hidden rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+    <article className="min-w-0 max-w-full overflow-hidden rounded-xl border border-line/90 bg-white p-4 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-line dark:bg-dark-panel">
       <div className="flex items-center justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-semibold text-slate-500 dark:text-slate-400">
           외국인 보유율 / 소진율
