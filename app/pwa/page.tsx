@@ -377,7 +377,33 @@ export default function PwaInstallGuidePage() {
                 }
               }}
             />
-            <InstallStepCard title="iOS Safari 설치 방법" steps={iosSteps} platform="iOS" />
+            <InstallStepCard
+              title="iOS Safari 설치 방법"
+              steps={iosSteps}
+              platform="iOS"
+              screenshotMap={{
+                1: {
+                  src: "/screenshots/pwa/ios-step1-open-site.png",
+                  alt: "iOS Safari 설치 단계 1: KRX Insight 열기"
+                },
+                2: {
+                  src: "/screenshots/pwa/ios-step2-open-share-sheet.png",
+                  alt: "iOS Safari 설치 단계 2: 공유 메뉴 열기"
+                },
+                3: {
+                  src: "/screenshots/pwa/ios-step3-select-add-to-home.png",
+                  alt: "iOS Safari 설치 단계 3: 홈 화면에 추가 선택"
+                },
+                4: {
+                  src: "/screenshots/pwa/ios-step4-confirm-name-and-add.png",
+                  alt: "iOS Safari 설치 단계 4: 이름 확인 후 추가"
+                },
+                5: {
+                  src: "/screenshots/pwa/ios-step5-open-from-home-screen.png",
+                  alt: "iOS Safari 설치 단계 5: 홈 화면 아이콘 실행"
+                }
+              }}
+            />
           </div>
         </section>
 
