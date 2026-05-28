@@ -259,6 +259,10 @@ export default async function Home() {
           <StockCardGrid title="인기 종목" stocks={mobilePopularStocks} />
         </section>
 
+        <section id="home-radar" className="mt-5">
+          <OpportunityRadar items={safeOpportunityRadar} />
+        </section>
+
         <section className={`mt-5 p-4 ${cardShellClass}`}>
           <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">핵심 기능 미리보기</h2>
           <div className="mt-3 grid gap-2.5">
