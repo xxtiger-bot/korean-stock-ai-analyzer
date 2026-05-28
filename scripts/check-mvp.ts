@@ -25,6 +25,10 @@ const ROUTES_TO_CHECK = [
   "/beta?ref=test",
   "/debug/market-data",
   "/admin/checklist",
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
   "/sitemap.xml",
   "/robots.txt"
 ];
