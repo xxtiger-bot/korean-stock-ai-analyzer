@@ -1,5 +1,6 @@
 import { DangerWarningList } from "@/components/danger-warning-list";
 import { FeedbackTrigger } from "@/components/feedback-trigger";
+import { HomeInteractionTracker } from "@/components/home-interaction-tracker";
 import { MarketBriefing } from "@/components/market-briefing";
 import { HomeBetaOnboarding } from "@/components/home-beta-onboarding";
 import { OpportunityRadar } from "@/components/opportunity-radar";
@@ -38,8 +39,8 @@ const cardSubtleClass =
   "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
 
 const HOME_CRITICAL_TIMEOUT_MS = 3500;
-const HOME_SECTION_TIMEOUT_MS = 1800;
-const HOME_QUOTE_TIMEOUT_MS = 1600;
+const HOME_SECTION_TIMEOUT_MS = 1000;
+const HOME_QUOTE_TIMEOUT_MS = 1200;
 
 function withSoftTimeout<T>(promiseLike: Promise<T> | T, fallback: T, timeoutMs: number): Promise<T> {
   return Promise.race([
@@ -77,24 +78,12 @@ export default async function Home() {
   const stockBySymbol = new Map(rawAllStocks.map((stock) => [stock.symbol, stock]));
   const quoteCandidateSymbols = new Set<string>();
 
-  rawPopularStocks.slice(0, 6).forEach((stock) => {
+  rawPopularStocks.slice(0, 3).forEach((stock) => {
     if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
   });
-  rawAllStocks.slice(0, 6).forEach((stock) => {
+  rawAllStocks.slice(0, 3).forEach((stock) => {
     if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
   });
-  rawAllStocks
-    .filter((stock) => stock.market === "KOSPI")
-    .slice(0, 3)
-    .forEach((stock) => {
-      if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
-    });
-  rawAllStocks
-    .filter((stock) => stock.market === "KOSDAQ")
-    .slice(0, 3)
-    .forEach((stock) => {
-      if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
-    });
 
   const quoteCandidates = Array.from(quoteCandidateSymbols)
     .map((symbol) => stockBySymbol.get(symbol))
@@ -152,6 +141,14 @@ export default async function Home() {
       cta: "레이더 보기"
     }
   ] as const;
+  const quickModules = [
+    { title: "오늘 시장 브리핑", desc: "시장 방향 요약", href: "#home-morning-brief", tone: "brand" },
+    { title: "종목 검색", desc: "관심 종목 찾기", href: "#search", tone: "violet" },
+    { title: "보유종목 진단", desc: "수익률·리스크 점검", href: "/portfolio", tone: "emerald" },
+    { title: "AI 분석 예시", desc: "삼성전자 분석 보기", href: "/stocks/005930", tone: "amber" },
+    { title: "기회 레이더", desc: "오늘의 기회 신호", href: "#home-radar", tone: "brand" },
+    { title: "관심종목", desc: "추적 리스트 관리", href: "#home-interest", tone: "violet" }
+  ] as const;
   const trustItems = [
     {
       icon: BarChart3,
@@ -186,6 +183,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-4 sm:px-5 sm:py-5 lg:px-7">
+      <HomeInteractionTracker />
       <section className="md:hidden">
         <section className="mb-5 rounded-2xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-4 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950">
           <p className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold text-brand">
@@ -199,16 +197,43 @@ export default async function Home() {
           <div className="mt-3 flex flex-col gap-2">
             <a
               href="#search"
+              data-home-track="mobile-hero-start"
               className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ink px-4 text-sm font-bold text-white shadow-md transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
             >
               지금 바로 무료 테스트 시작하기
             </a>
             <a
               href="/stocks/005930"
+              data-home-track="mobile-hero-example"
               className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
             >
               삼성전자 분석 예시 보기
             </a>
+          </div>
+        </section>
+
+        <section className={`mb-5 p-4 ${cardShellClass}`}>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base font-bold tracking-tight text-ink dark:text-white">기능 바로가기</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+              핵심 모듈
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
+            {quickModules.map((module) => (
+              <Link
+                key={`mobile-${module.title}`}
+                href={module.href}
+                data-home-track={`mobile-module-${module.title}`}
+                className={`p-3 ${cardSubtleClass}`}
+              >
+                <p className="text-[13px] font-bold text-ink dark:text-white">{module.title}</p>
+                <p className="mt-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">{module.desc}</p>
+                <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[module.tone]}`}>
+                  이동
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
 
@@ -241,6 +266,7 @@ export default async function Home() {
               <Link
                 key={item.title}
                 href={item.href}
+                data-home-track={`mobile-preview-${item.title}`}
                 className="group block rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-dark-line dark:bg-slate-900/50"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -289,12 +315,14 @@ export default async function Home() {
             <div className="mt-4 flex flex-wrap gap-2">
               <a
                 href="#search"
+                data-home-track="desktop-hero-start"
                 className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg dark:bg-brand dark:hover:bg-blue-500"
               >
                 지금 바로 무료 테스트 시작하기
               </a>
               <a
                 href="/stocks/005930"
+                data-home-track="desktop-hero-example"
                 className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 삼성전자 분석 예시 보기
@@ -428,6 +456,30 @@ export default async function Home() {
       <section className="mb-5">
         <HomeBetaOnboarding />
       </section>
+      <section className={`mb-5 p-4 ${cardShellClass}`}>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">기능 바로가기</h2>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            홈 핵심 모듈
+          </span>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {quickModules.map((module) => (
+            <Link
+              key={`desktop-${module.title}`}
+              href={module.href}
+              data-home-track={`desktop-module-${module.title}`}
+              className={`p-3 ${cardSubtleClass}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-bold text-ink dark:text-white">{module.title}</p>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[module.tone]}`}>이동</span>
+              </div>
+              <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">{module.desc}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
       <section className="mb-5">
         <TodayMarketBrief
           signals={signals}
@@ -504,6 +556,7 @@ export default async function Home() {
             <Link
               key={item.title}
               href={item.href}
+              data-home-track={`desktop-preview-${item.title}`}
               className="group block rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-dark-line dark:bg-slate-900/50"
             >
               <div className="flex items-center justify-between gap-2">
