@@ -10,6 +10,7 @@ import { StockTable } from "@/components/stock-table";
 import { TodayMarketBrief } from "@/components/today-market-brief";
 import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { WatchlistPanel } from "@/components/watchlist-panel";
+import Link from "next/link";
 import { BarChart3, Cloud, CloudOff, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
 import {
   type MarketOverview,
@@ -122,25 +123,33 @@ export default async function Home() {
       title: "오늘 시장 브리핑",
       desc: "시장 방향과 우선 확인 종목을 한 줄 요약으로 빠르게 확인합니다.",
       tags: ["시장 방향", "TOP 3", "리스크 요약"],
-      tone: "brand"
+      tone: "brand",
+      href: "#home-morning-brief",
+      cta: "브리핑 보기"
     },
     {
       title: "AI 종목 분석",
       desc: "기술지표, 리스크 포인트, 관찰 조건을 같은 화면에서 확인합니다.",
       tags: ["AI 점수", "지표 해석", "관찰 포인트"],
-      tone: "violet"
+      tone: "violet",
+      href: "/stocks/005930",
+      cta: "분석 열기"
     },
     {
       title: "보유종목 진단",
       desc: "수익률 변화와 알림 근접 상태를 기준으로 보유 전략을 점검합니다.",
       tags: ["수익률", "리스크 변화", "알림 조건"],
-      tone: "emerald"
+      tone: "emerald",
+      href: "/portfolio",
+      cta: "보유종목 보기"
     },
     {
       title: "기회 레이더",
       desc: "오늘 확인할 기회·위험 신호를 데이터 기준으로 구분해 보여줍니다.",
       tags: ["레이더", "데이터 기준", "위험 구분"],
-      tone: "amber"
+      tone: "amber",
+      href: "#home-radar",
+      cta: "레이더 보기"
     }
   ] as const;
   const trustItems = [
@@ -229,9 +238,10 @@ export default async function Home() {
           <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">핵심 기능 미리보기</h2>
           <div className="mt-3 grid gap-2.5">
             {previewItems.map((item) => (
-              <article
+              <Link
                 key={item.title}
-                className="rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/50"
+                href={item.href}
+                className="group block rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-dark-line dark:bg-slate-900/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-[15px] font-bold tracking-tight text-ink dark:text-white">{item.title}</h3>
@@ -252,7 +262,10 @@ export default async function Home() {
                     </span>
                   ))}
                 </div>
-              </article>
+                <p className="mt-2 text-[12px] font-bold text-brand transition group-hover:text-blue-500">
+                  {item.cta} →
+                </p>
+              </Link>
             ))}
           </div>
         </section>
@@ -469,7 +482,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-5 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] [content-visibility:auto] [contain-intrinsic-size:1px_900px]">
+      <section id="home-radar" className="mt-5 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] [content-visibility:auto] [contain-intrinsic-size:1px_900px]">
         <OpportunityRadar items={safeOpportunityRadar} />
         <StockCardGrid title="인기 종목" stocks={safePopularStocks} />
       </section>
@@ -488,9 +501,10 @@ export default async function Home() {
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {previewItems.map((item) => (
-            <article
+            <Link
               key={item.title}
-              className="rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/50"
+              href={item.href}
+              className="group block rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-dark-line dark:bg-slate-900/50"
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-[15px] font-bold tracking-tight text-ink dark:text-white">{item.title}</h3>
@@ -511,7 +525,10 @@ export default async function Home() {
                   </span>
                 ))}
               </div>
-            </article>
+              <p className="mt-2 text-[12px] font-bold text-brand transition group-hover:text-blue-500">
+                {item.cta} →
+              </p>
+            </Link>
           ))}
         </div>
       </section>
