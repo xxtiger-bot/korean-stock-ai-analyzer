@@ -12,6 +12,7 @@ import { TodayInvestmentChecklist } from "@/components/today-investment-checklis
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import { BarChart3, Cloud, CloudOff, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
 import {
+  type MarketOverview,
   getMarketOverview,
   getDangerWarnings,
   getOpportunityRadar,
@@ -35,6 +36,19 @@ const cardShellClass =
 const cardSubtleClass =
   "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
 
+const HOME_CRITICAL_TIMEOUT_MS = 3500;
+const HOME_SECTION_TIMEOUT_MS = 1800;
+const HOME_QUOTE_TIMEOUT_MS = 1600;
+
+function withSoftTimeout<T>(promiseLike: Promise<T> | T, fallback: T, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promiseLike),
+    new Promise<T>((resolve) => {
+      setTimeout(() => resolve(fallback), timeoutMs);
+    })
+  ]).catch(() => fallback);
+}
+
 export default async function Home() {
   const [
     fetchedAllStocks,
@@ -44,12 +58,16 @@ export default async function Home() {
     potentialRadar,
     dangerWarnings
   ] = await Promise.all([
-    searchStocks(""),
-    getPopularStocks(),
-    getMarketOverview(),
-    getOpportunityRadar(),
-    getPotentialRadar(),
-    getDangerWarnings()
+    withSoftTimeout(searchStocks(""), [], HOME_CRITICAL_TIMEOUT_MS),
+    withSoftTimeout(getPopularStocks(), [], HOME_CRITICAL_TIMEOUT_MS),
+    withSoftTimeout(
+      getMarketOverview(),
+      { indices: [], signals: [] } as MarketOverview,
+      HOME_CRITICAL_TIMEOUT_MS
+    ),
+    withSoftTimeout(getOpportunityRadar(), [], HOME_SECTION_TIMEOUT_MS),
+    withSoftTimeout(getPotentialRadar(), [], HOME_SECTION_TIMEOUT_MS),
+    withSoftTimeout(getDangerWarnings(), [], HOME_SECTION_TIMEOUT_MS)
   ]);
   const rawAllStocks = Array.isArray(fetchedAllStocks) ? fetchedAllStocks : [];
   const rawPopularStocks = Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : [];
@@ -58,21 +76,21 @@ export default async function Home() {
   const stockBySymbol = new Map(rawAllStocks.map((stock) => [stock.symbol, stock]));
   const quoteCandidateSymbols = new Set<string>();
 
-  rawPopularStocks.slice(0, 12).forEach((stock) => {
+  rawPopularStocks.slice(0, 6).forEach((stock) => {
     if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
   });
-  rawAllStocks.slice(0, 12).forEach((stock) => {
+  rawAllStocks.slice(0, 6).forEach((stock) => {
     if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
   });
   rawAllStocks
     .filter((stock) => stock.market === "KOSPI")
-    .slice(0, 8)
+    .slice(0, 3)
     .forEach((stock) => {
       if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
     });
   rawAllStocks
     .filter((stock) => stock.market === "KOSDAQ")
-    .slice(0, 8)
+    .slice(0, 3)
     .forEach((stock) => {
       if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
     });
@@ -81,7 +99,11 @@ export default async function Home() {
     .map((symbol) => stockBySymbol.get(symbol))
     .filter((stock): stock is NonNullable<typeof stock> => Boolean(stock));
 
-  const quotedCandidates = await getStocksWithPreferredQuote(quoteCandidates);
+  const quotedCandidates = await withSoftTimeout(
+    getStocksWithPreferredQuote(quoteCandidates),
+    quoteCandidates,
+    HOME_QUOTE_TIMEOUT_MS
+  );
   const quotedBySymbol = new Map(quotedCandidates.map((stock) => [stock.symbol, stock]));
 
   const safeAllStocks = rawAllStocks.map((stock) => quotedBySymbol.get(stock.symbol) ?? stock);
