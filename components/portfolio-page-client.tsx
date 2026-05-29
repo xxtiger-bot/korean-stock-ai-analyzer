@@ -1434,6 +1434,19 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
     []
   );
 
+  const schedulePortfolioSectionScroll = useCallback(
+    (tab: PortfolioMobileTab, behavior: ScrollBehavior = "smooth") => {
+      if (typeof window === "undefined") return;
+      // Wait for tab state update + layout reflow before calculating final scroll position.
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          scrollToPortfolioSection(tab, behavior);
+        });
+      });
+    },
+    [scrollToPortfolioSection]
+  );
+
   const handleMobileTabChange = useCallback(
     (nextTab: PortfolioMobileTab) => {
       if (typeof window === "undefined") return;
@@ -1446,11 +1459,9 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
         window.history.replaceState(null, "", window.location.pathname);
       }
 
-      window.requestAnimationFrame(() => {
-        scrollToPortfolioSection(nextTab, "smooth");
-      });
+      schedulePortfolioSectionScroll(nextTab, "smooth");
     },
-    [scrollToPortfolioSection]
+    [schedulePortfolioSectionScroll]
   );
 
   useEffect(() => {
@@ -1467,9 +1478,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
               ? "holdings"
               : "summary";
       setMobileTab(nextTab);
-      window.requestAnimationFrame(() => {
-        scrollToPortfolioSection(nextTab, "auto");
-      });
+      schedulePortfolioSectionScroll(nextTab, "auto");
     };
 
     syncMobileTabWithHash();
@@ -1477,7 +1486,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
     return () => {
       window.removeEventListener("hashchange", syncMobileTabWithHash);
     };
-  }, [scrollToPortfolioSection]);
+  }, [schedulePortfolioSectionScroll]);
 
   const safeEntries = useMemo(
     () => (Array.isArray(entries) ? entries : []),
