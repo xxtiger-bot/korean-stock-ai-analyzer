@@ -12,13 +12,15 @@ type MobileTabNavProps = {
   activeKey: string;
   onChange: (key: string) => void;
   topClassName?: string;
+  sticky?: boolean;
 };
 
 export function MobileTabNav({
   items,
   activeKey,
   onChange,
-  topClassName = "top-[72px]"
+  topClassName = "top-[72px]",
+  sticky = true
 }: MobileTabNavProps) {
   const safeItems = useMemo(
     () =>
@@ -39,7 +41,7 @@ export function MobileTabNav({
 
   return (
     <nav
-      className={`sticky z-20 -mx-1 mb-3 border-y border-line bg-white/95 px-1 py-2 backdrop-blur dark:border-dark-line dark:bg-slate-950/90 md:hidden ${topClassName}`}
+      className={`${sticky ? `sticky ${topClassName}` : "relative"} z-20 -mx-1 mb-3 border-y border-line bg-white/95 px-1 py-2 backdrop-blur dark:border-dark-line dark:bg-slate-950/90 md:hidden`}
       aria-label="모바일 탭"
     >
       <ul className="flex min-w-max items-center gap-1 overflow-x-auto whitespace-nowrap px-1 pb-0.5">
@@ -65,4 +67,3 @@ export function MobileTabNav({
     </nav>
   );
 }
-

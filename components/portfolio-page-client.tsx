@@ -1437,12 +1437,20 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
   const schedulePortfolioSectionScroll = useCallback(
     (tab: PortfolioMobileTab, behavior: ScrollBehavior = "smooth") => {
       if (typeof window === "undefined") return;
+      const runScroll = (nextBehavior: ScrollBehavior) => {
+        scrollToPortfolioSection(tab, nextBehavior);
+      };
       // Wait for tab state update + layout reflow before calculating final scroll position.
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          scrollToPortfolioSection(tab, behavior);
+          runScroll(behavior);
         });
       });
+      // Safari/Android browser UI can change viewport after the first frame.
+      // Re-apply once after a short delay to keep the section title fully visible.
+      window.setTimeout(() => {
+        runScroll("auto");
+      }, 180);
     },
     [scrollToPortfolioSection]
   );
@@ -2752,7 +2760,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
         ]}
         activeKey={mobileTab}
         onChange={(value) => handleMobileTabChange(value as PortfolioMobileTab)}
-        topClassName="top-[72px]"
+        sticky={false}
       />
       <section
         id="portfolio-summary"
@@ -3017,7 +3025,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
       <section
         id="reports"
-        className={`mt-5 scroll-mt-52 p-4 pt-6 sm:p-5 ${cardShellClass} ${mobileTabClass(
+        className={`mt-5 scroll-mt-32 p-4 sm:p-5 ${cardShellClass} ${mobileTabClass(
           "reports"
         )} md:block`}
       >
