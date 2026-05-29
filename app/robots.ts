@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
         "/admin",
         "/admin/beta-kit",
         "/admin/store-kit",
+        "/admin/store-assets",
         "/debug/market-data",
         "/mypage",
         "/portfolio",

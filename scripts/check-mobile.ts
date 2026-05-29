@@ -59,8 +59,11 @@ const ROUTES: RouteSpec[] = [
   { route: "/stocks/005930", slug: "stock" },
   { route: "/portfolio", slug: "portfolio" },
   { route: "/pricing", slug: "pricing" },
+  { route: "/beta", slug: "beta" },
+  { route: "/pwa", slug: "pwa" },
   { route: "/mypage", slug: "mypage" },
   { route: "/admin", slug: "admin" },
+  { route: "/admin/store-assets", slug: "admin-store-assets" },
   { route: "/admin/beta-kit", slug: "admin-beta-kit" },
   { route: "/debug/market-data", slug: "debug-market-data" },
   { route: "/admin/checklist", slug: "admin-checklist" }

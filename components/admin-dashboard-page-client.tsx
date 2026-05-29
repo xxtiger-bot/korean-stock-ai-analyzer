@@ -502,6 +502,12 @@ export function AdminDashboardPageClient() {
             Google Play Store Kit
           </Link>
           <Link
+            href="/admin/store-assets"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            Store Assets
+          </Link>
+          <Link
             href="/admin/beta-kit"
             className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200"
           >
