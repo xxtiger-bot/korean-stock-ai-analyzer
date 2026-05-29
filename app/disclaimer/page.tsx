@@ -13,6 +13,9 @@ export default function DisclaimerPage() {
           KRX Insight는 투자 참고 정보 제공 도구이며, 투자 판단에 관한 최종 책임은 사용자에게
           있습니다.
         </p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+          본 서비스는 투자 참고 정보이며, 매수/매도 추천이나 투자 자문이 아닙니다.
+        </p>
       </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">

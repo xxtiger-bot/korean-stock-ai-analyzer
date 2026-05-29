@@ -248,6 +248,7 @@ export function PricingPageClient() {
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <p>- 현재는 Beta 테스트 단계입니다.</p>
           <p>- 실제 결제 기능은 아직 제공되지 않습니다.</p>
+          <p>- 현재는 베타 테스트 단계이며 실제 결제는 제공되지 않습니다.</p>
           <p>- Pro 알림 신청은 정식 출시 알림을 위한 신청입니다.</p>
           <p>- 친구 초대 Pro 3일 체험은 Beta 리워드 성격입니다.</p>
           <p>- 향후 유료 기능은 별도 고지 후 제공됩니다.</p>
