@@ -21,6 +21,7 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         "/admin",
         "/admin/beta-kit",
+        "/admin/store-kit",
         "/debug/market-data",
         "/mypage",
         "/portfolio",

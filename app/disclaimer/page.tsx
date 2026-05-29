@@ -10,24 +10,36 @@ export default function DisclaimerPage() {
           투자 유의 및 면책 안내
         </h1>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-          본 서비스는 투자 참고를 위한 정보 제공 도구이며, 투자 자문 또는 투자 권유가 아닙니다.
+          KRX Insight는 투자 참고 정보 제공 도구이며, 투자 판단에 관한 최종 책임은 사용자에게
+          있습니다.
         </p>
       </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <h2 className="text-base font-bold text-ink dark:text-white">핵심 안내</h2>
+        <h2 className="text-base font-bold text-ink dark:text-white">핵심 고지</h2>
         <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-          <li>- AI 분석 결과는 참고 정보이며 투자 조언이 아닙니다.</li>
-          <li>- 주가 데이터는 지연되거나 외부 API 실패 시 대체(fallback) 데이터로 표시될 수 있습니다.</li>
-          <li>- 투자 결정과 그 결과에 대한 책임은 사용자 본인에게 있습니다.</li>
+          <li>- KRX Insight는 투자 참고 정보 제공 도구입니다.</li>
+          <li>- 매수/매도 추천이 아닙니다.</li>
+          <li>- 투자 자문, 금융 자문, 수익 보장을 제공하지 않습니다.</li>
+          <li>- AI 분석 결과는 참고용이며 최종 투자 판단은 사용자 본인 책임입니다.</li>
         </ul>
       </section>
 
       <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <h2 className="text-base font-bold text-ink dark:text-white">데이터 소스 차이</h2>
+        <h2 className="text-base font-bold text-ink dark:text-white">데이터 기준 및 한계</h2>
+        <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+          <li>- 데이터는 지연되거나 오류가 있을 수 있습니다.</li>
+          <li>- KIS 데이터는 현재가(시세) 기준으로 표시됩니다.</li>
+          <li>- data.go.kr 데이터는 일별 종가 기준으로 표시됩니다.</li>
+          <li>- 두 소스의 기준 시점이 달라 동일 값이 아닐 수 있습니다.</li>
+        </ul>
+      </section>
+
+      <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+        <h2 className="text-base font-bold text-ink dark:text-white">Beta 단계 안내</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-          KIS 현재가와 data.go.kr 최근 종가는 데이터 기준 시점이 다릅니다. KIS는 현재가 기준,
-          data.go.kr는 일별 종가 기준으로 제공되며 동일한 값이 아닐 수 있습니다.
+          현재 서비스는 Beta 단계로, 일부 기능과 데이터 표시 방식은 업데이트 과정에서 변경될 수
+          있습니다.
         </p>
       </section>
     </main>

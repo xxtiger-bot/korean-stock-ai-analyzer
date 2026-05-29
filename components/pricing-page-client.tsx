@@ -245,6 +245,13 @@ export function PricingPageClient() {
         <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
           KRX Insight의 무료/Pro/Business 플랜 구조를 미리 확인할 수 있습니다.
         </p>
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <p>- 현재는 Beta 테스트 단계입니다.</p>
+          <p>- 실제 결제 기능은 아직 제공되지 않습니다.</p>
+          <p>- Pro 알림 신청은 정식 출시 알림을 위한 신청입니다.</p>
+          <p>- 친구 초대 Pro 3일 체험은 Beta 리워드 성격입니다.</p>
+          <p>- 향후 유료 기능은 별도 고지 후 제공됩니다.</p>
+        </div>
         {isLoggedIn ? (
           <p className="mt-3 inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
             현재 플랜: {currentPlanLabel}
