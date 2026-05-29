@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 const FEATURE_GRAPHIC_PROMPT =
@@ -48,6 +49,9 @@ const DATA_SAFETY_SUMMARY = `수집 데이터
 - 로그인 기반 사용자 데이터 분리
 - 삭제 요청 가능
 - 광고 추적 없음`;
+
+const FEATURE_GRAPHIC_SOURCE_PATH = "/store-assets/feature-graphic-source.png";
+const FEATURE_GRAPHIC_READY_PATH = "/store-assets/feature-graphic-1024x500.png";
 
 const screenshotItems = [
   {
@@ -146,6 +150,38 @@ export function AdminStoreAssetsPageClient() {
         <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
           Google Play 상단 프로모션 이미지로 사용할 그래픽입니다.
         </p>
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
+            <p className="text-xs font-bold text-ink dark:text-white">원본 업로드 이미지 (1794×876)</p>
+            <div className="mt-2 overflow-hidden rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-slate-950/50">
+              <Image
+                src={FEATURE_GRAPHIC_SOURCE_PATH}
+                alt="KRX Insight store feature graphic source"
+                width={1794}
+                height={876}
+                className="h-auto w-full rounded object-contain"
+              />
+            </div>
+            <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              경로: {FEATURE_GRAPHIC_SOURCE_PATH}
+            </p>
+          </article>
+          <article className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/60">
+            <p className="text-xs font-bold text-ink dark:text-white">Google Play 제출용 (1024×500)</p>
+            <div className="mt-2 overflow-hidden rounded-md border border-line bg-white p-2 dark:border-dark-line dark:bg-slate-950/50">
+              <Image
+                src={FEATURE_GRAPHIC_READY_PATH}
+                alt="KRX Insight store feature graphic 1024x500"
+                width={1024}
+                height={500}
+                className="h-auto w-full rounded object-contain"
+              />
+            </div>
+            <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              경로: {FEATURE_GRAPHIC_READY_PATH}
+            </p>
+          </article>
+        </div>
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           <article className="rounded-md border border-line bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-700 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200">
             <p className="font-bold text-ink dark:text-white">권장 문구</p>

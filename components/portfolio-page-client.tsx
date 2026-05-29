@@ -130,6 +130,20 @@ const cardSubtleClass =
   "rounded-xl border border-line/90 bg-slate-50/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-dark-line dark:bg-slate-900/55";
 const sectionTitleClass = "text-base font-bold tracking-tight text-ink dark:text-white";
 
+const MOBILE_TAB_SECTION_ID_MAP: Record<PortfolioMobileTab, string> = {
+  summary: "portfolio-summary",
+  holdings: "portfolio-holdings",
+  alerts: "portfolio-alerts",
+  reports: "reports"
+};
+
+const MOBILE_TAB_HASH_MAP: Record<PortfolioMobileTab, string> = {
+  summary: "",
+  holdings: "#portfolio-holdings",
+  alerts: "#portfolio-alerts",
+  reports: "#reports"
+};
+
 type NotificationPermissionState = NotificationPermission | "unsupported";
 
 type PortfolioNotificationItem = {
@@ -1393,6 +1407,52 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
     [draft.symbol]
   );
 
+  const scrollToPortfolioSection = useCallback(
+    (tab: PortfolioMobileTab, behavior: ScrollBehavior = "smooth") => {
+      if (typeof window === "undefined") return;
+      const targetId = MOBILE_TAB_SECTION_ID_MAP[tab];
+      const targetElement = window.document.getElementById(targetId);
+      if (!targetElement) return;
+
+      const mobileTabNav = window.document.querySelector(
+        'nav[aria-label="모바일 탭"]'
+      ) as HTMLElement | null;
+      const navTop = mobileTabNav
+        ? Number.parseFloat(window.getComputedStyle(mobileTabNav).top || "0")
+        : 0;
+      const navHeight = mobileTabNav ? mobileTabNav.getBoundingClientRect().height : 0;
+      const calculatedOffset = Number.isFinite(navTop)
+        ? Math.round(navTop + navHeight + 28)
+        : 176;
+      const stickyOffset = Math.max(176, calculatedOffset);
+      const targetTop = targetElement.getBoundingClientRect().top + window.scrollY - stickyOffset;
+      window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior
+      });
+    },
+    []
+  );
+
+  const handleMobileTabChange = useCallback(
+    (nextTab: PortfolioMobileTab) => {
+      if (typeof window === "undefined") return;
+      setMobileTab(nextTab);
+
+      const nextHash = MOBILE_TAB_HASH_MAP[nextTab];
+      if (nextHash) {
+        window.history.replaceState(null, "", `${window.location.pathname}${nextHash}`);
+      } else {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+
+      window.requestAnimationFrame(() => {
+        scrollToPortfolioSection(nextTab, "smooth");
+      });
+    },
+    [scrollToPortfolioSection]
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -1407,15 +1467,9 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
               ? "holdings"
               : "summary";
       setMobileTab(nextTab);
-
-      if (nextTab === "reports") {
-        window.requestAnimationFrame(() => {
-          const reportSection = window.document.getElementById("reports");
-          if (reportSection) {
-            reportSection.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
-        });
-      }
+      window.requestAnimationFrame(() => {
+        scrollToPortfolioSection(nextTab, "auto");
+      });
     };
 
     syncMobileTabWithHash();
@@ -1423,7 +1477,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
     return () => {
       window.removeEventListener("hashchange", syncMobileTabWithHash);
     };
-  }, []);
+  }, [scrollToPortfolioSection]);
 
   const safeEntries = useMemo(
     () => (Array.isArray(entries) ? entries : []),
@@ -2688,7 +2742,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
           { key: "reports", label: "리포트" }
         ]}
         activeKey={mobileTab}
-        onChange={(value) => setMobileTab(value as PortfolioMobileTab)}
+        onChange={(value) => handleMobileTabChange(value as PortfolioMobileTab)}
         topClassName="top-[72px]"
       />
       <section
@@ -2954,7 +3008,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
 
       <section
         id="reports"
-        className={`mt-5 scroll-mt-32 p-4 sm:p-5 ${cardShellClass} ${mobileTabClass(
+        className={`mt-5 scroll-mt-52 p-4 pt-6 sm:p-5 ${cardShellClass} ${mobileTabClass(
           "reports"
         )} md:block`}
       >
