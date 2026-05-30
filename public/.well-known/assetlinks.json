@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.krxinsight.app",
+        "sha256_cert_fingerprints": ["06:59:64:1C:DA:DA:C4:97:27:2C:CC:DF:92:C1:4E:93:F4:71:2A:D3:09:9C:49:E7:5C:57:7B:E9:A5:0C:5E:FF"]
+      }
+    }]
