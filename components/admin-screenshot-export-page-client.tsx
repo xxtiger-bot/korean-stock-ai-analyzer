@@ -26,9 +26,9 @@ const screenshotTemplates: ScreenshotTemplate[] = [
     title: "한국 주식 AI 분석 대시보드",
     subtitle: "오늘 시장 브리핑, 종목 분석, 보유종목 리스크 진단을 한 화면에서 확인하세요.",
     sourceUrl: "/",
-    defaultImagePath: "/screenshots/home-1080x1920.png",
+    defaultImagePath: "/store-screenshots/raw/raw-01-dashboard.jpg",
     suggestedFileName: "krx-insight-01-dashboard-1080x1920.png",
-    autoCropTopRatio: 0.14
+    autoCropTopRatio: 0.16
   },
   {
     id: "market-brief",
@@ -36,28 +36,28 @@ const screenshotTemplates: ScreenshotTemplate[] = [
     title: "오늘 시장 브리핑",
     subtitle: "시장 흐름과 오늘 먼저 확인할 종목을 빠르게 확인하세요.",
     sourceUrl: "/",
-    defaultImagePath: "/screenshots/home-1080x1920.png",
+    defaultImagePath: "/store-screenshots/raw/raw-02-market-brief.jpg",
     suggestedFileName: "krx-insight-02-market-brief-1080x1920.png",
-    autoCropTopRatio: 0.2
-  },
-  {
-    id: "ai-analysis",
-    label: "Screenshot 03",
-    title: "AI 종목 분석 리포트",
-    subtitle: "기술지표, 현재가, 데이터 기준을 함께 보는 AI 분석 요약.",
-    sourceUrl: "/stocks/005930",
-    defaultImagePath: "/screenshots/stock-1080x1920.png",
-    suggestedFileName: "krx-insight-03-ai-analysis-1080x1920.png",
     autoCropTopRatio: 0.16
   },
   {
     id: "portfolio",
-    label: "Screenshot 04",
+    label: "Screenshot 03",
     title: "내 보유종목 AI 진단",
     subtitle: "보유 상태, 리스크 변화, 알림과 동기화 상태를 한눈에 확인하세요.",
     sourceUrl: "/portfolio",
-    defaultImagePath: "/screenshots/portfolio-1080x1920.png",
-    suggestedFileName: "krx-insight-04-portfolio-diagnosis-1080x1920.png",
+    defaultImagePath: "/store-screenshots/raw/raw-03-portfolio-diagnosis.jpg",
+    suggestedFileName: "krx-insight-03-portfolio-diagnosis-1080x1920.png",
+    autoCropTopRatio: 0.16
+  },
+  {
+    id: "ai-analysis",
+    label: "Screenshot 04",
+    title: "AI 종목 분석 리포트",
+    subtitle: "기술지표, 현재가, 데이터 기준을 함께 보는 AI 분석 요약.",
+    sourceUrl: "/stocks/005930",
+    defaultImagePath: "/store-screenshots/raw/raw-04-ai-analysis.jpg",
+    suggestedFileName: "krx-insight-04-ai-analysis-1080x1920.png",
     autoCropTopRatio: 0.16
   },
   {
@@ -66,9 +66,9 @@ const screenshotTemplates: ScreenshotTemplate[] = [
     title: "AI 리포트 저장과 활용",
     subtitle: "리포트 복사, 저장, 이미지 저장까지 간편하게 이용하세요.",
     sourceUrl: "/portfolio#reports",
-    defaultImagePath: "/screenshots/portfolio-1080x1920.png",
+    defaultImagePath: "/store-screenshots/raw/raw-05-report-save.jpg",
     suggestedFileName: "krx-insight-05-report-save-1080x1920.png",
-    autoCropTopRatio: 0.23
+    autoCropTopRatio: 0.16
   }
 ];
 
