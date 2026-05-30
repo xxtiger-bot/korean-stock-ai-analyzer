@@ -6,55 +6,69 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 type ScreenshotTemplate = {
   id: string;
+  label: string;
   title: string;
-  summary: string;
-  screenshotPath: string | null;
+  subtitle: string;
   sourceUrl: string;
-  recommendedFilename: string;
+  defaultImagePath: string | null;
+  suggestedFileName: string;
+  autoCropTopRatio: number;
 };
 
-const TEMPLATE_SIZE = "1080 × 1920";
+const CANVAS_WIDTH = 1080;
+const CANVAS_HEIGHT = 1920;
+const CARD_RATIO_CLASS = "aspect-[9/16]";
 
 const screenshotTemplates: ScreenshotTemplate[] = [
   {
-    id: "market-brief",
-    title: "오늘 시장 브리핑",
-    summary: "지수 흐름과 오늘 먼저 확인할 종목을 한 장으로 보여주는 대표 화면입니다.",
-    screenshotPath: "/screenshots/home-1080x1920.png",
+    id: "dashboard",
+    label: "Screenshot 01",
+    title: "한국 주식 AI 분석 대시보드",
+    subtitle: "오늘 시장 브리핑, 종목 분석, 보유종목 리스크 진단을 한 화면에서 확인하세요.",
     sourceUrl: "/",
-    recommendedFilename: "screenshot-01-market-brief.png"
+    defaultImagePath: "/screenshots/home-1080x1920.png",
+    suggestedFileName: "krx-insight-01-dashboard-1080x1920.png",
+    autoCropTopRatio: 0.14
+  },
+  {
+    id: "market-brief",
+    label: "Screenshot 02",
+    title: "오늘 시장 브리핑",
+    subtitle: "시장 흐름과 오늘 먼저 확인할 종목을 빠르게 확인하세요.",
+    sourceUrl: "/",
+    defaultImagePath: "/screenshots/home-1080x1920.png",
+    suggestedFileName: "krx-insight-02-market-brief-1080x1920.png",
+    autoCropTopRatio: 0.2
   },
   {
     id: "ai-analysis",
-    title: "AI 종목 분석",
-    summary: "종목 상세에서 AI 분석 카드와 기술 지표를 함께 보여주는 화면입니다.",
-    screenshotPath: "/screenshots/stock-1080x1920.png",
+    label: "Screenshot 03",
+    title: "AI 종목 분석 리포트",
+    subtitle: "기술지표, 현재가, 데이터 기준을 함께 보는 AI 분석 요약.",
     sourceUrl: "/stocks/005930",
-    recommendedFilename: "screenshot-02-ai-analysis.png"
+    defaultImagePath: "/screenshots/stock-1080x1920.png",
+    suggestedFileName: "krx-insight-03-ai-analysis-1080x1920.png",
+    autoCropTopRatio: 0.16
   },
   {
-    id: "portfolio-risk",
-    title: "보유종목 리스크 진단",
-    summary: "포트폴리오 요약과 리스크 알림을 중심으로 구성한 핵심 화면입니다.",
-    screenshotPath: "/screenshots/portfolio-1080x1920.png",
+    id: "portfolio",
+    label: "Screenshot 04",
+    title: "내 보유종목 AI 진단",
+    subtitle: "보유 상태, 리스크 변화, 알림과 동기화 상태를 한눈에 확인하세요.",
     sourceUrl: "/portfolio",
-    recommendedFilename: "screenshot-03-portfolio-risk.png"
+    defaultImagePath: "/screenshots/portfolio-1080x1920.png",
+    suggestedFileName: "krx-insight-04-portfolio-diagnosis-1080x1920.png",
+    autoCropTopRatio: 0.16
   },
   {
-    id: "report-save",
-    title: "AI 리포트 저장",
-    summary: "일일 리포트 복사/저장/이미지 저장 흐름을 강조한 화면 구성입니다.",
-    screenshotPath: null,
+    id: "report",
+    label: "Screenshot 05",
+    title: "AI 리포트 저장과 활용",
+    subtitle: "리포트 복사, 저장, 이미지 저장까지 간편하게 이용하세요.",
     sourceUrl: "/portfolio#reports",
-    recommendedFilename: "screenshot-04-report-save.png"
-  },
-  {
-    id: "cloud-sync",
-    title: "클라우드 동기화",
-    summary: "계정 화면에서 동기화 상태와 저장 데이터를 확인하는 화면입니다.",
-    screenshotPath: null,
-    sourceUrl: "/mypage",
-    recommendedFilename: "screenshot-05-cloud-sync.png"
+    defaultImagePath: "/screenshots/portfolio-1080x1920.png",
+    suggestedFileName: "krx-insight-05-report-save-1080x1920.png",
+    autoCropTopRatio: 0.23
   }
 ];
 
@@ -63,17 +77,83 @@ function buildAbsoluteUrl(path: string) {
   return `${window.location.origin}${path}`;
 }
 
-function ScreenshotMock({ title, summary }: { title: string; summary: string }) {
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("이미지를 불러올 수 없습니다."));
+    image.src = src;
+  });
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function wrapTextByWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+) {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    const nextWidth = ctx.measureText(next).width;
+    if (nextWidth <= maxWidth) {
+      current = next;
+    } else {
+      if (current) {
+        lines.push(current);
+      }
+      current = word;
+    }
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+function PreviewMock({
+  title,
+  subtitle
+}: {
+  title: string;
+  subtitle: string;
+}) {
   return (
-    <div className="flex h-full w-full flex-col rounded-[22px] border border-blue-200/40 bg-gradient-to-b from-[#0b1c4a] via-[#0b1a3f] to-[#070f27] p-5 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] dark:border-blue-700/40">
-      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+    <div className="flex h-full w-full flex-col rounded-[24px] border border-blue-300/20 bg-gradient-to-b from-[#0c1f4f] via-[#09183d] to-[#06102a] p-5 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+      <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3 py-2">
         <span className="text-[11px] font-bold text-blue-200">KRX Insight</span>
         <span className="rounded-full border border-blue-300/40 bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-100">
-          Preview
+          1080 × 1920
         </span>
       </div>
-      <h3 className="mt-4 text-lg font-bold leading-tight">{title}</h3>
-      <p className="mt-2 text-xs font-semibold leading-5 text-slate-300">{summary}</p>
+      <h3 className="mt-4 text-[17px] font-bold leading-tight">{title}</h3>
+      <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-300">{subtitle}</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-lg border border-white/10 bg-white/5 p-2">
           <p className="text-[10px] font-bold text-slate-300">KOSPI</p>
@@ -85,110 +165,291 @@ function ScreenshotMock({ title, summary }: { title: string; summary: string }) 
         </div>
       </div>
       <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-2">
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full w-2/3 rounded-full bg-blue-400" />
+        <p className="text-[11px] font-bold text-blue-100">KRX Insight</p>
+        <div className="mt-2 h-[68px] rounded-md border border-white/10 bg-slate-900/70 px-2 py-2">
+          <div className="h-[2px] w-full rounded-full bg-slate-700" />
+          <div className="mt-2 h-[2px] w-full rounded-full bg-slate-700" />
+          <div className="mt-2 h-[2px] w-full rounded-full bg-slate-700" />
         </div>
-        <p className="mt-2 text-[10px] font-semibold text-slate-300">스크린샷을 업로드하면 실제 화면으로 교체됩니다.</p>
       </div>
-      <div className="mt-auto text-[10px] font-bold text-blue-200/80">KRX Insight • 1080×1920</div>
+      <p className="mt-auto text-[11px] font-semibold text-slate-300">업로드하면 실스크린샷으로 자동 교체됩니다.</p>
     </div>
   );
 }
 
-function TemplateCard({
+async function exportStoreScreenshot(options: {
+  template: ScreenshotTemplate;
+  sourceImage: string | null;
+}) {
+  const { template, sourceImage } = options;
+  if (typeof window === "undefined") return;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+  bgGradient.addColorStop(0, "#f0f6ff");
+  bgGradient.addColorStop(0.48, "#dfeafb");
+  bgGradient.addColorStop(1, "#0a1a45");
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  const topGlow = ctx.createRadialGradient(180, 40, 10, 540, 0, 780);
+  topGlow.addColorStop(0, "rgba(37, 99, 235, 0.38)");
+  topGlow.addColorStop(1, "rgba(37, 99, 235, 0)");
+  ctx.fillStyle = topGlow;
+  ctx.fillRect(0, 0, CANVAS_WIDTH, 560);
+
+  ctx.fillStyle = "#0f2d7a";
+  ctx.font = "700 38px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.fillText("KRX Insight", 86, 108);
+
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "700 64px system-ui, -apple-system, Segoe UI, sans-serif";
+  const titleLines = wrapTextByWidth(ctx, template.title, 900);
+  titleLines.forEach((line, index) => {
+    ctx.fillText(line, 86, 196 + index * 74);
+  });
+
+  ctx.fillStyle = "#334155";
+  ctx.font = "600 34px system-ui, -apple-system, Segoe UI, sans-serif";
+  const subtitleLines = wrapTextByWidth(ctx, template.subtitle, 900);
+  subtitleLines.slice(0, 2).forEach((line, index) => {
+    ctx.fillText(line, 86, 320 + index * 48);
+  });
+
+  const frameX = 76;
+  const frameY = 410;
+  const frameW = 928;
+  const frameH = 1288;
+
+  ctx.save();
+  drawRoundedRect(ctx, frameX, frameY, frameW, frameH, 56);
+  ctx.fillStyle = "rgba(3, 10, 31, 0.5)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.42)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  const innerPadding = 22;
+  const screenX = frameX + innerPadding;
+  const screenY = frameY + innerPadding;
+  const screenW = frameW - innerPadding * 2;
+  const screenH = frameH - innerPadding * 2;
+
+  ctx.save();
+  drawRoundedRect(ctx, screenX, screenY, screenW, screenH, 38);
+  ctx.clip();
+  ctx.fillStyle = "#0b1229";
+  ctx.fillRect(screenX, screenY, screenW, screenH);
+
+  if (sourceImage) {
+    try {
+      const screenshot = await loadImageElement(sourceImage);
+      const topCrop = Math.max(0, Math.floor(screenshot.height * template.autoCropTopRatio));
+      const cropWidth = screenshot.width;
+      const cropHeight = Math.max(1, screenshot.height - topCrop);
+
+      const scale = Math.min(screenW / cropWidth, screenH / cropHeight);
+      const drawWidth = cropWidth * scale;
+      const drawHeight = cropHeight * scale;
+      const dx = screenX + (screenW - drawWidth) / 2;
+      const dy = screenY + (screenH - drawHeight) / 2;
+
+      ctx.drawImage(
+        screenshot,
+        0,
+        topCrop,
+        cropWidth,
+        cropHeight,
+        dx,
+        dy,
+        drawWidth,
+        drawHeight
+      );
+    } catch {
+      ctx.fillStyle = "#10244f";
+      ctx.fillRect(screenX, screenY, screenW, screenH);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "700 42px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("스크린샷을 불러올 수 없습니다.", screenX + screenW / 2, screenY + screenH / 2);
+      ctx.textAlign = "start";
+    }
+  } else {
+    ctx.fillStyle = "#10244f";
+    ctx.fillRect(screenX, screenY, screenW, screenH);
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "700 42px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("스크린샷 업로드가 필요합니다.", screenX + screenW / 2, screenY + screenH / 2);
+    ctx.textAlign = "start";
+  }
+  ctx.restore();
+
+  ctx.fillStyle = "rgba(15, 23, 42, 0.74)";
+  ctx.fillRect(0, 1800, CANVAS_WIDTH, 120);
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "700 40px system-ui, -apple-system, Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("KRX Insight", CANVAS_WIDTH / 2, 1872);
+  ctx.textAlign = "start";
+
+  const dataUrl = canvas.toDataURL("image/png");
+  const anchor = document.createElement("a");
+  anchor.href = dataUrl;
+  anchor.download = template.suggestedFileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+}
+
+function TemplateExportCard({
   template,
-  uploadedScreenshot,
-  onSelectFile,
-  onCopy
+  uploadedImage,
+  hideDefaultImage,
+  onImageLoadError,
+  onSelectImage,
+  onCopy,
+  onExport
 }: {
   template: ScreenshotTemplate;
-  uploadedScreenshot: string | null;
-  onSelectFile: (templateId: string, event: ChangeEvent<HTMLInputElement>) => void;
+  uploadedImage: string | null;
+  hideDefaultImage: boolean;
+  onImageLoadError: (templateId: string) => void;
+  onSelectImage: (templateId: string, event: ChangeEvent<HTMLInputElement>) => void;
   onCopy: (text: string) => Promise<void>;
+  onExport: (template: ScreenshotTemplate) => Promise<void>;
 }) {
-  const hasStaticImage = typeof template.screenshotPath === "string" && template.screenshotPath.length > 0;
-  const safeSourceUrl = buildAbsoluteUrl(template.sourceUrl);
+  const previewImage = uploadedImage || (!hideDefaultImage ? template.defaultImagePath : null);
+  const absoluteUrl = buildAbsoluteUrl(template.sourceUrl);
 
   return (
-    <article className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+    <article className="group rounded-xl border border-line bg-white p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.14)] dark:border-dark-line dark:bg-dark-panel sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold tracking-normal text-brand">Template</p>
+          <p className="text-xs font-bold text-brand">{template.label}</p>
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">{template.title}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{template.summary}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{template.subtitle}</p>
         </div>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-400">
-          {TEMPLATE_SIZE}
+        <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200">
+          1080×1920
         </span>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-line bg-slate-50 p-3 shadow-sm dark:border-dark-line dark:bg-slate-900/60">
-        <div className="mx-auto w-full max-w-[320px]">
-          <div className="relative aspect-[9/16] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100 shadow-[0_14px_30px_rgba(15,23,42,0.15)] dark:border-slate-700 dark:bg-slate-950">
-            {uploadedScreenshot ? (
-              <img
-                src={uploadedScreenshot}
-                alt={`${template.title} 업로드 스크린샷`}
-                className="h-full w-full object-cover"
-              />
-            ) : hasStaticImage ? (
-              <Image
-                src={template.screenshotPath as string}
-                alt={`${template.title} 샘플 스크린샷`}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 85vw, 320px"
-              />
-            ) : (
-              <ScreenshotMock title={template.title} summary={template.summary} />
-            )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent px-4 py-3">
-              <p className="text-sm font-bold text-white">{template.title}</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-slate-200">KRX Insight</p>
+      <div className="mt-4 rounded-2xl border border-blue-100 bg-gradient-to-b from-[#f8fbff] to-[#ebf3ff] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-950">
+        <div className={`relative mx-auto w-full max-w-[340px] overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_36px_rgba(15,23,42,0.24)] dark:border-slate-700 dark:bg-slate-900 ${CARD_RATIO_CLASS}`}>
+          <div className="absolute inset-0 flex flex-col">
+            <div className="shrink-0 bg-gradient-to-r from-[#0f2d7a] via-[#143c99] to-[#1d4ed8] px-4 pb-4 pt-3 text-white">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] opacity-85">{template.label}</p>
+              <p className="mt-1 text-[18px] font-bold leading-tight">{template.title}</p>
+              <p className="mt-1 text-[12px] font-medium leading-5 text-blue-100">{template.subtitle}</p>
+            </div>
+
+            <div className="relative flex-1 bg-slate-200 p-3 dark:bg-slate-900">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.14)] dark:border-slate-700 dark:bg-slate-950">
+                {previewImage ? (
+                  previewImage.startsWith("blob:") ? (
+                    <img
+                      src={previewImage}
+                      alt={`${template.title} 업로드 미리보기`}
+                      className="h-full w-full object-cover object-top"
+                    />
+                  ) : (
+                    <Image
+                      src={previewImage}
+                      alt={`${template.title} 기본 미리보기`}
+                      fill
+                      className="object-cover object-top"
+                      sizes="(max-width: 640px) 90vw, 340px"
+                      onError={() => onImageLoadError(template.id)}
+                    />
+                  )
+                ) : (
+                  <PreviewMock title={template.title} subtitle={template.subtitle} />
+                )}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/18 to-transparent" />
+              </div>
+            </div>
+
+            <div className="shrink-0 bg-slate-950 px-4 py-2 text-center text-[11px] font-bold text-slate-100">
+              KRX Insight
             </div>
           </div>
         </div>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200">
+        <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-line bg-slate-50 px-4 text-sm font-bold text-slate-700 transition-colors hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200">
           스크린샷 업로드/교체
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="sr-only"
-            onChange={(event) => onSelectFile(template.id, event)}
+            onChange={(event) => onSelectImage(template.id, event)}
           />
         </label>
+        <button
+          type="button"
+          onClick={() => {
+            void onExport(template);
+          }}
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-brand bg-brand px-4 text-sm font-bold text-white transition-colors hover:bg-brand-strong"
+        >
+          PNG 미리보기 저장
+        </button>
         <Link
           href={template.sourceUrl}
-          className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-white px-4 text-sm font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
         >
-          페이지 열기
+          원본 페이지 열기
         </Link>
+        <button
+          type="button"
+          onClick={() => {
+            void onCopy(template.suggestedFileName);
+          }}
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-line bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-200"
+        >
+          파일명 복사
+        </button>
       </div>
 
-      <div className="mt-3 space-y-2 rounded-md border border-line bg-slate-50 px-3 py-3 text-xs font-semibold dark:border-dark-line dark:bg-slate-900/60">
-        <p className="text-slate-600 dark:text-slate-300">PNG 저장 안내: 미리보기 영역을 1080×1920 비율로 캡처해 저장하세요.</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 dark:border-dark-line dark:bg-slate-950 dark:text-slate-200">
-            권장 파일명: {template.recommendedFilename}
-          </span>
+      <div className="mt-3 space-y-2 rounded-md border border-line bg-slate-50 p-3 text-xs font-semibold dark:border-dark-line dark:bg-slate-900/60">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => void onCopy(template.recommendedFilename)}
+            onClick={() => {
+              void onCopy(template.title);
+            }}
             className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
           >
-            파일명 복사
+            제목 복사
           </button>
           <button
             type="button"
-            onClick={() => void onCopy(safeSourceUrl)}
+            onClick={() => {
+              void onCopy(template.subtitle);
+            }}
+            className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
+          >
+            부제목 복사
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void onCopy(absoluteUrl);
+            }}
             className="inline-flex h-7 items-center justify-center rounded-md border border-line bg-white px-2 text-[11px] font-bold text-slate-700 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-slate-950 dark:text-slate-200"
           >
             페이지 URL 복사
           </button>
         </div>
+        <p className="text-slate-500 dark:text-slate-400">권장 파일명: {template.suggestedFileName}</p>
       </div>
     </article>
   );
@@ -196,12 +457,12 @@ function TemplateCard({
 
 export function AdminScreenshotExportPageClient() {
   const [copyNotice, setCopyNotice] = useState("");
+  const [exportNotice, setExportNotice] = useState("");
+  const [isBatchExporting, setIsBatchExporting] = useState(false);
   const [uploadedScreenshots, setUploadedScreenshots] = useState<Record<string, string>>({});
+  const [missingDefaults, setMissingDefaults] = useState<Record<string, boolean>>({});
 
-  const safeTemplates = useMemo(
-    () => (Array.isArray(screenshotTemplates) ? screenshotTemplates : []),
-    []
-  );
+  const safeTemplates = useMemo(() => (Array.isArray(screenshotTemplates) ? screenshotTemplates : []), []);
 
   useEffect(() => {
     return () => {
@@ -230,47 +491,123 @@ export function AdminScreenshotExportPageClient() {
     }
   };
 
-  const handleSelectFile = (templateId: string, event: ChangeEvent<HTMLInputElement>) => {
+  const handleSelectImage = (templateId: string, event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const nextUrl = URL.createObjectURL(file);
     setUploadedScreenshots((previous) => {
       const next = { ...previous };
-      const existing = previous[templateId];
-      if (typeof existing === "string" && existing.startsWith("blob:")) {
-        URL.revokeObjectURL(existing);
+      const old = previous[templateId];
+      if (typeof old === "string" && old.startsWith("blob:")) {
+        URL.revokeObjectURL(old);
       }
       next[templateId] = nextUrl;
       return next;
     });
   };
 
+  const handleImageLoadError = (templateId: string) => {
+    setMissingDefaults((previous) => ({ ...previous, [templateId]: true }));
+  };
+
+  const handleExport = async (template: ScreenshotTemplate) => {
+    const uploaded = uploadedScreenshots[template.id] ?? null;
+    const fallback = missingDefaults[template.id] ? null : template.defaultImagePath;
+    const sourceImage = uploaded || fallback;
+
+    try {
+      await exportStoreScreenshot({
+        template,
+        sourceImage
+      });
+      setExportNotice(`${template.suggestedFileName} 저장을 시작했습니다.`);
+    } catch {
+      setExportNotice("이미지 저장에 실패했습니다.");
+    }
+  };
+
+  const handleExportAll = async () => {
+    if (!Array.isArray(safeTemplates) || safeTemplates.length === 0 || isBatchExporting) {
+      return;
+    }
+
+    setIsBatchExporting(true);
+    try {
+      setExportNotice("5개 템플릿 PNG 저장을 시작합니다.");
+      for (let index = 0; index < safeTemplates.length; index += 1) {
+        const template = safeTemplates[index];
+        setExportNotice(`${index + 1}/5 저장 중... (${template.suggestedFileName})`);
+        const uploaded = uploadedScreenshots[template.id] ?? null;
+        const fallback = missingDefaults[template.id] ? null : template.defaultImagePath;
+        const sourceImage = uploaded || fallback;
+
+        await exportStoreScreenshot({
+          template,
+          sourceImage
+        });
+        await new Promise((resolve) => setTimeout(resolve, 220));
+      }
+      setExportNotice("5개 템플릿 PNG 저장 요청을 모두 완료했습니다.");
+    } catch {
+      setExportNotice("일괄 저장에 실패했습니다. 각 카드에서 개별 저장을 시도해 주세요.");
+    } finally {
+      setIsBatchExporting(false);
+    }
+  };
+
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+      <section className="rounded-xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
         <p className="text-xs font-bold tracking-normal text-brand">Admin</p>
-        <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">
-          Google Play Screenshot Export
-        </h1>
+        <h1 className="mt-1 text-2xl font-bold text-ink dark:text-white sm:text-3xl">Google Play Screenshot Export</h1>
         <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-          Google Play 업로드용 1080×1920 스토어 스크린샷 템플릿입니다.
+          1080×1920 스토어 스크린샷 템플릿으로 업로드용 PNG를 빠르게 제작하세요.
         </p>
+        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-100">
+          <p>1) 원본 스크린샷 업로드 → 2) 자동 스타일 적용 미리보기 확인 → 3) PNG 미리보기 저장</p>
+          <p className="mt-1 text-xs font-medium text-blue-700 dark:text-blue-200">
+            상단 주소창은 자동으로 일부 정리되며, 필요하면 더 깔끔한 원본을 다시 업로드해 주세요.
+          </p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void handleExportAll();
+            }}
+            disabled={isBatchExporting}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-brand bg-brand px-4 text-sm font-bold text-white transition-colors hover:bg-brand-strong disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:text-slate-100 dark:disabled:border-slate-700 dark:disabled:bg-slate-700"
+          >
+            {isBatchExporting ? "5장 저장 진행 중..." : "5장 한 번에 저장"}
+          </button>
+          <p className="inline-flex min-h-11 items-center rounded-md border border-line bg-white px-3 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+            팝업 차단이 켜져 있으면 브라우저에서 다운로드를 허용해 주세요.
+          </p>
+        </div>
         {copyNotice ? (
           <p className="mt-3 inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
             {copyNotice}
+          </p>
+        ) : null}
+        {exportNotice ? (
+          <p className="mt-2 inline-flex rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
+            {exportNotice}
           </p>
         ) : null}
       </section>
 
       <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         {safeTemplates.map((template) => (
-          <TemplateCard
+          <TemplateExportCard
             key={template.id}
             template={template}
-            uploadedScreenshot={uploadedScreenshots[template.id] ?? null}
-            onSelectFile={handleSelectFile}
+            uploadedImage={uploadedScreenshots[template.id] ?? null}
+            hideDefaultImage={Boolean(missingDefaults[template.id])}
+            onImageLoadError={handleImageLoadError}
+            onSelectImage={handleSelectImage}
             onCopy={handleCopy}
+            onExport={handleExport}
           />
         ))}
       </section>
