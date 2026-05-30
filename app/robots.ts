@@ -25,6 +25,7 @@ export default function robots(): MetadataRoute.Robots {
         "/admin/store-assets",
         "/admin/screenshot-kit",
         "/admin/screenshot-export",
+        "/admin/feature-graphic-export",
         "/debug/market-data",
         "/mypage",
         "/portfolio",
