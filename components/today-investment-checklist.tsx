@@ -1346,7 +1346,7 @@ export function TodayInvestmentChecklist({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold tracking-normal text-brand">Checklist</p>
+          <p className="text-xs font-bold tracking-normal text-brand">체크리스트</p>
           <h2 className="mt-1 text-base font-bold text-ink dark:text-white">오늘의 투자 체크리스트</h2>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
             KIS 현재가와 data.go.kr 일별 종가를 함께 참고한 체크리스트입니다.

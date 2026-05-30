@@ -349,7 +349,7 @@ export default async function Home() {
               <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" />
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
               <span className="ml-2 text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-300">
-                KRX Insight - Portfolio Dashboard
+                KRX Insight - 포트폴리오 대시보드
               </span>
               <span className="ml-auto rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">
                 BETA LIVE

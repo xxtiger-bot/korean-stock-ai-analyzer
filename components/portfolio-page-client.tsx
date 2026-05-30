@@ -2768,7 +2768,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
           "summary"
         )} md:block`}
       >
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio</p>
+        <p className="text-xs font-bold uppercase tracking-normal text-brand">포트폴리오</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink dark:text-white sm:text-3xl">
           내 보유종목 AI 진단
         </h1>
@@ -2925,7 +2925,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-normal text-brand">Risk Alert</p>
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">리스크 알림</p>
             <h2 className={`mt-1 ${sectionTitleClass}`}>
               보유종목 리스크 알림
             </h2>
@@ -3031,7 +3031,7 @@ export function PortfolioPageClient({ signals }: { signals: MarketSignal[] }) {
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-normal text-brand">Daily Report</p>
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">오늘 리포트</p>
             <h2 className={`mt-1 ${sectionTitleClass}`}>
               오늘의 내 보유종목 AI 리포트
             </h2>
