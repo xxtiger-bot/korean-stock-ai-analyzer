@@ -937,20 +937,52 @@ export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
   const quote = await getRealtimeQuote(symbol);
   const inputClosePrice = hasDataGoTag(stock) && hasValidStockPrice(stock) ? stock.price : null;
   let referenceClosePrice = inputClosePrice;
+  let referenceDetail: Stock | null = null;
 
   if (!referenceClosePrice && process.env.DATA_GO_KR_API_KEY) {
     try {
       const dataGoStock = await getStockDetailFromDataGoKr(symbol);
       if (dataGoStock && Number.isFinite(dataGoStock.price) && dataGoStock.price > 0) {
         referenceClosePrice = dataGoStock.price;
+        referenceDetail = dataGoStock;
       }
     } catch {
       // ignore and fallback safely
     }
   }
 
+  const referenceSourceStock = referenceDetail ?? stock;
+  const referenceChange = Number.isFinite(referenceSourceStock.change) ? referenceSourceStock.change : stock.change;
+  const referenceChangeRate = Number.isFinite(referenceSourceStock.changeRate)
+    ? referenceSourceStock.changeRate
+    : stock.changeRate;
+  const referenceVolume = Number.isFinite(referenceSourceStock.volume) && referenceSourceStock.volume > 0
+    ? referenceSourceStock.volume
+    : stock.volume;
+  const safeReferenceClosePrice =
+    typeof referenceClosePrice === "number" && Number.isFinite(referenceClosePrice) && referenceClosePrice > 0
+      ? referenceClosePrice
+      : null;
+
   if (quote && Number.isFinite(quote.price) && quote.price > 0) {
-    const guard = validateQuoteAgainstClose(quote.price, referenceClosePrice);
+    const guard = validateQuoteAgainstClose(quote.price, safeReferenceClosePrice);
+    if (guard.status === "critical" && safeReferenceClosePrice !== null) {
+      return {
+        ...stock,
+        ...referenceSourceStock,
+        price: safeReferenceClosePrice,
+        change: Number.isFinite(referenceChange) ? referenceChange : 0,
+        changeRate: Number.isFinite(referenceChangeRate) ? referenceChangeRate : 0,
+        volume: referenceVolume,
+        quoteSource: "data.go.kr",
+        quoteLabel: "최근 종가",
+        priceAnomaly: "critical",
+        priceAnomalyGapRate: guard.gapRate,
+        priceAnomalyMessage:
+          "KIS 현재가 확인이 어려워 data.go.kr 최근 종가를 기준으로 표시합니다."
+      };
+    }
+
     return {
       ...stock,
       price: quote.price,
@@ -965,16 +997,14 @@ export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
     };
   }
 
-  if (
-    typeof referenceClosePrice === "number" &&
-    Number.isFinite(referenceClosePrice) &&
-    referenceClosePrice > 0
-  ) {
+  if (safeReferenceClosePrice !== null) {
     return {
       ...stock,
-      price: referenceClosePrice,
-      change: Number.isFinite(stock.change) ? stock.change : 0,
-      changeRate: Number.isFinite(stock.changeRate) ? stock.changeRate : 0,
+      ...(referenceDetail ?? {}),
+      price: safeReferenceClosePrice,
+      change: Number.isFinite(referenceChange) ? referenceChange : 0,
+      changeRate: Number.isFinite(referenceChangeRate) ? referenceChangeRate : 0,
+      volume: referenceVolume,
       quoteSource: "data.go.kr",
       quoteLabel: "최근 종가",
       priceAnomaly: null,

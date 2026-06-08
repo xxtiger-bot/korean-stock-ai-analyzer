@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildTechnicalSeries } from "@/lib/indicators";
 import { DISCLAIMER } from "@/lib/insights";
-import { getRealtimeQuote } from "@/lib/stock-provider";
+import { getRealtimeQuote, validateQuoteAgainstClose } from "@/lib/stock-provider";
 import {
   getStockCandlesFromDataGoKr,
   getStockDetailFromDataGoKr
@@ -171,11 +171,22 @@ async function diagnoseOne(position: PortfolioPositionInput) {
   }
 
   const recentClosePrice = n(detail.price, n(latest.close));
-  const hasRealtimePrice = Boolean(realtime && Number.isFinite(realtime.price) && realtime.price > 0);
+  const quoteGuard = validateQuoteAgainstClose(realtime?.price, recentClosePrice);
+  const hasRealtimePrice = Boolean(
+    realtime &&
+      Number.isFinite(realtime.price) &&
+      realtime.price > 0 &&
+      quoteGuard.status !== "critical"
+  );
   const quoteSource: PortfolioDiagnosis["quoteSource"] = hasRealtimePrice
     ? "KIS"
     : "data.go.kr fallback";
   const currentPrice = hasRealtimePrice ? n(realtime?.price) : recentClosePrice;
+  const dataSource = hasRealtimePrice
+    ? "KIS 현재가 + data.go.kr 일별 종가"
+    : Number.isFinite(recentClosePrice) && recentClosePrice > 0
+      ? "현재가는 KIS 확인이 불가하여 data.go.kr 최근 종가를 참고했습니다. K선과 기술지표는 data.go.kr 일별 종가 데이터를 기준으로 생성되었습니다."
+      : "가격 데이터는 현재 판단에서 제외했습니다.";
 
   const ma5 = n(latest.ma5, n(detail.ma5, recentClosePrice));
   const ma20 = n(latest.ma20, n(detail.ma20, recentClosePrice));
@@ -318,9 +329,7 @@ async function diagnoseOne(position: PortfolioPositionInput) {
     nextChecks: nextChecks.slice(0, 4),
     disclaimer: DISCLAIMER,
     hasRealtimePrice,
-    dataSource: hasRealtimePrice
-      ? "KIS 현재가 + data.go.kr 일별 종가"
-      : "현재가는 data.go.kr 최근 종가 기준입니다.",
+    dataSource,
     updatedAt: getUpdatedAtLabel(hasRealtimePrice ? realtime?.asOf ?? null : null, detail.date)
   };
 
