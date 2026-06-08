@@ -13,6 +13,7 @@ import {
   type RiskLevel
 } from "@/lib/insights";
 import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
+import { resolveStockDisplayPrice } from "@/lib/market/price-resolver";
 import type { Stock } from "@/lib/types";
 
 type WatchlistPriorityItem = {
@@ -32,6 +33,21 @@ type WatchlistPriorityResponse = {
   priorities: WatchlistPriorityItem[];
   report: string;
 };
+
+type ResolvedStockDisplayPrice = ReturnType<typeof resolveStockDisplayPrice>;
+
+function resolvePriorityPrice(item: WatchlistPriorityItem): ResolvedStockDisplayPrice {
+  return resolveStockDisplayPrice({
+    symbol: item.stock.symbol,
+    dailyClose: {
+      price: item.stock.price,
+      baseDate: item.stock.date,
+      updatedAt: item.stock.date
+    },
+    cachedPrice: item.stock.price,
+    market: item.stock.market
+  });
+}
 
 function getDataSource(item: WatchlistPriorityItem) {
   const tags = Array.isArray(item.stock?.tags) ? item.stock.tags : [];
@@ -65,12 +81,24 @@ function createFallbackBrief(items: WatchlistPriorityItem[]) {
     ),
     "",
     "주요 변동 요약",
-    ...safeItems.slice(0, 5).map(
-      (item) =>
-        `- ${item.stock.koreanName}: 최근 종가 ${formatKRW(item.stock.price)}, 등락률 ${formatPercent(
-          item.stock.changeRate
-        )}, ${item.stock.date ? `${item.stock.date} 기준, ` : ""}${item.reasons.slice(0, 2).join(", ")}`
-    ),
+    ...safeItems.slice(0, 5).map((item) => {
+      const resolvedPrice = resolvePriorityPrice(item);
+      const priceText =
+        resolvedPrice.displayPrice !== null ? formatKRW(resolvedPrice.displayPrice) : "가격 데이터 없음";
+      const priceBasis =
+        resolvedPrice.priceKind === "kis_current"
+          ? "KIS 기준"
+          : resolvedPrice.priceKind === "recent_close"
+            ? "최근 종가 참고"
+            : "데이터 일시 불가";
+      const changeText = Number.isFinite(item.stock.changeRate)
+        ? formatPercent(item.stock.changeRate)
+        : "데이터 부족";
+
+      return `- ${item.stock.koreanName}: ${priceText} · ${changeText} · ${priceBasis}${
+        item.stock.date ? ` · ${item.stock.date} 기준` : ""
+      }, ${item.reasons.slice(0, 2).join(", ")}`;
+    }),
     "",
     "리스크가 높아진 종목",
     ...(highRisk.length > 0
@@ -118,6 +146,14 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
   );
   const priorities =
     remotePriorities.length > 0 ? remotePriorities.slice(0, 5) : fallbackPriorities;
+  const resolvedPriorities = useMemo(
+    () =>
+      priorities.map((item) => ({
+        item,
+        resolvedPrice: resolvePriorityPrice(item)
+      })),
+    [priorities]
+  );
 
   useEffect(() => {
     if (symbols.length === 0) {
@@ -240,7 +276,25 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
         </div>
       ) : (
         <div className="mt-3 grid gap-2">
-          {priorities.map((item, index) => (
+          {resolvedPriorities.map(({ item, resolvedPrice }, index) => {
+            const displayPrice =
+              resolvedPrice.displayPrice !== null ? formatKRW(resolvedPrice.displayPrice) : "가격 데이터 없음";
+            const changeText =
+              resolvedPrice.priceKind === "unavailable"
+                ? "데이터 부족"
+                : Number.isFinite(item.stock.changeRate)
+                  ? formatPercent(item.stock.changeRate)
+                  : "데이터 부족";
+            const changeNote =
+              resolvedPrice.priceKind === "recent_close" ? " · 최근 종가 기준 참고" : "";
+            const sourceLine =
+              resolvedPrice.priceKind === "kis_current"
+                ? `${resolvedPrice.basisKo}${resolvedPrice.updatedAt ? ` · ${resolvedPrice.updatedAt}` : ""}`
+                : resolvedPrice.priceKind === "recent_close"
+                  ? `${resolvedPrice.basisKo}${resolvedPrice.baseDate ? ` · ${resolvedPrice.baseDate} 기준` : ""}`
+                  : resolvedPrice.basisKo;
+
+            return (
             <Link
               key={item.stock.symbol}
               href={`/stocks/${item.stock.symbol}`}
@@ -253,45 +307,54 @@ export function WatchlistPriority({ stocks }: { stocks: Stock[] }) {
                   </p>
                   <p className="mt-1 truncate text-sm font-bold text-ink dark:text-white">
                     {item.stock.koreanName}
-                  </p>
-                  <p className="mt-0.5 text-xs font-semibold text-slate-400">
-                    {item.stock.symbol}
-                  </p>
-                  <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
-                    <span className="mr-1 text-slate-400">최근 종가</span>
-                    {formatKRW(item.stock.price)}
-                    <span className={`ml-2 ${changeColorClass(item.stock.change)}`}>
-                      {formatPercent(item.stock.changeRate)}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                  {item.stock.symbol}
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
+                    <span className="mr-1 text-slate-400">{resolvedPrice.labelKo}</span>
+                    {displayPrice}
+                    <span
+                      className={`ml-2 ${
+                        resolvedPrice.priceKind === "unavailable"
+                          ? "text-slate-400"
+                          : changeColorClass(item.stock.change)
+                      }`}
+                    >
+                      {changeText}
+                      {changeNote}
                     </span>
+                </p>
+                <p className="mt-1 text-[11px] font-bold text-slate-400">{sourceLine}</p>
+                {resolvedPrice.warningKo && (
+                  <p className="mt-1 text-[11px] font-bold text-amber-600 dark:text-amber-300">
+                    {resolvedPrice.warningKo}
                   </p>
-                  {item.stock.date && (
-                    <p className="mt-1 text-[11px] font-bold text-slate-400">
-                      {item.stock.date} 기준
-                    </p>
-                  )}
-                </div>
-                <span
-                  className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskLabelClass(
-                    item.riskLevel
-                  )}`}
-                >
-                  {item.riskLevel}
-                </span>
+                )}
               </div>
-              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-                {item.reasons.join(" · ")}
-              </p>
-              <p className="mt-1 text-xs font-bold leading-5 text-slate-600 dark:text-slate-300">
-                오늘 관찰 포인트: {item.focus}
-              </p>
-              <p className="mt-2 rounded-md bg-slate-50 px-2 py-2 text-xs font-semibold leading-5 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                오늘 먼저 확인하는 이유: {item.whyToday}
-              </p>
-              <p className="mt-2 text-[11px] font-bold text-slate-400">
-                데이터 출처: {getDataSource(item)}
-              </p>
-            </Link>
-          ))}
+              <span
+                className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-bold ${getRiskLabelClass(
+                  item.riskLevel
+                )}`}
+              >
+                {item.riskLevel}
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              {item.reasons.join(" · ")}
+            </p>
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-600 dark:text-slate-300">
+              오늘 관찰 포인트: {item.focus}
+            </p>
+            <p className="mt-2 rounded-md bg-slate-50 px-2 py-2 text-xs font-semibold leading-5 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+              오늘 먼저 확인하는 이유: {item.whyToday}
+            </p>
+            <p className="mt-2 text-[11px] font-bold text-slate-400">
+              데이터 출처: {getDataSource(item)}
+            </p>
+          </Link>
+            );
+          })}
         </div>
       )}
       {brief && (

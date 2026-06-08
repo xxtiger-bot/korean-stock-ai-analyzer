@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { ProUpgradePrompt } from "@/components/subscription/pro-upgrade-prompt";
 import { EmptyState } from "@/components/ui-states";
 import { PortfolioRiskSummary } from "@/components/portfolio-risk-summary";
 import { WatchlistDangerWarnings } from "@/components/watchlist-danger-warnings";
 import { WatchlistPriority } from "@/components/watchlist-priority";
 import { useWatchlist } from "@/components/watchlist-provider";
 import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
+import {
+  resolveStockDisplayPrice
+} from "@/lib/market/price-resolver";
 import type { Stock } from "@/lib/types";
 
 type WatchlistPriorityResponse = {
@@ -53,6 +57,21 @@ export function WatchlistPanel({
       .map((symbol) => liveMap.get(symbol) ?? fallbackMap.get(symbol))
       .filter((stock): stock is Stock => Boolean(stock));
   }, [liveStocks, safeStocks, symbols]);
+  const resolvedSelected = useMemo(() => {
+    return selected.map((stock) => ({
+      stock,
+      resolvedPrice: resolveStockDisplayPrice({
+        symbol: stock.symbol,
+        dailyClose: {
+          price: stock.price,
+          baseDate: stock.date,
+          updatedAt: stock.date
+        },
+        cachedPrice: stock.price,
+        market: stock.market
+      })
+    }));
+  }, [selected]);
 
   useEffect(() => {
     if (symbols.length === 0) {
@@ -151,14 +170,40 @@ export function WatchlistPanel({
         <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{syncNotice}</p>
       ) : null}
       <div className="mt-4 space-y-2">
-        {selected.length === 0 ? (
+        {symbols.length >= 5 ? (
+          <ProUpgradePrompt
+            compact
+            featureName="Watchlist"
+            title="관심종목 추적 한도"
+            description={
+              "Free 플랜에서는 관심종목을 최대 5개까지 추적할 수 있습니다.\nPro에서는 최대 30개 관심종목을 추적할 수 있습니다."
+            }
+          />
+        ) : null}
+        {resolvedSelected.length === 0 ? (
           <EmptyState
             compact
             title="관심종목 없음"
             description="관심종목을 추가하면 매일 확인할 종목을 더 쉽게 볼 수 있습니다."
           />
         ) : (
-          selected.map((stock) => (
+          resolvedSelected.map(({ stock, resolvedPrice }) => {
+            const displayPrice =
+              resolvedPrice.displayPrice !== null ? formatKRW(resolvedPrice.displayPrice) : "";
+            const sourceLine =
+              resolvedPrice.priceKind === "kis_current"
+                ? `${resolvedPrice.basisKo}${resolvedPrice.updatedAt ? ` · ${resolvedPrice.updatedAt}` : ""}`
+                : resolvedPrice.priceKind === "recent_close"
+                  ? `${resolvedPrice.basisKo}${resolvedPrice.baseDate ? ` · ${resolvedPrice.baseDate} 기준` : ""}`
+                  : resolvedPrice.basisKo;
+            const changeText =
+              resolvedPrice.priceKind === "unavailable"
+                ? "데이터 부족"
+                : Number.isFinite(stock.changeRate)
+                  ? formatPercent(stock.changeRate)
+                  : "데이터 부족";
+
+            return (
             <div
               key={stock.symbol}
               className="flex items-center justify-between gap-3 rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
@@ -168,15 +213,22 @@ export function WatchlistPanel({
                   {stock.koreanName}
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {stock.symbol} · 최근 종가{" "}
-                  {formatKRW(stock.price)}
-                  <span className={`ml-2 ${changeColorClass(stock.change)}`}>
-                    {formatPercent(stock.changeRate)}
+                  {stock.symbol} · {resolvedPrice.labelKo}{" "}
+                  {displayPrice}
+                  <span
+                    className={`ml-2 ${
+                      resolvedPrice.priceKind === "unavailable"
+                        ? "text-slate-400"
+                        : changeColorClass(stock.change)
+                    }`}
+                  >
+                    {changeText}
                   </span>
                 </p>
-                {stock.date && (
-                  <p className="mt-1 text-[11px] font-bold text-slate-400">
-                    {stock.date} 기준
+                <p className="mt-1 text-[11px] font-bold text-slate-400">{sourceLine}</p>
+                {resolvedPrice.warningKo && (
+                  <p className="mt-1 text-[11px] font-bold text-amber-600 dark:text-amber-300">
+                    {resolvedPrice.warningKo}
                   </p>
                 )}
               </Link>
@@ -190,7 +242,8 @@ export function WatchlistPanel({
                 <X className="h-4 w-4" />
               </button>
             </div>
-          ))
+            );
+          })
         )}
       </div>
       <div id={alertsId} className="scroll-mt-32">
@@ -200,6 +253,18 @@ export function WatchlistPanel({
         <PortfolioRiskSummary />
       </div>
       <WatchlistPriority stocks={safeStocks} />
+      {selected.length > 0 ? (
+        <div className="mt-3">
+          <ProUpgradePrompt
+            compact
+            featureName="Risk History"
+            title="리스크 기록"
+            description={
+              "최근 3일 리스크 변화는 Free에서 확인할 수 있습니다.\n90일 리스크 추적은 Pro에서 제공됩니다."
+            }
+          />
+        </div>
+      ) : null}
     </aside>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+<<<<<<< HEAD
 import { DataAsOfNote } from "@/components/data-as-of-note";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
 import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
@@ -14,6 +15,13 @@ import type {
   RealtimeQuote,
   Stock
 } from "@/lib/types";
+=======
+import { ProUpgradePrompt } from "@/components/subscription/pro-upgrade-prompt";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
+import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
+import type { ResolvedStockDisplayPrice } from "@/lib/market/price-resolver";
+import type { AiReport, Stock } from "@/lib/types";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
 type AnalysisResponse = {
   source: "openai" | "local";
@@ -89,6 +97,7 @@ function formatGeneratedAt(value: unknown) {
   return Number.isNaN(date.getTime()) ? "생성 시간 확인 필요" : date.toLocaleString("ko-KR");
 }
 
+<<<<<<< HEAD
 function formatForeignOwnershipRatio(data?: ForeignOwnershipData | null) {
   const resolved = resolveForeignOwnershipDisplay(data);
   if (resolved.effectiveRate !== null) {
@@ -107,10 +116,19 @@ export function AiReportCard({
   foreignOwnership?: ForeignOwnershipData | null;
   realtimeQuote?: RealtimeQuote | null;
   priceGuard?: PriceGuard | null;
+=======
+export function AiReportCard({
+  stock,
+  resolvedPrice
+}: {
+  stock: Stock;
+  resolvedPrice?: ResolvedStockDisplayPrice | null;
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 }) {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+<<<<<<< HEAD
   const [isExpanded, setIsExpanded] = useState(false);
   const hasRealtimePrice = Boolean(
     realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
@@ -124,6 +142,42 @@ export function AiReportCard({
   const priceAnomalyNote = hasPriceAnomaly
     ? "현재가 데이터 차이가 커서 보수적으로 해석해야 합니다."
     : "";
+=======
+  const priceKind = resolvedPrice?.priceKind ?? "unavailable";
+  const analysisBasisText =
+    priceKind === "kis_current"
+      ? "KIS 기준 참고 분석"
+      : priceKind === "recent_close"
+        ? "최근 종가 기준 참고 분석"
+        : "가격 데이터 일시 불가";
+  const analysisNotice =
+    priceKind === "kis_current"
+      ? "현재가는 KIS 기준으로 확인되었습니다."
+      : priceKind === "recent_close"
+        ? resolvedPrice?.warningKo ?? "현재가 확인이 어려워 최근 종가를 참고합니다."
+        : resolvedPrice?.warningKo ?? "가격 데이터를 일시적으로 불러올 수 없습니다.";
+  const isAiUsable = resolvedPrice?.isUsableForAi ?? false;
+  const aiConfidenceLabel =
+    resolvedPrice?.aiConfidence === "high"
+      ? "높음"
+      : resolvedPrice?.aiConfidence === "medium"
+        ? "보통"
+        : "낮음";
+  const trendSummary =
+    !resolvedPrice || isAiUsable
+      ? data?.report.trend ?? "분석 데이터가 부족합니다."
+      : "현재 가격 데이터가 불안정하여 확정적인 매매 판단을 제공하지 않습니다.";
+  const technicalSummary =
+    priceKind === "recent_close"
+      ? "최근 종가 기준 참고 분석입니다. 가격 판단은 보수적으로 참고해 주세요."
+      : priceKind === "unavailable"
+        ? "가격 데이터가 불안정하여 기술적 판단은 보수적으로 참고해 주세요."
+        : data?.report.technical ?? "기술적 근거를 표시할 데이터가 부족합니다.";
+  const riskSummary =
+    priceKind === "unavailable"
+      ? "가격 데이터가 불안정하여 리스크 판단은 참고용으로만 확인해 주세요."
+      : data?.report.risk ?? "리스크 정보를 표시할 데이터가 부족합니다.";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
   async function generateReport() {
     setIsLoading(true);
@@ -171,6 +225,7 @@ export function AiReportCard({
               데이터 기준일 {stock.date} 기준
             </p>
           )}
+<<<<<<< HEAD
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
             {reportSourceText}
           </p>
@@ -191,6 +246,41 @@ export function AiReportCard({
               {priceAnomalyNote}
             </p>
           )}
+=======
+          <div className="mt-3 rounded-lg border border-line bg-slate-50 px-3 py-3 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300">
+            <p>
+              {priceKind === "kis_current"
+                ? "KIS 기준 참고 분석"
+                : priceKind === "recent_close"
+                  ? "최근 종가 기준 참고 분석"
+                  : "가격 데이터 일시 불가"}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              {analysisBasisText}
+            </p>
+            <p className="mt-1">
+              {priceKind === "kis_current"
+                ? "현재가와 보조 지표를 함께 참고해 리포트를 구성했습니다."
+                : priceKind === "recent_close"
+                  ? "현재 가격 데이터가 불안정하여 최근 종가를 기준으로 참고 분석합니다."
+                  : "가격 데이터를 일시적으로 불러올 수 없어 매매 판단은 보류했습니다."}
+            </p>
+            <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              AI 신뢰도: {aiConfidenceLabel}
+            </p>
+          </div>
+          <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">
+            {analysisNotice}
+          </p>
+          <div className="mt-3">
+            <ProUpgradePrompt
+              compact
+              featureName="Pro"
+              title="전체 매매 근거"
+              description="AI의 전체 매매 근거는 Pro에서 확인할 수 있습니다."
+            />
+          </div>
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
         </div>
         <button
           type="button"
@@ -250,12 +340,19 @@ export function AiReportCard({
           </div>
           <div className="grid divide-y divide-line dark:divide-dark-line">
             {[
+<<<<<<< HEAD
               ["01", "추세 요약", data.report.trend],
               ["02", "기술적 근거", data.report.technical],
               ["03", "리스크", data.report.risk]
             ]
               .slice(0, isExpanded ? 3 : 1)
               .map(([index, title, content]) => (
+=======
+              ["01", "추세 요약", trendSummary],
+              ["02", "기술적 근거", technicalSummary],
+              ["03", "리스크", riskSummary]
+            ].map(([index, title, content]) => (
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
               <article key={title} className="bg-white p-4 dark:bg-dark-panel">
                 <div className="flex gap-3">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-xs font-bold text-white dark:bg-white dark:text-ink">

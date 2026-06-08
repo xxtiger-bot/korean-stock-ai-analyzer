@@ -1,10 +1,15 @@
 import "server-only";
 
+<<<<<<< HEAD
 import type { ForeignOwnershipData, RealtimeQuote } from "@/lib/types";
+=======
+import type { RealtimeQuote } from "@/lib/types";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
 type KisTokenResponse = {
   access_token?: string;
   expires_in?: number | string;
+<<<<<<< HEAD
   rt_cd?: string;
   msg_cd?: string;
   msg1?: string;
@@ -12,6 +17,11 @@ type KisTokenResponse = {
 
 type KisRealtimeOutput = {
   [key: string]: unknown;
+=======
+};
+
+type KisRealtimeOutput = {
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   stck_shrn_iscd?: string;
   stck_prpr?: string;
   prdy_vrss?: string;
@@ -24,12 +34,16 @@ type KisRealtimeOutput = {
 
 type KisRealtimeResponse = {
   rt_cd?: string;
+<<<<<<< HEAD
   msg_cd?: string;
+=======
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   msg1?: string;
   output?: KisRealtimeOutput;
   output1?: KisRealtimeOutput;
 };
 
+<<<<<<< HEAD
 type KisAccessTokenCacheState = {
   token: string | null;
   issuedAt: number | null;
@@ -149,6 +163,16 @@ class KisQuoteRequestError extends Error {
   }
 }
 
+=======
+const globalForKis = globalThis as typeof globalThis & {
+  __kisRealtimeWarnings?: Set<string>;
+  __kisAccessTokenCache?: {
+    token: string;
+    expiresAt: number;
+  };
+};
+
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 const kisWarnings =
   globalForKis.__kisRealtimeWarnings ?? (globalForKis.__kisRealtimeWarnings = new Set());
 
@@ -162,10 +186,30 @@ function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/, "");
 }
 
+<<<<<<< HEAD
+=======
+function getKisConfig() {
+  const appKey = process.env.KIS_APP_KEY?.trim();
+  const appSecret = process.env.KIS_APP_SECRET?.trim();
+  const rawBaseUrl = process.env.KIS_BASE_URL?.trim();
+
+  if (!appKey || !appSecret || !rawBaseUrl) {
+    return null;
+  }
+
+  return {
+    appKey,
+    appSecret,
+    baseUrl: normalizeBaseUrl(rawBaseUrl)
+  };
+}
+
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 function normalizeCode(code: string) {
   return code.trim().toUpperCase();
 }
 
+<<<<<<< HEAD
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -177,15 +221,22 @@ function asString(value: unknown) {
 function toNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string" || !value.trim()) return 0;
+=======
+function toNumber(value: string | undefined) {
+  if (!value) return 0;
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   const parsed = Number(value.replaceAll(",", "").trim());
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+<<<<<<< HEAD
 function toNullableNumber(value: unknown) {
   const parsed = toNumber(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+=======
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 function toSignedChange(change: number, signCode: string | undefined) {
   if (!Number.isFinite(change) || change === 0) return 0;
   if (signCode === "5") return -Math.abs(change);
@@ -205,6 +256,7 @@ function withTimeout(ms: number) {
   };
 }
 
+<<<<<<< HEAD
 function sleep(ms: number) {
   if (ms <= 0) return Promise.resolve();
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -472,16 +524,106 @@ async function requestDomesticQuoteOutput(
   normalizedCode: string
 ) {
   const entry = getQuoteCacheState(normalizedCode);
+=======
+function formatAsOf(dateRaw: string | undefined, timeRaw: string | undefined) {
+  const date = dateRaw && /^\d{8}$/.test(dateRaw) ? `${dateRaw.slice(0, 4)}-${dateRaw.slice(4, 6)}-${dateRaw.slice(6, 8)}` : "";
+  const time = timeRaw && /^\d{6}$/.test(timeRaw) ? `${timeRaw.slice(0, 2)}:${timeRaw.slice(2, 4)}:${timeRaw.slice(4, 6)}` : "";
+
+  if (date && time) return `${date} ${time}`;
+  if (date) return date;
+  if (time) return time;
+  return new Date().toISOString();
+}
+
+export async function getKisAccessToken(): Promise<string | null> {
+  const config = getKisConfig();
+  if (!config) {
+    warnOnce(
+      "kis-config-missing",
+      "[kis] Missing KIS_APP_KEY/KIS_APP_SECRET/KIS_BASE_URL. Realtime quote is disabled."
+    );
+    return null;
+  }
+
+  const cached = globalForKis.__kisAccessTokenCache;
+  if (cached && cached.expiresAt > Date.now() + 60_000) {
+    return cached.token;
+  }
+
+  const timeout = withTimeout(8_000);
+
+  try {
+    const response = await fetch(`${config.baseUrl}/oauth2/tokenP`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json; charset=utf-8"
+      },
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        appkey: config.appKey,
+        appsecret: config.appSecret
+      }),
+      cache: "no-store",
+      signal: timeout.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`KIS token HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as KisTokenResponse;
+    const token = payload.access_token?.trim();
+    if (!token) {
+      throw new Error("KIS token is empty");
+    }
+
+    const expiresIn = Number(payload.expires_in);
+    const ttlMs = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn * 1000 : 23 * 60 * 60 * 1000;
+
+    globalForKis.__kisAccessTokenCache = {
+      token,
+      expiresAt: Date.now() + ttlMs
+    };
+
+    return token;
+  } catch (error) {
+    warnOnce(
+      "kis-token-failed",
+      `[kis] Failed to issue access token. ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+    return null;
+  } finally {
+    timeout.done();
+  }
+}
+
+export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | null> {
+  const config = getKisConfig();
+  if (!config) return null;
+
+  const token = await getKisAccessToken();
+  if (!token) return null;
+
+  const normalizedCode = normalizeCode(code);
+  if (!normalizedCode) return null;
+
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   const params = new URLSearchParams({
     fid_cond_mrkt_div_code: "J",
     fid_input_iscd: normalizedCode
   });
 
   const timeout = withTimeout(8_000);
+<<<<<<< HEAD
   const requestTime = new Date();
   const trId = process.env.KIS_QUOTE_TR_ID?.trim() || "FHKST01010100";
   entry.lastQuoteRequestAt = requestTime.getTime();
   entry.quoteReused = false;
+=======
+  const trId = process.env.KIS_QUOTE_TR_ID?.trim() || "FHKST01010100";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
   try {
     const response = await fetch(
@@ -500,6 +642,7 @@ async function requestDomesticQuoteOutput(
       }
     );
 
+<<<<<<< HEAD
     const responseText = await response.text();
     let payload: unknown = null;
     try {
@@ -602,6 +745,44 @@ async function requestDomesticQuoteOutput(
     warnOnce(
       `kis-quote-failed:${normalized}`,
       `[kis] Realtime quote unavailable. code=${normalized}, reason=${
+=======
+    if (!response.ok) {
+      throw new Error(`KIS quote HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as KisRealtimeResponse;
+    if (payload.rt_cd !== "0") {
+      throw new Error(payload.msg1 || "KIS quote rt_cd is not 0");
+    }
+
+    const output = payload.output ?? payload.output1;
+    if (!output) {
+      throw new Error("KIS quote output is empty");
+    }
+
+    const price = toNumber(output.stck_prpr);
+    if (price <= 0) {
+      throw new Error("KIS quote price is invalid");
+    }
+
+    const rawChange = toNumber(output.prdy_vrss);
+    const change = toSignedChange(rawChange, output.prdy_vrss_sign);
+    const changeRate = toNumber(output.prdy_ctrt);
+
+    return {
+      symbol: normalizeCode(output.stck_shrn_iscd ?? normalizedCode),
+      price,
+      change,
+      changeRate,
+      volume: toNumber(output.acml_vol),
+      source: "kis",
+      asOf: formatAsOf(output.stck_bsop_date, output.stck_cntg_hour)
+    };
+  } catch (error) {
+    warnOnce(
+      `kis-quote-failed:${normalizedCode}`,
+      `[kis] Realtime quote unavailable for ${normalizedCode}. ${
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
@@ -610,6 +791,7 @@ async function requestDomesticQuoteOutput(
     timeout.done();
   }
 }
+<<<<<<< HEAD
 
 async function fetchDomesticQuoteOutput(code: string): Promise<KisQuotePayload | null> {
   const config = getKisConfig();
@@ -978,3 +1160,5 @@ export async function getForeignOwnership(
     )
   };
 }
+=======
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)

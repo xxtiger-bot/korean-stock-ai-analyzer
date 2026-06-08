@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { DangerWarningList } from "@/components/danger-warning-list";
 import { FeedbackTrigger } from "@/components/feedback-trigger";
 import { HomeInteractionTracker } from "@/components/home-interaction-tracker";
@@ -5,6 +7,7 @@ import { MarketBriefing } from "@/components/market-briefing";
 import { HomeBetaOnboarding } from "@/components/home-beta-onboarding";
 import { OpportunityRadar } from "@/components/opportunity-radar";
 import { PotentialRadar } from "@/components/potential-radar";
+import { ShareCard } from "@/components/share/share-card";
 import { StockCardGrid } from "@/components/stock-card-grid";
 import { StockSearch } from "@/components/stock-search";
 import { StockTable } from "@/components/stock-table";
@@ -106,6 +109,7 @@ export default async function Home() {
   const signals = Array.isArray(marketOverview?.signals) ? marketOverview.signals : [];
   const kospiStocks = safeAllStocks.filter((stock) => stock.market === "KOSPI").slice(0, 6);
   const kosdaqStocks = safeAllStocks.filter((stock) => stock.market === "KOSDAQ").slice(0, 6);
+<<<<<<< HEAD
   const mobilePopularStocks = safePopularStocks.slice(0, 3);
   const previewItems = [
     {
@@ -497,6 +501,203 @@ export default async function Home() {
       <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
         <div id="home-market" className="grid min-w-0 gap-3 scroll-mt-32">
           <div className={`p-4 ${cardShellClass}`}>
+=======
+  const dailyDeskPriorityItems = safeOpportunityRadar.slice(0, 3);
+
+  const getPriorityStatus = (riskLevel?: string | null) => {
+    if (riskLevel === "매우 높음" || riskLevel === "높음" || riskLevel === "위험 높음") {
+      return "리스크 확인";
+    }
+    if (riskLevel === "보통" || riskLevel === "신중 관찰" || riskLevel === "관찰") {
+      return "관망";
+    }
+    return "관심";
+  };
+  const riskSummaryStatuses = safeOpportunityRadar.map((item) =>
+    getPriorityStatus(typeof item?.riskLevel === "string" ? item.riskLevel : undefined)
+  );
+  const riskCount = riskSummaryStatuses.filter((status) => status === "리스크 확인").length;
+  const watchCount = riskSummaryStatuses.filter((status) => status === "관망").length;
+  const interestCount = riskSummaryStatuses.filter((status) => status === "관심").length;
+  const todayLabel = new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+
+  return (
+    <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
+      <section className="grid min-w-0 gap-3">
+        <div className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                KRX Insight
+              </p>
+              <h1 className="mt-2 text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
+                오늘의 AI 주식 브리핑
+              </h1>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
+                매일 아침, AI가 내 한국 주식 리스크를 체크합니다.
+              </p>
+            </div>
+            <div className="rounded-full border border-line bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+              Daily AI Trading Desk
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+              <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                데이터 상태
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
+                데이터 확인 필요
+              </h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                가격 기준은 각 종목 페이지에서 확인할 수 있습니다.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+              <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                오늘 시장 온도
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
+                시장 데이터 확인 필요
+              </h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                지수 데이터 연결 후 자동 업데이트됩니다.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+              <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                내 리스크 요약
+              </p>
+              {riskSummaryStatuses.length > 0 ? (
+                <>
+                  <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+                    오늘 우선 확인 종목 {riskSummaryStatuses.length}개
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                    리스크 확인 {riskCount}개 · 관망 {watchCount}개 · 관심 {interestCount}개
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+                  관심종목을 추가하면 AI가 매일 리스크 변화를 정리해드립니다.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                  오늘 우선 확인할 종목
+                </p>
+                {dailyDeskPriorityItems.length > 0 ? (
+                  <span className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+                    TOP {dailyDeskPriorityItems.length}
+                  </span>
+                ) : null}
+              </div>
+              {dailyDeskPriorityItems.length > 0 ? (
+                <div className="mt-3 grid gap-3">
+                  {dailyDeskPriorityItems.map((item, index) => {
+                    const stockName = item?.stock?.koreanName ?? item?.stock?.name ?? "종목명 확인 필요";
+                    const symbol = item?.stock?.symbol ?? "코드 확인 필요";
+                    const riskLevel =
+                      typeof item?.riskLevel === "string" ? item.riskLevel : undefined;
+                    const aiSummary =
+                      typeof item?.aiSummary === "string" && item.aiSummary.trim().length > 0
+                        ? item.aiSummary
+                        : "우선 확인이 필요한 흐름이 감지되었습니다.";
+
+                    return (
+                      <div
+                        key={`${symbol}-${index}`}
+                        className="rounded-lg border border-line bg-white p-3 shadow-soft dark:border-dark-line dark:bg-dark-panel"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-bold text-ink dark:text-white">
+                              {stockName}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-400">{symbol}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                            {getPriorityStatus(riskLevel)}
+                          </span>
+                        </div>
+                        <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                          {aiSummary}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+                  관심종목과 보유종목을 기준으로 우선 확인 종목이 표시됩니다.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">
+              AI 오늘의 한 줄 전략
+            </p>
+            <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+              오늘은 추격매수보다 리스크 관리가 우선입니다.
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+              현재 일부 시장 데이터가 제한되어 보수적으로 판단합니다.
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Link
+              href="#watchlist-desk"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+            >
+              관심종목 추가하기
+            </Link>
+            <Link
+              href="/stocks/005930"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-white px-5 py-3 text-sm font-bold text-ink transition hover:bg-slate-50 dark:border-dark-line dark:bg-dark-panel dark:text-white dark:hover:bg-slate-900/80"
+            >
+              AI 분석 보러가기
+            </Link>
+          </div>
+
+          <div className="mt-4">
+            <ShareCard
+              title="오늘의 AI 주식 브리핑"
+              subtitle="매일 아침, AI가 내 한국 주식 리스크를 체크합니다."
+              statusLabel="Daily Desk"
+              mainText="오늘은 추격매수보다 리스크 관리가 우선입니다."
+              items={[
+                `오늘 우선 확인 종목 ${riskSummaryStatuses.length}개`,
+                `리스크 확인 ${riskCount}개`,
+                `관망 ${watchCount}개`,
+                `관심 ${interestCount}개`
+              ]}
+              dateLabel={todayLabel}
+              sourceLabel="관심/우선 확인 종목 기준"
+              disclaimer="AI 보조 분석이며, 투자 조언이 아닙니다."
+              ctaText="KRX Insight에서 오늘의 흐름을 더 확인하세요."
+              triggerLabel="오늘의 브리핑 공유하기"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
+        <div className="grid min-w-0 gap-3">
+          <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-normal text-brand">
@@ -548,6 +749,7 @@ export default async function Home() {
         <DangerWarningList items={safeDangerWarnings} />
       </section>
 
+<<<<<<< HEAD
       <section className={`mt-5 p-4 [content-visibility:auto] [contain-intrinsic-size:1px_620px] ${cardShellClass}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">핵심 기능 미리보기</h2>
@@ -658,6 +860,13 @@ export default async function Home() {
             alerts: "home-alerts"
           }}
         />
+=======
+      <section
+        id="watchlist-desk"
+        className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]"
+      >
+        <WatchlistPanel stocks={safeAllStocks} />
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">
           <StockTable title="KOSPI 주요 종목" stocks={kospiStocks} />
           <StockTable title="KOSDAQ 관심 종목" stocks={kosdaqStocks} />

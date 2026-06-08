@@ -10,8 +10,11 @@
   "background_color": "#ffffff",
   "theme_color": "#0f172a",
   "lang": "ko",
+<<<<<<< HEAD
   "categories": ["finance", "business", "productivity"],
   "prefer_related_applications": false,
+=======
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -37,6 +40,7 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+<<<<<<< HEAD
   ],
   "shortcuts": [
     {
@@ -65,5 +69,7 @@
         }
       ]
     }
+=======
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   ]
 }

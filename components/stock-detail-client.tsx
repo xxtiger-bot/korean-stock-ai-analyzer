@@ -18,6 +18,10 @@ import { PotentialScoreCard } from "@/components/potential-score-card";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { EmptyState } from "@/components/ui-states";
+import {
+  resolveStockDisplayPrice,
+  type ResolvedStockDisplayPrice
+} from "@/lib/market/price-resolver";
 import { buildTechnicalSeries } from "@/lib/indicators";
 import {
   changeBgClass,
@@ -26,6 +30,7 @@ import {
   formatNumber,
   formatPercent
 } from "@/lib/format";
+<<<<<<< HEAD
 import type { Candle, ForeignOwnershipData, PriceGuard, RealtimeQuote, Stock } from "@/lib/types";
 import { useMemo, useState } from "react";
 
@@ -56,25 +61,37 @@ function formatRealtimeUpdatedAt(value: string | undefined) {
 
   return value;
 }
+=======
+import type { Candle, RealtimeQuote, Stock } from "@/lib/types";
+import { useMemo } from "react";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
 export function StockDetailClient({
   stock,
   candles,
+<<<<<<< HEAD
   realtimeQuote,
   foreignOwnership,
   priceGuard
+=======
+  realtimeQuote
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 }: {
   stock: Stock;
   candles: Candle[];
   realtimeQuote?: RealtimeQuote | null;
+<<<<<<< HEAD
   foreignOwnership?: ForeignOwnershipData | null;
   priceGuard?: PriceGuard | null;
+=======
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 }) {
   const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
   const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
   const latest = technicalSeries[technicalSeries.length - 1];
   const previous = technicalSeries[technicalSeries.length - 2];
   const dayRange = latest ? `${formatKRW(latest.low)} - ${formatKRW(latest.high)}` : "-";
+<<<<<<< HEAD
   const hasRealtimeQuote = Boolean(
     realtimeQuote && Number.isFinite(realtimeQuote.price) && realtimeQuote.price > 0
   );
@@ -97,6 +114,60 @@ export function StockDetailClient({
       : "KIS 기준"
     : "data.go.kr 일별 종가 기준";
   const tone = headlineChange > 0 ? "up" : headlineChange < 0 ? "down" : "neutral";
+=======
+  const resolvedPrice = useMemo<ResolvedStockDisplayPrice>(
+    () =>
+      resolveStockDisplayPrice({
+        symbol: stock.symbol,
+        kisQuote: realtimeQuote
+          ? {
+              price: realtimeQuote.price,
+              change: realtimeQuote.change,
+              changeRate: realtimeQuote.changeRate,
+              volume: realtimeQuote.volume,
+              asOf: realtimeQuote.asOf,
+              updatedAt: realtimeQuote.asOf
+            }
+          : null,
+        dailyClose: {
+          price: stock.price,
+          baseDate: stock.date,
+          updatedAt: stock.date
+        },
+        cachedPrice: stock.price,
+        market: stock.market
+      }),
+    [realtimeQuote, stock.date, stock.market, stock.price, stock.symbol]
+  );
+  const headlinePrice = resolvedPrice.displayPrice;
+  const headlineChange =
+    resolvedPrice.priceKind === "kis_current"
+      ? realtimeQuote && Number.isFinite(realtimeQuote.change)
+        ? realtimeQuote.change
+        : null
+      : resolvedPrice.priceKind === "recent_close" && Number.isFinite(stock.change)
+        ? stock.change
+        : null;
+  const headlineChangeRate =
+    resolvedPrice.priceKind === "kis_current"
+      ? realtimeQuote && Number.isFinite(realtimeQuote.changeRate)
+        ? realtimeQuote.changeRate
+        : null
+      : resolvedPrice.priceKind === "recent_close" && Number.isFinite(stock.changeRate)
+        ? stock.changeRate
+        : null;
+  const headlineLabel =
+    resolvedPrice.labelKo;
+  const headlineSource = resolvedPrice.basisKo;
+  const tone =
+    typeof headlineChange === "number"
+      ? headlineChange > 0
+        ? "up"
+        : headlineChange < 0
+          ? "down"
+          : "neutral"
+      : "neutral";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
   const tags = Array.isArray(stock.tags) ? stock.tags : [];
   const dataSource = tags.find((tag) => tag.toLowerCase() === "data.go.kr") ?? "mock";
   const chartSource = dataSource === "mock" ? "mock" : "data.go.kr";
@@ -111,6 +182,7 @@ export function StockDetailClient({
     stock.name && stock.name !== stock.koreanName ? stock.name : undefined;
   const dataDate = stock.date ?? latest?.date;
   const dataDateLabel = dataDate ? `${dataDate} 기준` : "일별 종가 기준";
+<<<<<<< HEAD
   const hasPriceAnomaly =
     priceGuard?.status === "warning" || priceGuard?.status === "critical";
   const priceAnomalyGapText =
@@ -145,6 +217,23 @@ export function StockDetailClient({
         : "현재 흐름은 중립 관찰 구간이며 다음 종가와 거래량을 함께 확인하세요.";
   const mobileTabClass = (tab: MobileDetailTab) =>
     mobileTab === tab ? "block" : "hidden";
+=======
+  const hasPrice = Number.isFinite(headlinePrice ?? NaN) && (headlinePrice ?? 0) > 0;
+  const headlineChangeLabel =
+    headlineChange === null || headlineChangeRate === null
+      ? null
+      : `${headlineChange > 0 ? "+" : ""}${formatKRW(headlineChange)} · ${formatPercent(
+          headlineChangeRate
+        )}`;
+  const priceNote =
+    resolvedPrice.priceKind === "kis_current"
+      ? `업데이트 ${resolvedPrice.updatedAt ?? "확인 필요"}`
+      : resolvedPrice.priceKind === "recent_close"
+        ? `기준일 ${resolvedPrice.baseDate ?? dataDate ?? "확인 필요"}`
+        : resolvedPrice.warningKo ?? "가격 데이터를 일시적으로 불러올 수 없습니다.";
+  const displayPriceText =
+    hasPrice && headlinePrice !== null ? formatKRW(headlinePrice) : "가격 데이터 없음";
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -223,6 +312,7 @@ export function StockDetailClient({
           <div className="min-w-0 max-w-full text-left lg:text-right">
             <p className="mb-1 text-xs font-bold text-slate-400">{headlineLabel}</p>
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
+<<<<<<< HEAD
               {formatKRW(headlinePrice)}
             </p>
             {!hasRealtimeQuote ? (
@@ -241,6 +331,41 @@ export function StockDetailClient({
               {headlineChange > 0 ? "+" : ""}
               {formatKRW(headlineChange)} · {formatPercent(headlineChangeRate)}
             </div>
+=======
+              {displayPriceText}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {headlineSource}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-400 dark:text-slate-500">
+              {priceNote}
+            </p>
+            {resolvedPrice.priceKind !== "kis_current" && (
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                {resolvedPrice.priceKind === "recent_close"
+                  ? "현재가 확인이 어려워 최근 종가를 참고합니다."
+                  : "가격 데이터를 일시적으로 불러올 수 없습니다."}
+              </p>
+            )}
+            {headlineChangeLabel ? (
+              <div
+                className={`mt-3 inline-flex max-w-full flex-wrap rounded-md border px-3 py-2 text-sm font-bold ${changeBgClass(
+                  headlineChange ?? 0
+                )}`}
+              >
+                {headlineChangeLabel}
+              </div>
+            ) : (
+              <div className="mt-3 inline-flex max-w-full flex-wrap rounded-md border border-dashed border-line bg-slate-50 px-3 py-2 text-sm font-bold text-slate-400 dark:border-dark-line dark:bg-slate-900/60">
+                가격 변동 데이터 확인 필요
+              </div>
+            )}
+            {resolvedPrice.warningKo && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-amber-600 dark:text-amber-300">
+                {resolvedPrice.warningKo}
+              </p>
+            )}
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
           </div>
         </div>
         {visibleTags.length > 0 && (
@@ -367,6 +492,7 @@ export function StockDetailClient({
           </div>
           <CandlestickChart series={technicalSeries} />
         </div>
+<<<<<<< HEAD
         <div id="detail-ai" className={`order-5 grid min-w-0 max-w-full scroll-mt-32 content-start gap-5 ${mobileTabClass("ai")} md:grid xl:order-2 xl:col-span-4`}>
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-line/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 shadow-sm dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
@@ -380,6 +506,12 @@ export function StockDetailClient({
             realtimeQuote={realtimeQuote}
             priceGuard={priceGuard}
           />
+=======
+        <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-start-2 xl:row-span-3 xl:row-start-1">
+          <AiReportCard stock={stock} resolvedPrice={resolvedPrice} />
+          <PotentialScoreCard stock={stock} />
+          <DangerWarningCard stock={stock} />
+>>>>>>> fc02111 (Upgrade KRX Insight beta experience)
           <EntryRiskScoreCard stock={stock} />
           {latest && previous ? (
             <KeyIndicatorsPanel stock={stock} latest={latest} previous={previous} />
