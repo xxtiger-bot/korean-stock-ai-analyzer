@@ -21,8 +21,12 @@ export type DailyCloseLike = {
 export type ResolvedPriceInput = {
   symbol: string;
   kisQuote?: KisQuoteLike | null;
+  kisQuoteSource?: "KIS" | "none";
   dailyClose?: DailyCloseLike | null;
+  dailyCloseSource?: "data.go.kr" | "none";
   cachedPrice?: number | null;
+  cachedPriceSource?: "cache" | "none";
+  dailyCloseSuspicious?: boolean;
   market?: string | null;
 };
 
@@ -43,6 +47,12 @@ export type ResolvedStockDisplayPrice = {
 };
 
 const SUSPICIOUS_KIS_GAP_THRESHOLD = 0.3;
+const ABSOLUTE_MAX_KOREAN_STOCK_PRICE = 2_000_000;
+const SYMBOL_PRICE_GUARD_RANGES: Record<string, { min: number; max: number }> = {
+  "005930": { min: 30_000, max: 120_000 },
+  "000660": { min: 50_000, max: 500_000 },
+  "035420": { min: 80_000, max: 500_000 }
+};
 
 function toFinitePrice(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -71,6 +81,35 @@ function isKoreanPriceLike(price: number): boolean {
   // KRW quoted stocks should not appear as visibly fractional prices in the UI.
   // We keep a tiny tolerance for floating-point noise only.
   return fractionalDelta < 0.0001;
+}
+
+/**
+ * Protective symbol-aware guard for Korean stock prices.
+ * This threshold exists only to prevent obviously abnormal source data
+ * from misleading users. It is not an investing rule.
+ */
+export function isSuspiciousKoreanStockPrice(symbol: string, price: unknown): boolean {
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  const safePrice = toFinitePrice(price);
+
+  if (!isValidPrice(safePrice)) {
+    return true;
+  }
+
+  if (!Number.isInteger(safePrice)) {
+    return true;
+  }
+
+  if (safePrice > ABSOLUTE_MAX_KOREAN_STOCK_PRICE) {
+    return true;
+  }
+
+  const symbolRange = SYMBOL_PRICE_GUARD_RANGES[normalizedSymbol];
+  if (!symbolRange) {
+    return false;
+  }
+
+  return safePrice < symbolRange.min || safePrice > symbolRange.max;
 }
 
 /**
@@ -105,15 +144,19 @@ export function isSuspiciousKisPrice(
 
 function resolveReferenceClose(
   dailyClose?: DailyCloseLike | null,
-  cachedPrice?: number | null
+  dailyCloseSource?: "data.go.kr" | "none",
+  dailyCloseSuspicious?: boolean
 ): number | null {
+  if (dailyCloseSource !== "data.go.kr" || dailyCloseSuspicious) {
+    return null;
+  }
+
   const dailyClosePrice = toFinitePrice(dailyClose?.price);
   if (isValidPrice(dailyClosePrice)) {
     return dailyClosePrice;
   }
 
-  const cached = toFinitePrice(cachedPrice);
-  return isValidPrice(cached) ? cached : null;
+  return null;
 }
 
 function resolveUpdatedAt(kisQuote?: KisQuoteLike | null, dailyClose?: DailyCloseLike | null) {
@@ -132,19 +175,51 @@ function resolveBaseDate(dailyClose?: DailyCloseLike | null) {
 export function resolveStockDisplayPrice({
   symbol,
   kisQuote,
+  kisQuoteSource = "none",
   dailyClose,
+  dailyCloseSource = "none",
   cachedPrice,
+  cachedPriceSource = "none",
+  dailyCloseSuspicious = false,
   market
 }: ResolvedPriceInput): ResolvedStockDisplayPrice {
+  const normalizedSymbol = symbol.trim().toUpperCase();
   const kisPrice = toFinitePrice(kisQuote?.price);
-  const referenceClose = resolveReferenceClose(dailyClose, cachedPrice);
-  const kisSuspicious = isSuspiciousKisPrice(kisPrice, referenceClose);
+  const rawReferenceClose = resolveReferenceClose(dailyClose, dailyCloseSource, dailyCloseSuspicious);
+  const safeCachedPrice = cachedPriceSource === "cache" ? toFinitePrice(cachedPrice) : null;
+  const dailyClosePriceSuspicious =
+    isValidPrice(rawReferenceClose) &&
+    isSuspiciousKoreanStockPrice(normalizedSymbol, rawReferenceClose);
+  const hasSuspiciousDailyClose = dailyCloseSuspicious || dailyClosePriceSuspicious;
+  const referenceClose = hasSuspiciousDailyClose ? null : rawReferenceClose;
+  const kisSourceMismatch = kisQuoteSource !== "KIS" && isValidPrice(kisPrice);
+  const kisPriceSuspicious =
+    isValidPrice(kisPrice) &&
+    isSuspiciousKoreanStockPrice(normalizedSymbol, kisPrice);
+  const kisSuspicious = isSuspiciousKisPrice(kisPrice, referenceClose) || kisPriceSuspicious;
 
   const marketLabel = toNonEmptyString(market) ?? "KR";
   const updatedAt = resolveUpdatedAt(kisQuote, dailyClose);
   const baseDate = resolveBaseDate(dailyClose);
+  const suspiciousReasons: string[] = [];
 
-  if (isValidPrice(kisPrice) && !kisSuspicious) {
+  if (kisQuoteSource === "KIS" && isValidPrice(kisPrice) && kisPriceSuspicious) {
+    suspiciousReasons.push(`KIS price ${kisPrice} is suspicious for ${normalizedSymbol}`);
+  }
+
+  if (dailyCloseSource === "data.go.kr" && isValidPrice(rawReferenceClose) && dailyClosePriceSuspicious) {
+    suspiciousReasons.push(
+      `data.go.kr daily close ${rawReferenceClose} is suspicious for ${normalizedSymbol}`
+    );
+  }
+
+  if (kisSourceMismatch) {
+    suspiciousReasons.push(
+      `Price ${kisPrice} for ${normalizedSymbol} is not trusted as KIS because the quote source is not explicit KIS`
+    );
+  }
+
+  if (kisQuoteSource === "KIS" && isValidPrice(kisPrice) && !kisSuspicious) {
     return {
       displayPrice: kisPrice,
       priceKind: "kis_current",
@@ -178,6 +253,24 @@ export function resolveStockDisplayPrice({
     };
   }
 
+  if (suspiciousReasons.length > 0) {
+    return {
+      displayPrice: null,
+      priceKind: "unavailable",
+      source: "none",
+      labelKo: "가격 데이터 확인 필요",
+      basisKo: "비정상 가격 감지",
+      updatedAt,
+      baseDate,
+      isRealtime: false,
+      isFallback: false,
+      isUsableForAi: false,
+      aiConfidence: "low",
+      warningKo: "가격 데이터가 비정상 범위를 벗어나 현재 분석에서 제외했습니다.",
+      reason: suspiciousReasons.join(" | ")
+    };
+  }
+
   return {
     displayPrice: null,
     priceKind: "unavailable",
@@ -191,7 +284,8 @@ export function resolveStockDisplayPrice({
     isUsableForAi: false,
     aiConfidence: "low",
     warningKo: "가격 데이터를 일시적으로 불러올 수 없습니다.",
-    reason: `${symbol}(${marketLabel})의 KIS 현재가와 data.go.kr 최근 종가를 모두 확인할 수 없습니다.`
+    reason: safeCachedPrice
+      ? `${symbol}(${marketLabel})에 캐시 가격은 있지만, KIS/data.go.kr 출처가 확인되지 않아 표시하지 않았습니다.`
+      : `${symbol}(${marketLabel})의 KIS 현재가와 data.go.kr 최근 종가를 모두 확인할 수 없습니다.`
   };
 }
-

@@ -60,16 +60,30 @@ export function WatchlistPanel({
   const resolvedSelected = useMemo(() => {
     return selected.map((stock) => ({
       stock,
-      resolvedPrice: resolveStockDisplayPrice({
-        symbol: stock.symbol,
-        dailyClose: {
-          price: stock.price,
-          baseDate: stock.date,
-          updatedAt: stock.date
-        },
-        cachedPrice: stock.price,
-        market: stock.market
-      })
+      resolvedPrice: resolveStockDisplayPrice((() => {
+        const tags = Array.isArray(stock.tags) ? stock.tags : [];
+        const hasDataGoKr = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
+        const hasSuspiciousDailyClose = tags.some(
+          (tag) => tag.toLowerCase() === "data.go.kr:suspicious-close"
+        );
+
+        return {
+          symbol: stock.symbol,
+          dailyClose: hasDataGoKr
+            ? {
+                price: stock.price,
+                baseDate: stock.date,
+                updatedAt: stock.date
+              }
+            : null,
+          dailyCloseSource: hasDataGoKr ? "data.go.kr" : "none",
+          cachedPrice: Number.isFinite(stock.price) && stock.price > 0 ? stock.price : null,
+          cachedPriceSource:
+            Number.isFinite(stock.price) && stock.price > 0 ? "cache" : "none",
+          dailyCloseSuspicious: hasSuspiciousDailyClose,
+          market: stock.market
+        };
+      })())
     }));
   }, [selected]);
 

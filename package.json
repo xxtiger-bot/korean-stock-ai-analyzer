@@ -7,6 +7,7 @@
     "build": "next build",
     "lint": "next lint",
     "check:mvp": "tsx scripts/check-mvp.ts",
+    "check:price": "tsx scripts/check-price-resolver.ts",
     "check:mobile": "tsx scripts/check-mobile.ts",
     "test:data-go-kr": "tsx scripts/test-data-go-kr.ts",
     "test:data-go-kr-index": "tsx scripts/test-data-go-kr-index.ts",

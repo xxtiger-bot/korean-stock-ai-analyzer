@@ -1128,6 +1128,14 @@ export async function getForeignOwnership(
       return null;
     }
 
+    if (quote.source !== "kis") {
+      warnOnce(
+        `kis-source-mismatch:${code}`,
+        `[stock-provider] Ignoring realtime quote for ${code} because source is not explicit kis.`
+      );
+      return null;
+    }
+
     return quote;
   } catch (error) {
     warnOnce(

@@ -37,14 +37,26 @@ type WatchlistPriorityResponse = {
 type ResolvedStockDisplayPrice = ReturnType<typeof resolveStockDisplayPrice>;
 
 function resolvePriorityPrice(item: WatchlistPriorityItem): ResolvedStockDisplayPrice {
+  const tags = Array.isArray(item.stock?.tags) ? item.stock.tags : [];
+  const hasDataGoKr = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
+  const hasSuspiciousDailyClose = tags.some(
+    (tag) => tag.toLowerCase() === "data.go.kr:suspicious-close"
+  );
+
   return resolveStockDisplayPrice({
     symbol: item.stock.symbol,
-    dailyClose: {
-      price: item.stock.price,
-      baseDate: item.stock.date,
-      updatedAt: item.stock.date
-    },
-    cachedPrice: item.stock.price,
+    dailyClose: hasDataGoKr
+      ? {
+          price: item.stock.price,
+          baseDate: item.stock.date,
+          updatedAt: item.stock.date
+        }
+      : null,
+    dailyCloseSource: hasDataGoKr ? "data.go.kr" : "none",
+    cachedPrice: Number.isFinite(item.stock.price) && item.stock.price > 0 ? item.stock.price : null,
+    cachedPriceSource:
+      Number.isFinite(item.stock.price) && item.stock.price > 0 ? "cache" : "none",
+    dailyCloseSuspicious: hasSuspiciousDailyClose,
     market: item.stock.market
   });
 }

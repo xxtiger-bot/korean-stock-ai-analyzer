@@ -144,37 +144,53 @@ export function AiReportCard({
     : "";
 =======
   const priceKind = resolvedPrice?.priceKind ?? "unavailable";
+  const isKisCurrent = priceKind === "kis_current";
+  const isAbnormalPrice = resolvedPrice?.basisKo === "비정상 가격 감지";
+  const effectiveAiConfidence = isKisCurrent
+    ? resolvedPrice?.aiConfidence ?? "low"
+    : "low";
   const analysisBasisText =
-    priceKind === "kis_current"
+    isKisCurrent
       ? "KIS 기준 참고 분석"
       : priceKind === "recent_close"
         ? "최근 종가 기준 참고 분석"
-        : "가격 데이터 일시 불가";
+        : isAbnormalPrice
+          ? "비정상 가격 감지"
+          : "가격 데이터 일시 불가";
   const analysisNotice =
-    priceKind === "kis_current"
+    isKisCurrent
       ? "현재가는 KIS 기준으로 확인되었습니다."
       : priceKind === "recent_close"
-        ? resolvedPrice?.warningKo ?? "현재가 확인이 어려워 최근 종가를 참고합니다."
-        : resolvedPrice?.warningKo ?? "가격 데이터를 일시적으로 불러올 수 없습니다.";
+        ? "현재가 확인 불가"
+        : isAbnormalPrice
+          ? resolvedPrice?.warningKo ??
+            "현재 가격 데이터가 비정상 범위를 벗어나 확정적인 매매 판단을 제공하지 않습니다."
+          : resolvedPrice?.warningKo ?? "가격 데이터를 일시적으로 불러올 수 없습니다.";
   const isAiUsable = resolvedPrice?.isUsableForAi ?? false;
   const aiConfidenceLabel =
-    resolvedPrice?.aiConfidence === "high"
+    effectiveAiConfidence === "high"
       ? "높음"
-      : resolvedPrice?.aiConfidence === "medium"
+      : effectiveAiConfidence === "medium"
         ? "보통"
         : "낮음";
   const trendSummary =
     !resolvedPrice || isAiUsable
       ? data?.report.trend ?? "분석 데이터가 부족합니다."
-      : "현재 가격 데이터가 불안정하여 확정적인 매매 판단을 제공하지 않습니다.";
+      : isAbnormalPrice
+        ? "현재 가격 데이터가 비정상 범위를 벗어나 확정적인 매매 판단을 제공하지 않습니다."
+        : "현재 가격 데이터가 불안정하여 확정적인 매매 판단을 제공하지 않습니다.";
   const technicalSummary =
     priceKind === "recent_close"
       ? "최근 종가 기준 참고 분석입니다. 가격 판단은 보수적으로 참고해 주세요."
-      : priceKind === "unavailable"
+      : isAbnormalPrice
+        ? "가격 데이터가 비정상 범위를 벗어나 기술적 판단은 현재 보류합니다."
+        : priceKind === "unavailable"
         ? "가격 데이터가 불안정하여 기술적 판단은 보수적으로 참고해 주세요."
         : data?.report.technical ?? "기술적 근거를 표시할 데이터가 부족합니다.";
   const riskSummary =
-    priceKind === "unavailable"
+    isAbnormalPrice
+      ? "가격 데이터가 비정상 범위를 벗어나 리스크 판단은 참고용으로만 확인해 주세요."
+      : priceKind === "unavailable"
       ? "가격 데이터가 불안정하여 리스크 판단은 참고용으로만 확인해 주세요."
       : data?.report.risk ?? "리스크 정보를 표시할 데이터가 부족합니다.";
 >>>>>>> fc02111 (Upgrade KRX Insight beta experience)
@@ -253,7 +269,9 @@ export function AiReportCard({
                 ? "KIS 기준 참고 분석"
                 : priceKind === "recent_close"
                   ? "최근 종가 기준 참고 분석"
-                  : "가격 데이터 일시 불가"}
+                  : isAbnormalPrice
+                    ? "비정상 가격 감지"
+                    : "가격 데이터 일시 불가"}
             </p>
             <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {analysisBasisText}
@@ -263,7 +281,9 @@ export function AiReportCard({
                 ? "현재가와 보조 지표를 함께 참고해 리포트를 구성했습니다."
                 : priceKind === "recent_close"
                   ? "현재 가격 데이터가 불안정하여 최근 종가를 기준으로 참고 분석합니다."
-                  : "가격 데이터를 일시적으로 불러올 수 없어 매매 판단은 보류했습니다."}
+                  : isAbnormalPrice
+                    ? "현재 가격 데이터가 비정상 범위를 벗어나 분석에서 제외했습니다."
+                    : "가격 데이터를 일시적으로 불러올 수 없어 매매 판단은 보류했습니다."}
             </p>
             <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
               AI 신뢰도: {aiConfidenceLabel}

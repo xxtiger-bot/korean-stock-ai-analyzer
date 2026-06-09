@@ -78,6 +78,11 @@ function toPercent(value: string | undefined) {
   return toNumber(value);
 }
 
+function isKoreanPriceLike(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return false;
+  return Math.abs(value - Math.round(value)) < 0.0001;
+}
+
 function normalizeItems<T>(rawItems: T | T[] | null | undefined): T[] {
   if (!rawItems) return [];
   return Array.isArray(rawItems) ? rawItems : [rawItems];
@@ -106,6 +111,40 @@ function isValidPriceItem(item: DataGoKrStockPriceItem) {
     hasValue(item.lopr) &&
     hasValue(item.trqu)
   );
+}
+
+function isSuspiciousDailyClose(item: DataGoKrStockPriceItem) {
+  if (!isValidPriceItem(item)) {
+    return true;
+  }
+
+  const close = toNumber(item.clpr);
+  const open = toNumber(item.mkp);
+  const high = toNumber(item.hipr);
+  const low = toNumber(item.lopr);
+
+  if (![close, open, high, low].every(isKoreanPriceLike)) {
+    return true;
+  }
+
+  if (high < low) {
+    return true;
+  }
+
+  if (high < Math.max(open, close) || low > Math.min(open, close)) {
+    return true;
+  }
+
+  const safeLow = low > 0 ? low : 0;
+  if (safeLow > 0) {
+    const intradayBand = (high - low) / safeLow;
+    // Protective structural check only. KRX daily limits make ranges materially above this suspicious.
+    if (Number.isFinite(intradayBand) && intradayBand > 0.6) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function normalizeIndexName(value: string | undefined) {
@@ -272,6 +311,7 @@ function stockFromLatestItem(item: DataGoKrStockPriceItem, fallbackCode: string)
   if (price <= 0) return null;
 
   const market = toMarket(item.mrktCtg ?? item.mrktCls);
+  const suspiciousClose = isSuspiciousDailyClose(item);
 
   return {
     symbol: normalizeCode(item.srtnCd ?? fallbackCode),
@@ -287,7 +327,7 @@ function stockFromLatestItem(item: DataGoKrStockPriceItem, fallbackCode: string)
     marketCap: toNumber(item.mrktTotAmt),
     pe: 0,
     eps: 0,
-    tags: ["data.go.kr", market],
+    tags: suspiciousClose ? ["data.go.kr", "data.go.kr:suspicious-close", market] : ["data.go.kr", market],
     volumeChange: 0,
     rsi: 50,
     macdSignal: "bullish",
@@ -394,6 +434,7 @@ export async function getStockDetailFromDataGoKr(code: string): Promise<Stock | 
   const macdHistogram = latestTechnical?.macdHistogram ?? 0;
 
   const market = toMarket(latest.mrktCtg ?? latest.mrktCls);
+  const suspiciousClose = isSuspiciousDailyClose(latest);
 
   return {
     symbol: normalizeCode(latest.srtnCd ?? code),
@@ -409,7 +450,7 @@ export async function getStockDetailFromDataGoKr(code: string): Promise<Stock | 
     marketCap: toNumber(latest.mrktTotAmt),
     pe: 0,
     eps: 0,
-    tags: ["data.go.kr", market],
+    tags: suspiciousClose ? ["data.go.kr", "data.go.kr:suspicious-close", market] : ["data.go.kr", market],
     volumeChange,
     rsi: latestTechnical?.rsi ?? 50,
     macdSignal:
