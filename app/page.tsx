@@ -14,7 +14,6 @@ import { StockTable } from "@/components/stock-table";
 import { TodayMarketBrief } from "@/components/today-market-brief";
 import { TodayInvestmentChecklist } from "@/components/today-investment-checklist";
 import { WatchlistPanel } from "@/components/watchlist-panel";
-import Link from "next/link";
 import { BarChart3, Cloud, CloudOff, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
 import {
   type MarketOverview,
@@ -109,7 +108,7 @@ export default async function Home() {
   const signals = Array.isArray(marketOverview?.signals) ? marketOverview.signals : [];
   const kospiStocks = safeAllStocks.filter((stock) => stock.market === "KOSPI").slice(0, 6);
   const kosdaqStocks = safeAllStocks.filter((stock) => stock.market === "KOSDAQ").slice(0, 6);
-<<<<<<< HEAD
+
   const mobilePopularStocks = safePopularStocks.slice(0, 3);
   const previewItems = [
     {
@@ -184,324 +183,6 @@ export default async function Home() {
       comment: "처음에는 로그인 없이 로컬 모드로 가볍게 써보고, 필요할 때만 동기화를 켤 수 있어 테스트 부담이 낮았습니다."
     }
   ] as const;
-
-  return (
-    <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-4 sm:px-5 sm:py-5 lg:px-7">
-      <HomeInteractionTracker />
-      <section className="md:hidden">
-        <section className="mb-5 rounded-2xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-4 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950">
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold text-brand">
-            <Sparkles className="h-3.5 w-3.5" />
-            KRX Insight
-          </p>
-          <h1 className="mt-2 text-[22px] font-bold tracking-tight text-ink dark:text-white">한국 주식 AI 분석 대시보드</h1>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-            오늘 시장 브리핑, 종목 분석, 보유종목 리스크 진단을 한 화면에서 확인하세요.
-          </p>
-          <div className="mt-3 flex flex-col gap-2">
-            <a
-              href="#search"
-              data-home-track="mobile-hero-start"
-              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ink px-4 text-sm font-bold text-white shadow-md transition hover:bg-slate-800 dark:bg-brand dark:hover:bg-blue-500"
-            >
-              지금 바로 무료 테스트 시작하기
-            </a>
-            <a
-              href="/stocks/005930"
-              data-home-track="mobile-hero-example"
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
-            >
-              삼성전자 분석 예시 보기
-            </a>
-          </div>
-        </section>
-
-        <section className={`mb-5 p-4 ${cardShellClass}`}>
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-bold tracking-tight text-ink dark:text-white">기능 바로가기</h2>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
-              핵심 모듈
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            {quickModules.map((module) => (
-              <Link
-                key={`mobile-${module.title}`}
-                href={module.href}
-                data-home-track={`mobile-module-${module.title}`}
-                className={`p-3 ${cardSubtleClass}`}
-              >
-                <p className="text-[13px] font-bold text-ink dark:text-white">{module.title}</p>
-                <p className="mt-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">{module.desc}</p>
-                <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[module.tone]}`}>
-                  이동
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className="mb-5">
-          <HomeBetaOnboarding compact />
-        </section>
-
-        <TodayMarketBrief
-          signals={signals}
-          stocks={safeAllStocks}
-          sectionId="home-morning-brief"
-        />
-
-        <section className="mt-5">
-          <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
-        </section>
-
-        <section id="search" className="mt-5">
-          <StockSearch stocks={safeAllStocks} />
-        </section>
-
-        <section id="home-interest" className="mt-5">
-          <StockCardGrid title="인기 종목" stocks={mobilePopularStocks} />
-        </section>
-
-        <section id="home-radar" className="mt-5">
-          <OpportunityRadar items={safeOpportunityRadar} />
-        </section>
-
-        <section className={`mt-5 p-4 ${cardShellClass}`}>
-          <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">핵심 기능 미리보기</h2>
-          <div className="mt-3 grid gap-2.5">
-            {previewItems.map((item) => (
-              <Link
-                key={item.title}
-                href={item.href}
-                data-home-track={`mobile-preview-${item.title}`}
-                className="group block rounded-xl border border-line bg-slate-50 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-dark-line dark:bg-slate-900/50"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-[15px] font-bold tracking-tight text-ink dark:text-white">{item.title}</h3>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[item.tone]}`}>
-                    핵심
-                  </span>
-                </div>
-                <p className="mt-1.5 text-[13px] font-semibold leading-5 text-slate-600 dark:text-slate-300">
-                  {item.desc}
-                </p>
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {item.tags.map((tag) => (
-                    <span
-                      key={`${item.title}-${tag}`}
-                      className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-2 text-[12px] font-bold text-brand transition group-hover:text-blue-500">
-                  {item.cta} →
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </section>
-
-      <div className="hidden md:block">
-      <section className="mb-5 rounded-3xl border border-line bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-soft dark:border-dark-line dark:from-dark-panel dark:via-slate-900/70 dark:to-slate-950 sm:p-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_410px]">
-          <div className="min-w-0">
-            <p className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-bold text-brand">
-              <Sparkles className="h-3.5 w-3.5" />
-              KRX Insight
-            </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink dark:text-white sm:text-[2.05rem]">한국 주식 AI 분석 대시보드</h1>
-            <p className="mt-2.5 text-[15px] font-semibold leading-7 text-slate-600 dark:text-slate-300">
-              오늘 시장 브리핑부터 종목 분석, 보유종목 리스크 점검까지 한 번에 확인할 수 있습니다.
-            </p>
-            <p className="mt-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              data.go.kr 데이터는 일별 종가 기준이며 실시간 시세가 아닙니다.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <a
-                href="#search"
-                data-home-track="desktop-hero-start"
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg dark:bg-brand dark:hover:bg-blue-500"
-              >
-                지금 바로 무료 테스트 시작하기
-              </a>
-              <a
-                href="/stocks/005930"
-                data-home-track="desktop-hero-example"
-                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                삼성전자 분석 예시 보기
-              </a>
-              <FeedbackTrigger
-                label="피드백 보내기"
-                source="home-hero"
-                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
-              />
-            </div>
-          </div>
-
-          <aside className="relative overflow-hidden rounded-2xl border border-line/90 bg-white/95 p-4 shadow-[0_40px_88px_-36px_rgba(15,23,42,0.62)] ring-1 ring-slate-200/80 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:1px_520px] dark:border-dark-line/85 dark:bg-slate-900/80 dark:ring-slate-700/75">
-            <div className="pointer-events-none absolute inset-px rounded-[15px] border border-white/70 dark:border-slate-600/45" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white via-slate-100/70 to-transparent dark:from-slate-900 dark:via-slate-900/70" />
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_58%)]" />
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.08),transparent_55%)] dark:bg-[radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.25),transparent_55%)]" />
-            <div className="relative -mx-4 -mt-4 mb-3 flex items-center gap-1.5 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-slate-100 px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-1px_0_rgba(148,163,184,0.2)] dark:border-slate-700/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm" />
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" />
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
-              <span className="ml-2 text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-300">
-                KRX Insight - 포트폴리오 대시보드
-              </span>
-              <span className="ml-auto rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">
-                BETA LIVE
-              </span>
-            </div>
-            <div className="relative mb-2 flex items-center justify-between">
-              <p className="text-xs font-bold text-brand">대시보드 미리보기</p>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                실시간 흐름
-              </span>
-            </div>
-            <div className="relative rounded-xl border border-line/90 bg-gradient-to-b from-white to-slate-50/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-1px_0_rgba(148,163,184,0.2),0_18px_38px_-24px_rgba(15,23,42,0.48)] dark:border-dark-line dark:bg-gradient-to-b dark:from-dark-panel dark:to-slate-900/90">
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 방향</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      관망
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                    <div className="h-full w-[62%] rounded-full bg-gradient-to-r from-slate-500/80 to-brand/90" />
-                  </div>
-                  <p className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                    방향 강도 62%
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">리스크 변화</p>
-                  <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">유지 관찰</p>
-                  <div className="mt-2 flex items-end gap-1.5">
-                    {[18, 23, 21, 27, 24, 31].map((height, index) => (
-                      <div
-                        key={`hero-mini-bar-${index}`}
-                        className="w-2.5 rounded-sm bg-gradient-to-t from-brand/45 to-brand/90"
-                        style={{ height: `${height}px` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-2.5 rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">오늘 먼저 확인할 종목</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">TOP 3</span>
-                </div>
-                <div className="mt-2 space-y-1.5">
-                  {[
-                    { name: "삼성전자", state: "유지 관찰" },
-                    { name: "SK하이닉스", state: "관찰 필요" },
-                    { name: "NAVER", state: "데이터 확인" }
-                  ].map((item, index) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between rounded-lg border border-line bg-white px-2.5 py-2 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:border-dark-line dark:bg-dark-panel"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                          {index + 1}
-                        </span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-200">{item.name}</span>
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-500">{item.state}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-2.5 rounded-lg border border-slate-200/85 bg-slate-50/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68),inset_0_-1px_0_rgba(148,163,184,0.16),0_10px_22px_-18px_rgba(15,23,42,0.38)] dark:border-slate-700 dark:bg-slate-900/70">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">시장 흐름 미니 차트</p>
-                <div className="mt-1.5 rounded-md border border-slate-200/70 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/70">
-                  <svg
-                    viewBox="0 0 220 64"
-                    className="h-14 w-full text-brand/95"
-                    preserveAspectRatio="none"
-                    aria-hidden="true"
-                  >
-                    <polyline
-                      points="0,42 26,38 52,41 78,32 104,36 130,24 156,28 182,18 208,20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeOpacity="0.18"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <polyline
-                      points="0,42 26,38 52,41 78,32 104,36 130,24 156,28 182,18 208,20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {[26, 78, 130, 182].map((x, idx) => (
-                      <circle key={`hero-mini-point-${idx}`} cx={x} cy={[38, 32, 24, 18][idx]} r="1.6" fill="currentColor" />
-                    ))}
-                    <line x1="0" y1="50" x2="220" y2="50" stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth="1" />
-                  </svg>
-                </div>
-                <p className="mt-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  데이터 기준: KIS + data.go.kr
-                </p>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
-      <section className="mb-5">
-        <HomeBetaOnboarding />
-      </section>
-      <section className={`mb-5 p-4 ${cardShellClass}`}>
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">기능 바로가기</h2>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            홈 핵심 모듈
-          </span>
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {quickModules.map((module) => (
-            <Link
-              key={`desktop-${module.title}`}
-              href={module.href}
-              data-home-track={`desktop-module-${module.title}`}
-              className={`p-3 ${cardSubtleClass}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-bold text-ink dark:text-white">{module.title}</p>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${previewToneClass[module.tone]}`}>이동</span>
-              </div>
-              <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">{module.desc}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
-      <section className="mb-5">
-        <TodayMarketBrief
-          signals={signals}
-          stocks={safeAllStocks}
-          sectionId="home-morning-brief"
-        />
-      </section>
-      <section className="mb-5">
-        <TodayInvestmentChecklist stocks={safeAllStocks} sectionId="home-checklist" />
-      </section>
-      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
-        <div id="home-market" className="grid min-w-0 gap-3 scroll-mt-32">
-          <div className={`p-4 ${cardShellClass}`}>
-=======
   const dailyDeskPriorityItems = safeOpportunityRadar.slice(0, 3);
 
   const getPriorityStatus = (riskLevel?: string | null) => {
@@ -697,7 +378,7 @@ export default async function Home() {
       <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
         <div className="grid min-w-0 gap-3">
           <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-normal text-brand">
@@ -749,7 +430,7 @@ export default async function Home() {
         <DangerWarningList items={safeDangerWarnings} />
       </section>
 
-<<<<<<< HEAD
+
       <section className={`mt-5 p-4 [content-visibility:auto] [contain-intrinsic-size:1px_620px] ${cardShellClass}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold tracking-tight text-ink dark:text-white">핵심 기능 미리보기</h2>
@@ -860,13 +541,7 @@ export default async function Home() {
             alerts: "home-alerts"
           }}
         />
-=======
-      <section
-        id="watchlist-desk"
-        className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]"
-      >
-        <WatchlistPanel stocks={safeAllStocks} />
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
+
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">
           <StockTable title="KOSPI 주요 종목" stocks={kospiStocks} />
           <StockTable title="KOSDAQ 관심 종목" stocks={kosdaqStocks} />
@@ -892,7 +567,6 @@ export default async function Home() {
           />
         </div>
       </section>
-      </div>
     </main>
   );
 }

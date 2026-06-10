@@ -19,14 +19,10 @@ import {
   getStockDetailFromKrx,
   searchStocksFromKrx
 } from "@/lib/providers/krx";
-<<<<<<< HEAD
 import {
   getForeignOwnership as getForeignOwnershipFromKis,
   getRealtimeQuote as getRealtimeQuoteFromKis
 } from "@/lib/providers/kis";
-=======
-import { getRealtimeQuote as getRealtimeQuoteFromKis } from "@/lib/providers/kis";
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 import { buildTechnicalSeries } from "@/lib/indicators";
 import {
   DATA_UPDATED_AT,
@@ -36,7 +32,6 @@ import {
   getWatchlistPriority as buildWatchlistPriority
 } from "@/lib/insights";
 import type { DangerWarningItem, OpportunityRadarItem, PotentialRadarItem, RiskLevel } from "@/lib/insights";
-<<<<<<< HEAD
 import type {
   Candle,
   ForeignOwnershipData,
@@ -47,9 +42,6 @@ import type {
   Stock,
   TechnicalPoint
 } from "@/lib/types";
-=======
-import type { Candle, MarketIndex, MarketSignal, RealtimeQuote, Stock, TechnicalPoint } from "@/lib/types";
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 
 export type StockDataProviderMode = "mock" | "real";
 export type KoreaStockApiSource = "data_go_kr" | "krx";
@@ -875,7 +867,6 @@ function getRealtimeProvider() {
   return process.env.REALTIME_STOCK_PROVIDER === "kis" ? "kis" : null;
 }
 
-<<<<<<< HEAD
 function hasDataGoTag(stock: Stock) {
   const tags = Array.isArray(stock.tags) ? stock.tags : [];
   return tags.some((tag) => typeof tag === "string" && tag.toLowerCase() === "data.go.kr");
@@ -1044,9 +1035,6 @@ export async function getStocksWithPreferredQuote(inputStocks: Stock[]): Promise
 
   return safeStocks.map((stock) => quotedMap.get(stock.symbol) ?? withFallbackQuoteSource(stock));
 }
-
-=======
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 export function getMarketOverview() {
   return provider().getMarketOverview();
 }
@@ -1101,24 +1089,6 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
   }
 
   try {
-<<<<<<< HEAD
-    return await getRealtimeQuoteFromKis(code);
-  } catch {
-    return null;
-  }
-}
-
-export async function getForeignOwnership(
-  code: string
-): Promise<ForeignOwnershipData | null> {
-  if (getRealtimeProvider() !== "kis") {
-    return null;
-  }
-
-  try {
-    return await getForeignOwnershipFromKis(code);
-  } catch {
-=======
     const quote = await getRealtimeQuoteFromKis(code);
     if (!quote) {
       warnOnce(
@@ -1140,11 +1110,24 @@ export async function getForeignOwnership(
   } catch (error) {
     warnOnce(
       `kis-fallback-error:${code}`,
-      `[stock-provider] KIS realtime quote failed for ${code}. ${
-        error instanceof Error ? error.message : "request failed"
-      }`
-    );
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
+        `[stock-provider] KIS realtime quote failed for ${code}. ${
+          error instanceof Error ? error.message : "request failed"
+        }`
+      );
+    return null;
+  }
+}
+
+export async function getForeignOwnership(
+  code: string
+): Promise<ForeignOwnershipData | null> {
+  if (getRealtimeProvider() !== "kis") {
+    return null;
+  }
+
+  try {
+    return await getForeignOwnershipFromKis(code);
+  } catch {
     return null;
   }
 }

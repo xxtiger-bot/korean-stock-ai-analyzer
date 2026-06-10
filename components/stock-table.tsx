@@ -80,26 +80,17 @@ export function StockTable({ title, stocks }: StockTableProps) {
       <div className="grid gap-2 p-3 md:hidden">
         {safeStocks.map((stock) => (
           <article
-<<<<<<< HEAD
             key={`mobile-${stock.symbol}`}
             className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-=======
-            key={stock.symbol}
-            className="min-w-0 rounded-lg border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
-          >
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <Link href={`/stocks/${stock.symbol}`} className="min-w-0 flex-1">
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
                 <p className="truncate text-sm font-bold text-ink dark:text-white">
                   {stock.koreanName}
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   {stock.symbol} · {stock.sector}
                 </p>
-<<<<<<< HEAD
                 <p className="mt-1 text-[11px] font-bold text-slate-400">
                   {getQuoteMeta(stock).primaryLabel}
                   {stock.date ? ` · ${stock.date} 기준` : ""}
@@ -160,62 +151,11 @@ export function StockTable({ title, stocks }: StockTableProps) {
               >
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
-=======
-                {stock.date && (
-                  <p className="mt-1 text-[11px] font-bold text-slate-400">
-                    {stock.date} 기준
-                  </p>
-                )}
-              </Link>
-              <div className="flex shrink-0 items-center gap-2">
-                <WatchlistButton symbol={stock.symbol} compact />
-                <Link
-                  href={`/stocks/${stock.symbol}`}
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-white transition hover:border-brand dark:border-dark-line dark:bg-dark-panel ${changeColorClass(
-                    stock.change
-                  )}`}
-                  aria-label={`${stock.koreanName} 상세`}
-                  title={`${stock.koreanName} 상세`}
-                >
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <div className="rounded-md bg-white p-2 dark:bg-dark-panel">
-                <p className="text-[11px] font-bold text-slate-400">최근 종가</p>
-                <p className="mt-1 font-bold text-ink dark:text-white">
-                  {formatKRW(stock.price)}
-                </p>
-              </div>
-              <div className="rounded-md bg-white p-2 dark:bg-dark-panel">
-                <p className="text-[11px] font-bold text-slate-400">등락률</p>
-                <p className={`mt-1 font-bold ${changeColorClass(stock.change)}`}>
-                  {formatPercent(stock.changeRate)}
-                </p>
-              </div>
-              <div className="rounded-md bg-white p-2 dark:bg-dark-panel">
-                <p className="text-[11px] font-bold text-slate-400">거래량</p>
-                <p className="mt-1 font-bold text-ink dark:text-white">
-                  {formatNumber(stock.volume)}
-                </p>
-              </div>
-              <div className="rounded-md bg-white p-2 dark:bg-dark-panel">
-                <p className="text-[11px] font-bold text-slate-400">시가총액</p>
-                <p className="mt-1 font-bold text-ink dark:text-white">
-                  {formatCompactKRW(stock.marketCap)}
-                </p>
-              </div>
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
             </div>
           </article>
         ))}
       </div>
-<<<<<<< HEAD
       <div className="hidden overflow-x-auto md:block">
-=======
-      <div className="hidden max-w-full overflow-x-auto md:block">
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
         <table className="w-full min-w-[760px] border-collapse text-left">
           <thead>
             <tr className="border-b border-line bg-slate-50 text-xs font-bold uppercase tracking-normal text-slate-400 dark:border-dark-line dark:bg-slate-900/60">

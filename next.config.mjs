@@ -3,7 +3,6 @@ import withPWAInit from "next-pwa";
 const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
-<<<<<<< HEAD
   register: true,
   skipWaiting: true,
   fallbacks: {
@@ -45,9 +44,6 @@ const withPWA = withPWAInit({
       }
     }
   ]
-=======
-  runtimeCaching: []
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 });
 
 /** @type {import('next').NextConfig} */

@@ -12,7 +12,6 @@ const metadataDescription =
   "한국 주식 현재가, 일별 종가, AI 분석, 보유종목 진단, 리스크 알림을 제공하는 한국 주식 분석 도구";
 
 export const metadata: Metadata = {
-<<<<<<< HEAD
   title: "KRX Insight | Korean Stock AI Analyzer",
   description: metadataDescription,
   manifest: "/manifest.webmanifest",
@@ -38,11 +37,6 @@ export const metadata: Metadata = {
     title: "KRX Insight | Korean Stock AI Analyzer",
     description: metadataDescription
   }
-=======
-  title: "KRX Insight | Korean Stock Analytics",
-  description: "Korean stock analytics MVP with mock KRX market data.",
-  manifest: "/manifest.webmanifest"
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 };
 
 export default function RootLayout({

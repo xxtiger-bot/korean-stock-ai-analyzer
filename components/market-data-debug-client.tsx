@@ -29,7 +29,7 @@ function safeValue(value: number | null | undefined) {
 
 function getTokenThrottleRemainingSeconds(snapshot: MarketDataDebugSnapshot) {
   const baseRemaining = snapshot.kisEndpointDiagnosis.tokenThrottle.secondsUntilNextRequest;
-  const lastRequestAt = snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt;
+  const lastRequestAt = snapshot.kisEndpointDiagnosis.tokenCache.lastRequestAtIso;
   if (!lastRequestAt) return Math.max(0, Math.ceil(baseRemaining));
 
   const lastRequestMs = Date.parse(lastRequestAt);
@@ -37,6 +37,14 @@ function getTokenThrottleRemainingSeconds(snapshot: MarketDataDebugSnapshot) {
   const elapsedMs = Date.now() - lastRequestMs;
   const dynamicRemaining = Math.ceil((60_000 - elapsedMs) / 1000);
   return Math.max(0, Math.min(Math.ceil(baseRemaining), dynamicRemaining));
+}
+
+function getTokenCacheLabel(snapshot: MarketDataDebugSnapshot) {
+  return snapshot.kisEndpointDiagnosis.tokenCache.hasToken ? "있음" : "없음";
+}
+
+function getQuoteCacheLabel(snapshot: MarketDataDebugSnapshot) {
+  return snapshot.kisEndpointDiagnosis.quoteProbeCache?.hasPayload ? "있음" : "없음";
 }
 
 function renderErrorInfo(result: SourceCheckResult) {
@@ -136,8 +144,10 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
       lines.push("[KIS Endpoint 진단]");
       lines.push(`endpoint 유형: ${snapshot.kisEndpointDiagnosis.endpointTypeLabel}`);
       lines.push(`모의 endpoint 여부: ${snapshot.kisEndpointDiagnosis.isMockEndpoint ? "예" : "아니오"}`);
-      lines.push(`token cache: ${snapshot.kisEndpointDiagnosis.tokenCache.tokenCache}`);
-      lines.push(`token reused: ${snapshot.kisEndpointDiagnosis.tokenCache.tokenReused ? "true" : "false"}`);
+      lines.push(`token cache: ${getTokenCacheLabel(snapshot)}`);
+      lines.push(
+        `token reused: ${snapshot.kisEndpointDiagnosis.tokenThrottle.reusedToken ? "true" : "false"}`
+      );
       lines.push(
         `본차수 token 요청 실행 여부: ${
           snapshot.kisEndpointDiagnosis.tokenThrottle.requestedThisRun ? "true" : "false"
@@ -153,19 +163,19 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
       );
       lines.push(
         `token expiresAt: ${
-          snapshot.kisEndpointDiagnosis.tokenCache.expiresAt
-            ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.expiresAt)
+          snapshot.kisEndpointDiagnosis.tokenCache.expiresAtIso
+            ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.expiresAtIso)
             : "확인 불가"
         }`
       );
       lines.push(
         `lastTokenRequestAt: ${
-          snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt
-            ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt)
+          snapshot.kisEndpointDiagnosis.tokenCache.lastRequestAtIso
+            ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.lastRequestAtIso)
             : "확인 불가"
         }`
       );
-      lines.push(`lastTokenError: ${snapshot.kisEndpointDiagnosis.tokenCache.lastTokenError ?? "없음"}`);
+      lines.push(`lastTokenError: ${snapshot.kisEndpointDiagnosis.tokenCache.lastErrorMessage ?? "없음"}`);
       lines.push(
         `KIS token 상태: ${snapshot.kisEndpointDiagnosis.token.success ? "성공" : "실패"} (HTTP ${
           snapshot.kisEndpointDiagnosis.token.status ?? "N/A"
@@ -195,27 +205,16 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
         })`
       );
       if (snapshot.kisEndpointDiagnosis.quoteProbeCache) {
-        lines.push(`KIS quote cache: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.quoteCache}`);
-        lines.push(
-          `KIS quote reused: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.quoteReused ? "true" : "false"}`
-        );
-        lines.push(
-          `KIS quote rate limited: ${
-            snapshot.kisEndpointDiagnosis.quoteProbeCache.quoteRateLimited ? "true" : "false"
-          }`
-        );
-        lines.push(
-          `KIS quote next request wait: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.secondsUntilNextQuoteRequest}초`
-        );
+        lines.push(`KIS quote cache: ${getQuoteCacheLabel(snapshot)}`);
         lines.push(
           `KIS quote last request: ${
-            snapshot.kisEndpointDiagnosis.quoteProbeCache.lastQuoteRequestAt
-              ? formatDateTime(snapshot.kisEndpointDiagnosis.quoteProbeCache.lastQuoteRequestAt)
+            snapshot.kisEndpointDiagnosis.quoteProbeCache.lastRequestAtIso
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.quoteProbeCache.lastRequestAtIso)
               : "확인 불가"
           }`
         );
         lines.push(
-          `KIS quote last error: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.lastQuoteError ?? "없음"}`
+          `KIS quote last error: ${snapshot.kisEndpointDiagnosis.quoteProbeCache.lastErrorMessage ?? "없음"}`
         );
       }
       lines.push(
@@ -397,10 +396,10 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
             모의 endpoint 여부: {snapshot.kisEndpointDiagnosis.isMockEndpoint ? "예" : "아니오"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
-            token cache: {snapshot.kisEndpointDiagnosis.tokenCache.tokenCache}
+            token cache: {getTokenCacheLabel(snapshot)}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
-            token reused: {snapshot.kisEndpointDiagnosis.tokenCache.tokenReused ? "true" : "false"}
+            token reused: {snapshot.kisEndpointDiagnosis.tokenThrottle.reusedToken ? "true" : "false"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
             본차수 token 요청 실행:{" "}
@@ -415,33 +414,37 @@ export function MarketDataDebugClient({ initialSnapshot }: Props) {
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
             token expiresAt:{" "}
-            {snapshot.kisEndpointDiagnosis.tokenCache.expiresAt
-              ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.expiresAt)
+            {snapshot.kisEndpointDiagnosis.tokenCache.expiresAtIso
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.expiresAtIso)
               : "확인 불가"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
-            quote cache(005930 probe): {snapshot.kisEndpointDiagnosis.quoteProbeCache?.quoteCache ?? "N/A"}
+            quote cache(005930 probe): {getQuoteCacheLabel(snapshot)}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
-            quote reused:{" "}
-            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.quoteReused ? "true" : "false"}
+            quote fetchedAt:{" "}
+            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.fetchedAtIso
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.quoteProbeCache.fetchedAtIso)
+              : "정보 없음"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
-            quote rate limited:{" "}
-            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.quoteRateLimited ? "true" : "false"}
+            quote last request:{" "}
+            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.lastRequestAtIso
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.quoteProbeCache.lastRequestAtIso)
+              : "정보 없음"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
-            quote next request 가능:{" "}
-            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.secondsUntilNextQuoteRequest ?? 0}초 후
+            quote last error:{" "}
+            {snapshot.kisEndpointDiagnosis.quoteProbeCache?.lastErrorMessage ?? "없음"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
             lastTokenRequestAt:{" "}
-            {snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt
-              ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.lastTokenRequestAt)
+            {snapshot.kisEndpointDiagnosis.tokenCache.lastRequestAtIso
+              ? formatDateTime(snapshot.kisEndpointDiagnosis.tokenCache.lastRequestAtIso)
               : "확인 불가"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50 sm:col-span-2">
-            lastTokenError: {snapshot.kisEndpointDiagnosis.tokenCache.lastTokenError ?? "없음"}
+            lastTokenError: {snapshot.kisEndpointDiagnosis.tokenCache.lastErrorMessage ?? "없음"}
           </p>
           <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50 sm:col-span-2">
             KIS_BASE_URL 예시: 모의 https://openapivts.koreainvestment.com:29443 / 실전

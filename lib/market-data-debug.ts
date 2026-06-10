@@ -328,6 +328,15 @@ function classifyFailure(
   };
 }
 
+function toQuoteCacheLabel(snapshot: KisQuoteCacheSnapshot) {
+  return snapshot.hasPayload ? ("있음" as const) : ("없음" as const);
+}
+
+function isQuoteRateLimited(snapshot: KisQuoteCacheSnapshot) {
+  const message = snapshot.lastErrorMessage ?? "";
+  return message.includes("초당 요청 제한") || message.includes("초당 거래건수");
+}
+
 async function checkKisToken(env: {
   appKey: string | undefined;
   appSecret: string | undefined;
@@ -339,10 +348,10 @@ async function checkKisToken(env: {
   const tokenCacheSnapshot = getKisTokenCacheSnapshot();
   const success = typeof accessToken === "string" && accessToken.length > 0;
   const requestedThisRun =
-    beforeSnapshot.lastTokenRequestAt !== tokenCacheSnapshot.lastTokenRequestAt;
+    beforeSnapshot.lastRequestAtIso !== tokenCacheSnapshot.lastRequestAtIso;
   const now = Date.now();
-  const lastRequestMs = tokenCacheSnapshot.lastTokenRequestAt
-    ? Date.parse(tokenCacheSnapshot.lastTokenRequestAt)
+  const lastRequestMs = tokenCacheSnapshot.lastRequestAtIso
+    ? Date.parse(tokenCacheSnapshot.lastRequestAtIso)
     : NaN;
   const secondsUntilNextRequest =
     Number.isFinite(lastRequestMs) && lastRequestMs > 0
@@ -354,13 +363,13 @@ async function checkKisToken(env: {
   const skippedByCooldown =
     !requestedThisRun &&
     secondsUntilNextRequest > 0 &&
-    (tokenCacheSnapshot.lastTokenError ?? "").includes("1분 후 다시 시도");
+    (tokenCacheSnapshot.lastErrorMessage ?? "").includes("1분 후 다시 시도");
 
   const rawError =
-    tokenCacheSnapshot.lastTokenError ?? (success ? null : "token 발급 실패");
-  const rawMsgCd = tokenCacheSnapshot.lastTokenMsgCd;
+    tokenCacheSnapshot.lastErrorMessage ?? (success ? null : "token 발급 실패");
+  const rawMsgCd: string | null = null;
 
-  if (rawMsgCd === "EGW00133" || (rawError ?? "").includes("1분 후 다시 시도")) {
+  if ((rawError ?? "").includes("1분 후 다시 시도")) {
     return {
       accessToken,
       tokenCacheSnapshot,
@@ -369,10 +378,10 @@ async function checkKisToken(env: {
       secondsUntilNextRequest,
       step: {
         success,
-        status: tokenCacheSnapshot.lastTokenHttpStatus,
-        rtCd: tokenCacheSnapshot.lastTokenRtCd,
+        status: null,
+        rtCd: null,
         msgCd: rawMsgCd,
-        msg1: tokenCacheSnapshot.lastTokenMsg1,
+        msg1: null,
         errorMessage: success ? null : "KIS token 발급 제한 중입니다. 1분 후 다시 시도해주세요.",
         errorDetail: null,
         diagnosisCategory: success ? null : "API 응답 실패",
@@ -384,14 +393,14 @@ async function checkKisToken(env: {
   const baseFailure: SourceCheckResult = {
     success,
     price: null,
-    status: tokenCacheSnapshot.lastTokenHttpStatus,
+    status: null,
     updatedAt: null,
     referenceDate: null,
     errorMessage: success ? null : rawError,
     errorDetail: null,
-    rtCd: tokenCacheSnapshot.lastTokenRtCd,
+    rtCd: null,
     msgCd: rawMsgCd,
-    msg1: tokenCacheSnapshot.lastTokenMsg1,
+    msg1: null,
     diagnosisCategory: null,
     diagnosisDescription: null,
     showFetchHint: false
@@ -406,10 +415,10 @@ async function checkKisToken(env: {
     secondsUntilNextRequest,
     step: {
       success,
-      status: tokenCacheSnapshot.lastTokenHttpStatus,
-      rtCd: tokenCacheSnapshot.lastTokenRtCd,
+      status: null,
+      rtCd: null,
       msgCd: rawMsgCd,
-      msg1: tokenCacheSnapshot.lastTokenMsg1,
+      msg1: null,
       errorMessage: success ? null : rawError,
       errorDetail: null,
       diagnosisCategory: diagnosed.category,
@@ -442,12 +451,12 @@ async function checkKisQuote(
       rtCd: null,
       msgCd: null,
       msg1: null,
-      quoteCache: beforeQuoteSnapshot.quoteCache,
-      quoteReused: beforeQuoteSnapshot.quoteReused,
-      quoteRateLimited: beforeQuoteSnapshot.quoteRateLimited,
-      lastQuoteRequestAt: beforeQuoteSnapshot.lastQuoteRequestAt,
-      lastQuoteError: beforeQuoteSnapshot.lastQuoteError,
-      secondsUntilNextQuoteRequest: beforeQuoteSnapshot.secondsUntilNextQuoteRequest,
+      quoteCache: toQuoteCacheLabel(beforeQuoteSnapshot),
+      quoteReused: undefined,
+      quoteRateLimited: isQuoteRateLimited(beforeQuoteSnapshot),
+      lastQuoteRequestAt: beforeQuoteSnapshot.lastRequestAtIso,
+      lastQuoteError: beforeQuoteSnapshot.lastErrorMessage,
+      secondsUntilNextQuoteRequest: undefined,
       diagnosisCategory: null,
       diagnosisDescription: null,
       showFetchHint: false
@@ -473,12 +482,12 @@ async function checkKisQuote(
       rtCd: null,
       msgCd: null,
       msg1: null,
-      quoteCache: beforeQuoteSnapshot.quoteCache,
-      quoteReused: beforeQuoteSnapshot.quoteReused,
-      quoteRateLimited: beforeQuoteSnapshot.quoteRateLimited,
-      lastQuoteRequestAt: beforeQuoteSnapshot.lastQuoteRequestAt,
-      lastQuoteError: beforeQuoteSnapshot.lastQuoteError,
-      secondsUntilNextQuoteRequest: beforeQuoteSnapshot.secondsUntilNextQuoteRequest,
+      quoteCache: toQuoteCacheLabel(beforeQuoteSnapshot),
+      quoteReused: undefined,
+      quoteRateLimited: isQuoteRateLimited(beforeQuoteSnapshot),
+      lastQuoteRequestAt: beforeQuoteSnapshot.lastRequestAtIso,
+      lastQuoteError: beforeQuoteSnapshot.lastErrorMessage,
+      secondsUntilNextQuoteRequest: undefined,
       diagnosisCategory: null,
       diagnosisDescription: null,
       showFetchHint: false
@@ -497,8 +506,7 @@ async function checkKisQuote(
   const price = Number.isFinite(quote?.price ?? NaN) ? (quote?.price as number) : null;
   const success = Number.isFinite(price ?? NaN) && (price ?? 0) > 0;
   const fallbackMessage =
-    afterQuoteSnapshot.lastQuoteError ??
-    afterQuoteSnapshot.lastQuoteMsg1 ??
+    afterQuoteSnapshot.lastErrorMessage ??
     "현재가 조회 실패";
   const quoteAsOf = typeof quote?.asOf === "string" ? quote.asOf : null;
   const referenceDateFromAsOf =
@@ -507,20 +515,20 @@ async function checkKisQuote(
   const baseResult: SourceCheckResult = {
     success,
     price: success ? price : null,
-    status: afterQuoteSnapshot.lastQuoteHttpStatus,
-    updatedAt: quoteAsOf ?? afterQuoteSnapshot.updatedAt,
+    status: null,
+    updatedAt: quoteAsOf ?? afterQuoteSnapshot.fetchedAtIso,
     referenceDate: referenceDateFromAsOf,
     errorMessage: success ? null : fallbackMessage,
     errorDetail: null,
-    rtCd: afterQuoteSnapshot.lastQuoteRtCd,
-    msgCd: afterQuoteSnapshot.lastQuoteMsgCd,
-    msg1: afterQuoteSnapshot.lastQuoteMsg1,
-    quoteCache: afterQuoteSnapshot.quoteCache,
-    quoteReused: afterQuoteSnapshot.quoteReused,
-    quoteRateLimited: afterQuoteSnapshot.quoteRateLimited,
-    lastQuoteRequestAt: afterQuoteSnapshot.lastQuoteRequestAt,
-    lastQuoteError: afterQuoteSnapshot.lastQuoteError,
-    secondsUntilNextQuoteRequest: afterQuoteSnapshot.secondsUntilNextQuoteRequest,
+    rtCd: null,
+    msgCd: null,
+    msg1: null,
+    quoteCache: toQuoteCacheLabel(afterQuoteSnapshot),
+    quoteReused: undefined,
+    quoteRateLimited: isQuoteRateLimited(afterQuoteSnapshot),
+    lastQuoteRequestAt: afterQuoteSnapshot.lastRequestAtIso,
+    lastQuoteError: afterQuoteSnapshot.lastErrorMessage,
+    secondsUntilNextQuoteRequest: undefined,
     diagnosisCategory: null,
     diagnosisDescription: null,
     showFetchHint: false
@@ -781,21 +789,21 @@ export async function getMarketDataDebugSnapshot(
         status: null,
         updatedAt: null,
         referenceDate: null,
-        errorMessage: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
-        errorDetail: null,
-        rtCd: null,
-        msgCd: "EGW00201",
-        msg1: "KIS 초당 요청 제한",
-        quoteCache: getKisQuoteCacheSnapshot(stock.code).quoteCache,
-        quoteReused: false,
-        quoteRateLimited: true,
-        lastQuoteRequestAt: getKisQuoteCacheSnapshot(stock.code).lastQuoteRequestAt,
-        lastQuoteError: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
-        secondsUntilNextQuoteRequest: getKisQuoteCacheSnapshot(stock.code).secondsUntilNextQuoteRequest,
-        diagnosisCategory: "API 응답 실패",
-        diagnosisDescription: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
-        showFetchHint: false
-      };
+      errorMessage: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+      errorDetail: null,
+      rtCd: null,
+      msgCd: "EGW00201",
+      msg1: "KIS 초당 요청 제한",
+      quoteCache: toQuoteCacheLabel(getKisQuoteCacheSnapshot(stock.code)),
+      quoteReused: false,
+      quoteRateLimited: true,
+      lastQuoteRequestAt: getKisQuoteCacheSnapshot(stock.code).lastRequestAtIso,
+      lastQuoteError: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+      secondsUntilNextQuoteRequest: undefined,
+      diagnosisCategory: "API 응답 실패",
+      diagnosisDescription: "KIS 초당 요청 제한을 초과했습니다. 잠시 후 다시 시도해주세요.",
+      showFetchHint: false
+    };
     } else {
       kis = await checkKisQuote(
         stock.code,
@@ -871,6 +879,10 @@ export async function getMarketDataDebugSnapshot(
       : "현재 페이지는 정상이며, 외부 데이터 요청만 실패했습니다.";
 
   const endpointWarning = buildEndpointWarning(kisBaseUrl, tokenResult.step, quoteProbe);
+  const reusedToken =
+    tokenResult.step.success &&
+    tokenResult.tokenCacheSnapshot.hasToken &&
+    !tokenResult.requestedThisRun;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -893,7 +905,7 @@ export async function getMarketDataDebugSnapshot(
       tokenCache: tokenResult.tokenCacheSnapshot,
       tokenThrottle: {
         requestedThisRun: tokenResult.requestedThisRun,
-        reusedToken: tokenResult.tokenCacheSnapshot.tokenReused,
+        reusedToken,
         skippedByCooldown: tokenResult.skippedByCooldown,
         secondsUntilNextRequest: tokenResult.secondsUntilNextRequest
       },

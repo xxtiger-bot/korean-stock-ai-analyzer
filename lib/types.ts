@@ -85,7 +85,6 @@ export type RealtimeQuote = {
   asOf: string;
 };
 
-<<<<<<< HEAD
 export type ForeignOwnershipData = {
   code: string;
   foreignOwnershipRatio: number | null;
@@ -95,9 +94,6 @@ export type ForeignOwnershipData = {
   source: "KIS";
   updatedAt: string;
 };
-
-=======
->>>>>>> fc02111 (Upgrade KRX Insight beta experience)
 export type TechnicalPoint = Candle & {
   ma5: number | null;
   ma20: number | null;
