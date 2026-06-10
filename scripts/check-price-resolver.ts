@@ -119,6 +119,33 @@ const cases: PriceResolverCase[] = [
   },
   {
     symbol: "000660",
+    name: "000660 valid KIS current price within widened guard range",
+    expected: {
+      priceKind: "kis_current",
+      source: "KIS",
+      aiConfidence: "high",
+      basisKo: "KIS 기준"
+    },
+    input: {
+      symbol: "000660",
+      kisQuote: {
+        price: 2363000,
+        updatedAt: "2026-06-09 09:05"
+      },
+      kisQuoteSource: "KIS",
+      dailyClose: {
+        price: 2350000,
+        baseDate: "2026-06-05",
+        updatedAt: "2026-06-05"
+      },
+      dailyCloseSource: "data.go.kr",
+      cachedPrice: 2350000,
+      cachedPriceSource: "cache",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "000660",
     name: "000660 suspicious KIS and suspicious daily close",
     expected: {
       priceKind: "unavailable",
@@ -129,17 +156,17 @@ const cases: PriceResolverCase[] = [
     input: {
       symbol: "000660",
       kisQuote: {
-        price: 999999,
+        price: 3500000,
         updatedAt: "2026-06-09 09:05"
       },
       kisQuoteSource: "KIS",
       dailyClose: {
-        price: 990000,
+        price: 3490000,
         baseDate: "2026-06-05",
         updatedAt: "2026-06-05"
       },
       dailyCloseSource: "data.go.kr",
-      cachedPrice: 990000,
+      cachedPrice: 3490000,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }
@@ -167,6 +194,33 @@ const cases: PriceResolverCase[] = [
       },
       dailyCloseSource: "data.go.kr",
       cachedPrice: 198000,
+      cachedPriceSource: "cache",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "035420",
+    name: "035420 suspicious KIS and suspicious daily close over guard range",
+    expected: {
+      priceKind: "unavailable",
+      source: "none",
+      aiConfidence: "low",
+      basisKo: "비정상 가격 감지"
+    },
+    input: {
+      symbol: "035420",
+      kisQuote: {
+        price: 800000,
+        updatedAt: "2026-06-09 09:05"
+      },
+      kisQuoteSource: "KIS",
+      dailyClose: {
+        price: 790000,
+        baseDate: "2026-06-05",
+        updatedAt: "2026-06-05"
+      },
+      dailyCloseSource: "data.go.kr",
+      cachedPrice: 790000,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }
