@@ -49,7 +49,7 @@ export type ResolvedStockDisplayPrice = {
 const SUSPICIOUS_KIS_GAP_THRESHOLD = 0.3;
 const ABSOLUTE_MAX_KOREAN_STOCK_PRICE = 5_000_000;
 const SYMBOL_PRICE_GUARD_RANGES: Record<string, { min: number; max: number }> = {
-  "005930": { min: 30_000, max: 120_000 },
+  "005930": { min: 30_000, max: 400_000 },
   "000660": { min: 50_000, max: 3_000_000 },
   "035420": { min: 80_000, max: 600_000 }
 };

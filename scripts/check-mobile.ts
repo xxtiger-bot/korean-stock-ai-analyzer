@@ -83,9 +83,13 @@ const REQUIRED_GLOBAL_KEYWORDS = [
 ];
 
 const REQUIRED_ROUTE_KEYWORDS: Record<string, string[]> = {
-  "/": ["오늘의 투자 체크리스트", "종목 검색", "시장 요약"],
+  "/": ["오늘의 AI 주식 브리핑", "내 리스크 요약", "오늘 우선 확인할 종목"],
   "/stocks/005930": ["요약", "차트", "AI", "지표", "리스크"],
-  "/portfolio": ["요약", "보유", "알림", "리포트"]
+  "/portfolio": [
+    "관심/보유 종목 리스크 레이더",
+    "관심종목과 우선 확인 데이터를 기준",
+    "현재 이 레이더는 관심종목 및 우선 확인 데이터를 기준으로 제공됩니다"
+  ]
 };
 
 const ARTIFACT_DIR = join(process.cwd(), "artifacts", "mobile-check");
@@ -513,12 +517,14 @@ async function checkGuideModal(cdp: CdpSession) {
 
 async function checkHomePage(cdp: CdpSession, failures: MobileFailure[], viewportLabel: string) {
   const navVisible = await isTextVisible(cdp, "홈");
-  const checklistVisible = await isTextVisible(cdp, "오늘의 투자 체크리스트");
-  const searchVisible = await isTextVisible(cdp, "종목 검색");
+  const briefingVisible = await isTextVisible(cdp, "오늘의 AI 주식 브리핑");
+  const riskSummaryVisible = await isTextVisible(cdp, "내 리스크 요약");
+  const priorityVisible = await isTextVisible(cdp, "오늘 우선 확인할 종목");
 
   if (!navVisible) failures.push({ viewport: viewportLabel, route: "/", reason: "모바일 하단 내비게이션이 보이지 않습니다." });
-  if (!checklistVisible) failures.push({ viewport: viewportLabel, route: "/", reason: "오늘의 투자 체크리스트가 보이지 않습니다." });
-  if (!searchVisible) failures.push({ viewport: viewportLabel, route: "/", reason: "종목 검색 섹션이 보이지 않습니다." });
+  if (!briefingVisible) failures.push({ viewport: viewportLabel, route: "/", reason: "오늘의 AI 주식 브리핑이 보이지 않습니다." });
+  if (!riskSummaryVisible) failures.push({ viewport: viewportLabel, route: "/", reason: "내 리스크 요약이 보이지 않습니다." });
+  if (!priorityVisible) failures.push({ viewport: viewportLabel, route: "/", reason: "오늘 우선 확인할 종목이 보이지 않습니다." });
 
   const guide = await checkGuideModal(cdp);
   if (!guide.visible) return;
@@ -594,23 +600,21 @@ async function checkStockPage(cdp: CdpSession, failures: MobileFailure[], viewpo
 }
 
 async function checkPortfolioPage(cdp: CdpSession, failures: MobileFailure[], viewportLabel: string) {
-  const requiredTabs = ["요약", "보유", "알림", "리포트"];
-  for (const tab of requiredTabs) {
-    if (!(await isTextVisible(cdp, tab))) {
-      failures.push({ viewport: viewportLabel, route: "/portfolio", reason: `모바일 탭 '${tab}' 이 보이지 않습니다.` });
+  const requiredTexts = [
+    "관심/보유 종목 리스크 레이더",
+    "관심종목과 우선 확인 데이터를 기준",
+    "현재 이 레이더는 관심종목 및 우선 확인 데이터를 기준으로 제공됩니다"
+  ];
+  for (const text of requiredTexts) {
+    if (!(await isTextVisible(cdp, text))) {
+      failures.push({ viewport: viewportLabel, route: "/portfolio", reason: `필수 문구 '${text}' 이 보이지 않습니다.` });
     }
   }
 
-  if (!(await isTextVisible(cdp, "오늘의 투자 체크리스트"))) {
-    failures.push({ viewport: viewportLabel, route: "/portfolio", reason: "포트폴리오 체크리스트가 보이지 않습니다." });
-  }
-
-  const clickedHolding = await clickButtonByText(cdp, "보유");
-  if (!clickedHolding) return;
-  await sleep(350);
-  const addButtonVisible = await isTextVisible(cdp, "보유종목 추가");
+  const addButtonVisible =
+    (await isTextVisible(cdp, "관심종목 추가하기")) || (await isTextVisible(cdp, "종목 검색하기"));
   if (!addButtonVisible) {
-    failures.push({ viewport: viewportLabel, route: "/portfolio", reason: "보유 탭에서 '보유종목 추가' 버튼이 보이지 않습니다." });
+    failures.push({ viewport: viewportLabel, route: "/portfolio", reason: "리스크 레이더 빈 상태 CTA가 보이지 않습니다." });
     return;
   }
 

@@ -41,12 +41,12 @@ function runCase(testCase: PriceResolverCase) {
 const cases: PriceResolverCase[] = [
   {
     symbol: "005930",
-    name: "005930 suspicious KIS and suspicious daily close",
+    name: "005930 valid KIS current price at 322000",
     expected: {
-      priceKind: "unavailable",
-      source: "none",
-      aiConfidence: "low",
-      basisKo: "비정상 가격 감지"
+      priceKind: "kis_current",
+      source: "KIS",
+      aiConfidence: "high",
+      basisKo: "KIS 기준"
     },
     input: {
       symbol: "005930",
@@ -68,17 +68,20 @@ const cases: PriceResolverCase[] = [
   },
   {
     symbol: "005930",
-    name: "005930 no KIS and suspicious daily close",
+    name: "005930 valid KIS current price at 329000",
     expected: {
-      priceKind: "unavailable",
-      source: "none",
-      aiConfidence: "low",
-      basisKo: "비정상 가격 감지"
+      priceKind: "kis_current",
+      source: "KIS",
+      aiConfidence: "high",
+      basisKo: "KIS 기준"
     },
     input: {
       symbol: "005930",
-      kisQuote: null,
-      kisQuoteSource: "none",
+      kisQuote: {
+        price: 329000,
+        updatedAt: "2026-06-09 13:25"
+      },
+      kisQuoteSource: "KIS",
       dailyClose: {
         price: 315500,
         baseDate: "2026-06-05",
@@ -92,27 +95,45 @@ const cases: PriceResolverCase[] = [
   },
   {
     symbol: "005930",
-    name: "005930 valid KIS current price",
+    name: "005930 suspicious KIS current price at 600000",
     expected: {
-      priceKind: "kis_current",
-      source: "KIS",
-      aiConfidence: "high",
-      basisKo: "KIS 기준"
+      priceKind: "unavailable",
+      source: "none",
+      aiConfidence: "low",
+      basisKo: "비정상 가격 감지"
     },
     input: {
       symbol: "005930",
       kisQuote: {
-        price: 70000,
-        updatedAt: "2026-06-09 09:05"
+        price: 600000,
+        updatedAt: "2026-06-09 13:26"
       },
       kisQuoteSource: "KIS",
+      dailyCloseSource: "none",
+      cachedPriceSource: "none",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "005930",
+    name: "005930 fallback to recent close when KIS unavailable and daily close valid",
+    expected: {
+      priceKind: "recent_close",
+      source: "data.go.kr",
+      aiConfidence: "low",
+      basisKo: "최근 종가 참고"
+    },
+    input: {
+      symbol: "005930",
+      kisQuote: null,
+      kisQuoteSource: "none",
       dailyClose: {
-        price: 69000,
+        price: 329000,
         baseDate: "2026-06-05",
         updatedAt: "2026-06-05"
       },
       dailyCloseSource: "data.go.kr",
-      cachedPrice: 69000,
+      cachedPrice: 329000,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }
@@ -183,17 +204,17 @@ const cases: PriceResolverCase[] = [
     input: {
       symbol: "035420",
       kisQuote: {
-        price: 200000,
+        price: 255500,
         updatedAt: "2026-06-09 09:05"
       },
       kisQuoteSource: "KIS",
       dailyClose: {
-        price: 198000,
+        price: 252000,
         baseDate: "2026-06-05",
         updatedAt: "2026-06-05"
       },
       dailyCloseSource: "data.go.kr",
-      cachedPrice: 198000,
+      cachedPrice: 252000,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }
