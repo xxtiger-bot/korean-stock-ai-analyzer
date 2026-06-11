@@ -12,6 +12,7 @@ import { IndicatorTranslator } from "@/components/indicator-translator";
 import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
 import { MetricCard } from "@/components/metric-card";
 import { PotentialScoreCard } from "@/components/potential-score-card";
+import { DataStatusBanner } from "@/components/stock/data-status-banner";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { EmptyState } from "@/components/ui-states";
 import { WatchlistButton } from "@/components/watchlist-button";
@@ -113,7 +114,6 @@ export function StockDetailClient({
         ? stock.changeRate
         : null;
   const headlineLabel = resolvedPrice.labelKo;
-  const headlineSource = resolvedPrice.basisKo;
   const tone =
     typeof headlineChange === "number"
       ? headlineChange > 0
@@ -126,14 +126,8 @@ export function StockDetailClient({
     resolvedPrice.priceKind === "kis_current"
       ? "현재가: KIS"
       : resolvedPrice.priceKind === "recent_close"
-        ? "최근 종가"
+        ? "최근 종가: data.go.kr"
         : "가격 데이터 확인 필요";
-  const sourceBadgeLabel =
-    resolvedPrice.priceKind === "kis_current"
-      ? "KIS 기준"
-      : resolvedPrice.priceKind === "recent_close"
-        ? "data.go.kr 기준"
-        : "비정상 가격 감지";
   const detailTags = tags.filter(
     (tag) =>
       tag.toLowerCase() !== "data.go.kr" &&
@@ -155,31 +149,24 @@ export function StockDetailClient({
       : `${headlineChange > 0 ? "+" : ""}${formatKRW(headlineChange)} · ${formatPercent(
           headlineChangeRate
         )}`;
-  const priceNote =
-    resolvedPrice.priceKind === "kis_current"
-      ? `업데이트 ${resolvedPrice.updatedAt ?? "확인 필요"}`
-      : resolvedPrice.priceKind === "recent_close"
-        ? `기준일 ${resolvedPrice.baseDate ?? dataDate ?? "확인 필요"}`
-        : resolvedPrice.warningKo ?? "가격 데이터를 일시적으로 불러올 수 없습니다.";
   const isAbnormalPrice = resolvedPrice.basisKo === "비정상 가격 감지";
-  const suppressPriceDerivedViews =
-    resolvedPrice.priceKind === "unavailable" && isAbnormalPrice;
+  const suppressPriceDerivedViews = resolvedPrice.priceKind === "unavailable";
   const dayRangeValue = suppressPriceDerivedViews ? "데이터 확인 필요" : dayRange;
   const dayRangeSubValue = suppressPriceDerivedViews ? "비정상 가격 감지" : undefined;
-  const dataGuideText =
-    resolvedPrice.priceKind === "kis_current"
-      ? "KIS 현재가를 기준으로 표시합니다."
-      : resolvedPrice.priceKind === "recent_close"
-        ? "data.go.kr 데이터는 일별 종가 기준이며 실시간 시세가 아닙니다."
-        : isAbnormalPrice
-          ? "가격 데이터가 비정상 범위를 벗어나 현재 표시에서 제외되었습니다."
-          : "가격 데이터를 일시적으로 불러올 수 없습니다.";
   const displayPriceText =
     hasPrice && headlinePrice !== null
       ? formatKRW(headlinePrice)
       : resolvedPrice.priceKind === "unavailable"
         ? "가격 데이터 확인 필요"
         : "가격 데이터 없음";
+  const hasPe = Number.isFinite(stock.pe) && stock.pe > 0;
+  const hasEps = Number.isFinite(stock.eps) && stock.eps > 0;
+  const valuationValue = hasPe ? `${stock.pe.toFixed(1)}x` : "데이터 없음";
+  const valuationSubValue = hasEps
+    ? formatKRW(stock.eps)
+    : hasPe
+      ? "EPS 데이터 없음"
+      : "재무 지표는 아직 제공되지 않습니다.";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -198,12 +185,10 @@ export function StockDetailClient({
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <div className="flex max-w-full flex-wrap items-center gap-2">
-              {[
+              {[ 
                 ["시장", stock.market],
                 ["코드", stock.symbol],
-                ["상태", statusBadgeLabel],
-                ["출처", sourceBadgeLabel],
-                ["기준일", dataDateLabel]
+                ["상태", statusBadgeLabel]
               ].map(([label, value]) => (
                 <span
                   key={label}
@@ -215,7 +200,11 @@ export function StockDetailClient({
               ))}
             </div>
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              {dataGuideText}
+              {resolvedPrice.priceKind === "recent_close"
+                ? "최근 종가 기준 참고 데이터로 상세 정보를 표시합니다."
+                : resolvedPrice.priceKind === "unavailable"
+                  ? "가격 기반 정보는 현재 보수적으로 제한해 표시합니다."
+                  : "실시간 기준으로 핵심 가격 정보를 확인할 수 있습니다."}
             </p>
             {process.env.NODE_ENV === "development" && (
               <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-400 dark:text-slate-500">
@@ -237,22 +226,6 @@ export function StockDetailClient({
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
               {displayPriceText}
             </p>
-            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {headlineSource}
-            </p>
-            <p className="mt-1 text-xs font-semibold text-slate-400 dark:text-slate-500">
-              {priceNote}
-            </p>
-            {resolvedPrice.priceKind !== "kis_current" && (
-              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-                {resolvedPrice.priceKind === "recent_close"
-                  ? "실시간 시세가 아닙니다."
-                  : isAbnormalPrice
-                    ? resolvedPrice.warningKo ??
-                      "가격 데이터가 비정상 범위를 벗어나 현재 표시에서 제외되었습니다."
-                    : "가격 데이터를 일시적으로 불러올 수 없습니다."}
-              </p>
-            )}
             {headlineChangeLabel ? (
               <div
                 className={`mt-3 inline-flex max-w-full flex-wrap rounded-md border px-3 py-2 text-sm font-bold ${changeBgClass(
@@ -266,13 +239,14 @@ export function StockDetailClient({
                 가격 변동 데이터 확인 필요
               </div>
             )}
-            {resolvedPrice.warningKo && (
+            {resolvedPrice.warningKo && resolvedPrice.priceKind === "unavailable" && (
               <p className="mt-2 text-xs font-semibold leading-5 text-amber-600 dark:text-amber-300">
                 {resolvedPrice.warningKo}
               </p>
             )}
           </div>
         </div>
+        <DataStatusBanner resolvedPrice={resolvedPrice} />
         {visibleTags.length > 0 && (
           <div className="mt-5 flex max-w-full flex-wrap gap-2">
             {visibleTags.map((tag) => (
@@ -304,8 +278,8 @@ export function StockDetailClient({
         />
         <MetricCard
           label="PER / EPS"
-          value={`${Number.isFinite(stock.pe) ? stock.pe.toFixed(1) : "0.0"}x`}
-          subValue={formatKRW(stock.eps)}
+          value={valuationValue}
+          subValue={valuationSubValue}
           icon={Gauge}
         />
       </section>

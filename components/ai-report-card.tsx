@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { ProUpgradePrompt } from "@/components/subscription/pro-upgrade-prompt";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
-import { DATA_UPDATED_AT, DISCLAIMER } from "@/lib/insights";
+import { DISCLAIMER } from "@/lib/insights";
 import type { ResolvedStockDisplayPrice } from "@/lib/market/price-resolver";
 import type { AiReport, Stock } from "@/lib/types";
 
@@ -82,6 +82,92 @@ function formatGeneratedAt(value: unknown) {
   return Number.isNaN(date.getTime()) ? "생성 시간 확인 필요" : date.toLocaleString("ko-KR");
 }
 
+function buildTemplateAnalysisResponse(
+  stock: Stock,
+  resolvedPrice: ResolvedStockDisplayPrice | null | undefined
+): AnalysisResponse {
+  const priceKind = resolvedPrice?.priceKind ?? "unavailable";
+  const maSignals = [
+    Number.isFinite(stock.ma5) ? `MA5 ${stock.ma5.toLocaleString("ko-KR")}` : null,
+    Number.isFinite(stock.ma20) ? `MA20 ${stock.ma20.toLocaleString("ko-KR")}` : null,
+    Number.isFinite(stock.ma60) ? `MA60 ${stock.ma60.toLocaleString("ko-KR")}` : null
+  ].filter(Boolean) as string[];
+
+  if (priceKind === "unavailable") {
+    return {
+      source: "local",
+      generatedAt: new Date().toISOString(),
+      report: {
+        trend: "가격 데이터 확인이 필요하여 확정적인 분석은 제공하지 않습니다.",
+        technical: "가격 기준이 안정적으로 확인되지 않아 기술 지표 해석은 현재 보수적으로 제한합니다.",
+        risk: "가격 데이터가 비정상 범위를 벗어나거나 일시적으로 부족해 리스크 판단은 참고용으로만 확인해 주세요.",
+        risks: [
+          "가격 데이터 확인이 필요합니다.",
+          "실시간 기준 매매 판단은 현재 보류합니다."
+        ],
+        watchPoints: [
+          "가격 데이터가 정상화된 뒤 다시 확인해 주세요.",
+          "기업 공시와 거래량 흐름을 함께 점검해 주세요."
+        ],
+        shortTermCheckPoints: [
+          "KIS 현재가 또는 일별 종가 기준이 정상인지 다시 확인합니다.",
+          "확정적인 매매 판단은 데이터 안정화 후 진행합니다."
+        ]
+      }
+    };
+  }
+
+  if (priceKind === "recent_close") {
+    return {
+      source: "local",
+      generatedAt: new Date().toISOString(),
+      report: {
+        trend: "최근 종가 기준 참고 분석입니다. 현재 흐름은 일별 종가 기준으로 보수적으로 해석합니다.",
+        technical: maSignals.length
+          ? `${maSignals.join(" · ")} 기준으로 추세를 참고합니다. 다만 실시간 시세가 아니므로 단기 판단은 보수적으로 확인해 주세요.`
+          : "최근 종가 기준 참고 분석입니다. 실시간 시세가 아니므로 기술적 판단은 보수적으로 확인해 주세요.",
+        risk: "실시간 가격이 아닌 최근 종가 기준이므로 변동성 판단은 참고용으로만 확인해 주세요.",
+        risks: [
+          "실시간 시세가 아닙니다.",
+          "장중 변동은 별도로 확인이 필요합니다."
+        ],
+        watchPoints: [
+          "최근 종가 기준으로 추세가 유지되는지 확인합니다.",
+          "거래량과 보조 지표가 같은 방향인지 점검합니다."
+        ],
+        shortTermCheckPoints: [
+          "실시간 시세 복구 여부를 다시 확인합니다.",
+          "가격 변동 폭이 확대되는지 관찰합니다."
+        ]
+      }
+    };
+  }
+
+  return {
+    source: "local",
+    generatedAt: new Date().toISOString(),
+    report: {
+      trend: "KIS 현재가 기준 참고 분석입니다. 현재 가격 흐름과 보조 지표를 함께 확인해 주세요.",
+      technical: maSignals.length
+        ? `${maSignals.join(" · ")} 기준으로 가격 흐름을 참고합니다.`
+        : "KIS 현재가 기준 참고 분석입니다. 가격 흐름과 기술 지표를 함께 확인해 주세요.",
+      risk: "현재 가격 기준으로도 확정적인 수익을 보장하지 않으며, 리스크 관리는 계속 필요합니다.",
+      risks: [
+        "단기 변동성 확대 가능성을 함께 확인해 주세요.",
+        "지지선과 저항선 근처 반응을 관찰해 주세요."
+      ],
+      watchPoints: [
+        "현재 가격이 이동평균 위에서 유지되는지 확인합니다.",
+        "거래량이 가격 흐름을 지지하는지 함께 봅니다."
+      ],
+      shortTermCheckPoints: [
+        "장중 변동성과 거래량 확대 여부를 확인합니다.",
+        "리스크가 커질 경우 비중 조절 가능성을 점검합니다."
+      ]
+    }
+  };
+}
+
 export function AiReportCard({
   stock,
   resolvedPrice
@@ -118,6 +204,19 @@ export function AiReportCard({
             "현재 가격 데이터가 비정상 범위를 벗어나 확정적인 매매 판단을 제공하지 않습니다."
           : resolvedPrice?.warningKo ?? "가격 데이터를 일시적으로 불러올 수 없습니다.";
   const isAiUsable = resolvedPrice?.isUsableForAi ?? false;
+  const dataBasisLabel = resolvedPrice?.basisKo ?? "데이터 기준 확인 필요";
+  const dataTimestampLabel =
+    priceKind === "kis_current"
+      ? resolvedPrice?.updatedAt
+        ? `업데이트 ${resolvedPrice.updatedAt}`
+        : "데이터 기준 확인 필요"
+      : priceKind === "recent_close"
+        ? resolvedPrice?.baseDate
+          ? `기준일 ${resolvedPrice.baseDate}`
+          : stock.date
+            ? `기준일 ${stock.date}`
+            : "데이터 기준 확인 필요"
+        : "데이터 기준 확인 필요";
   const aiConfidenceLabel =
     effectiveAiConfidence === "high"
       ? "높음"
@@ -151,18 +250,7 @@ export function AiReportCard({
     setIsExpanded(false);
 
     try {
-      const response = await fetch("/api/analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: stock.symbol })
-      });
-
-      if (!response.ok) {
-        throw new Error("report failed");
-      }
-
-      const payload = await response.json().catch(() => null);
-      setData(normalizeAnalysisResponse(payload));
+      setData(buildTemplateAnalysisResponse(stock, resolvedPrice));
     } catch {
       setError("리포트 생성 실패");
     } finally {
@@ -184,23 +272,11 @@ export function AiReportCard({
             추세 · 기술적 근거 · 위험 · 관찰 포인트
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-400">
-            데이터 업데이트 {DATA_UPDATED_AT}
+            데이터 기준: {dataBasisLabel}
           </p>
-          {stock.date && (
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              데이터 기준일 {stock.date} 기준
-            </p>
-          )}
+          <p className="mt-1 text-xs font-semibold text-slate-400">{dataTimestampLabel}</p>
           <div className="mt-3 rounded-lg border border-line bg-slate-50 px-3 py-3 text-xs font-semibold leading-5 text-slate-600 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300">
-            <p>
-              {priceKind === "kis_current"
-                ? "KIS 기준 참고 분석"
-                : priceKind === "recent_close"
-                  ? "최근 종가 기준 참고 분석"
-                  : isAbnormalPrice
-                    ? "비정상 가격 감지"
-                    : "가격 데이터 일시 불가"}
-            </p>
+            <p>AI 분석 요약</p>
             <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {analysisBasisText}
             </p>
@@ -271,10 +347,10 @@ export function AiReportCard({
                   {formatGeneratedAt(data.generatedAt)}
                 </p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-                  {analysisBasisText}
+                  데이터 기준: {dataBasisLabel}
                 </p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-                  {analysisNotice}
+                  {dataTimestampLabel}
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
