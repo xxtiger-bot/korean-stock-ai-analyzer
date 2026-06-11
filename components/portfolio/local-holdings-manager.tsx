@@ -163,12 +163,19 @@ export function LocalHoldingsManager({ stocks }: { stocks: Stock[] }) {
       return;
     }
 
+    if (quantity === null || averageBuyPrice === null) {
+      return;
+    }
+
+    const safeQuantity = quantity;
+    const safeAverageBuyPrice = averageBuyPrice;
+
     const nextHolding: LocalHolding = {
       id: `${symbol}-${Date.now()}`,
       symbol,
       stockName,
-      quantity,
-      averageBuyPrice,
+      quantity: safeQuantity,
+      averageBuyPrice: safeAverageBuyPrice,
       targetPrice,
       memo: form.memo.trim(),
       createdAt: new Date().toISOString()
