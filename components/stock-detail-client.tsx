@@ -13,6 +13,7 @@ import { KeyIndicatorsPanel } from "@/components/key-indicators-panel";
 import { MetricCard } from "@/components/metric-card";
 import { PotentialScoreCard } from "@/components/potential-score-card";
 import { DataStatusBanner } from "@/components/stock/data-status-banner";
+import { RelatedNewsCard } from "@/components/stock/related-news-card";
 import { TradingPlanHelper } from "@/components/trading-plan-helper";
 import { EmptyState } from "@/components/ui-states";
 import { WatchlistButton } from "@/components/watchlist-button";
@@ -339,6 +340,9 @@ export function StockDetailClient({
               />
             </section>
           )}
+        </div>
+        <div className="min-w-0 max-w-full xl:col-start-1">
+          <RelatedNewsCard stock={stock} />
         </div>
         <div className="min-w-0 max-w-full xl:col-start-1">
           {suppressPriceDerivedViews ? (
