@@ -18,15 +18,17 @@ function getBannerCopy(resolvedPrice: ResolvedStockDisplayPrice) {
       heading: "최근 종가 기준",
       primary: "data.go.kr 기준",
       secondary: `기준일: ${resolvedPrice.baseDate ?? "확인 필요"}`,
-      helper: "KIS 현재가 연결 시 자동으로 현재가 기준으로 전환됩니다."
+      helper: "현재 사용 가능한 최신 종가 데이터입니다.",
+      subHelper: "실시간 시세가 아닙니다.",
+      tertiary: "KIS 현재가 연결 시 자동으로 현재가 기준으로 전환됩니다."
     };
   }
 
   return {
     heading: "가격 데이터 확인 필요",
-    primary: "데이터 출처 또는 가격 범위를 확인해야 합니다.",
+    primary: "현재 사용 가능한 가격 데이터를 확인하지 못했습니다.",
     secondary: "",
-    helper: ""
+    helper: "데이터 출처 또는 가격 범위를 확인해야 합니다."
   };
 }
 
@@ -50,7 +52,7 @@ export function DataStatusBanner({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400">
-            데이터 기준
+            데이터 상태
           </p>
           <p className="mt-1 text-sm font-bold leading-6">{copy.heading}</p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
@@ -61,14 +63,19 @@ export function DataStatusBanner({
               {copy.secondary}
             </p>
           ) : null}
-          {resolvedPrice.warningKo && resolvedPrice.priceKind === "recent_close" ? (
+          {"subHelper" in copy && copy.subHelper ? (
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              {resolvedPrice.warningKo}
+              {copy.subHelper}
             </p>
           ) : null}
           {copy.helper ? (
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
               {copy.helper}
+            </p>
+          ) : null}
+          {"tertiary" in copy && copy.tertiary ? (
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              {copy.tertiary}
             </p>
           ) : null}
         </div>
