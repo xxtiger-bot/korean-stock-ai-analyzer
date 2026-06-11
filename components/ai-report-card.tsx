@@ -96,9 +96,10 @@ export function AiReportCard({
   const priceKind = resolvedPrice?.priceKind ?? "unavailable";
   const isKisCurrent = priceKind === "kis_current";
   const isAbnormalPrice = resolvedPrice?.basisKo === "비정상 가격 감지";
-  const effectiveAiConfidence = isKisCurrent
-    ? resolvedPrice?.aiConfidence ?? "low"
-    : "low";
+  const effectiveAiConfidence =
+    priceKind === "unavailable"
+      ? "low"
+      : resolvedPrice?.aiConfidence ?? (isKisCurrent ? "high" : "low");
   const analysisBasisText =
     isKisCurrent
       ? "KIS 기준 참고 분석"
@@ -111,7 +112,7 @@ export function AiReportCard({
     isKisCurrent
       ? "현재가는 KIS 기준으로 확인되었습니다."
       : priceKind === "recent_close"
-        ? "현재가 확인 불가"
+        ? "실시간 시세가 아닙니다."
         : isAbnormalPrice
           ? resolvedPrice?.warningKo ??
             "현재 가격 데이터가 비정상 범위를 벗어나 확정적인 매매 판단을 제공하지 않습니다."

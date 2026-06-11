@@ -120,8 +120,8 @@ const cases: PriceResolverCase[] = [
     expected: {
       priceKind: "recent_close",
       source: "data.go.kr",
-      aiConfidence: "low",
-      basisKo: "최근 종가 참고"
+      aiConfidence: "medium",
+      basisKo: "data.go.kr 기준"
     },
     input: {
       symbol: "005930",
@@ -134,6 +134,30 @@ const cases: PriceResolverCase[] = [
       },
       dailyCloseSource: "data.go.kr",
       cachedPrice: 329000,
+      cachedPriceSource: "cache",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "005930",
+    name: "005930 unavailable when KIS unavailable and daily close is suspicious",
+    expected: {
+      priceKind: "unavailable",
+      source: "none",
+      aiConfidence: "low",
+      basisKo: "비정상 가격 감지"
+    },
+    input: {
+      symbol: "005930",
+      kisQuote: null,
+      kisQuoteSource: "none",
+      dailyClose: {
+        price: 600000,
+        baseDate: "2026-06-05",
+        updatedAt: "2026-06-05"
+      },
+      dailyCloseSource: "data.go.kr",
+      cachedPrice: 600000,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }
@@ -161,6 +185,30 @@ const cases: PriceResolverCase[] = [
       },
       dailyCloseSource: "data.go.kr",
       cachedPrice: 2350000,
+      cachedPriceSource: "cache",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "000660",
+    name: "000660 fallback to recent close when KIS unavailable and daily close valid",
+    expected: {
+      priceKind: "recent_close",
+      source: "data.go.kr",
+      aiConfidence: "medium",
+      basisKo: "data.go.kr 기준"
+    },
+    input: {
+      symbol: "000660",
+      kisQuote: null,
+      kisQuoteSource: "none",
+      dailyClose: {
+        price: 2363000,
+        baseDate: "2026-06-05",
+        updatedAt: "2026-06-05"
+      },
+      dailyCloseSource: "data.go.kr",
+      cachedPrice: 2363000,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }
@@ -215,6 +263,30 @@ const cases: PriceResolverCase[] = [
       },
       dailyCloseSource: "data.go.kr",
       cachedPrice: 252000,
+      cachedPriceSource: "cache",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "035420",
+    name: "035420 fallback to recent close when KIS unavailable and daily close valid",
+    expected: {
+      priceKind: "recent_close",
+      source: "data.go.kr",
+      aiConfidence: "medium",
+      basisKo: "data.go.kr 기준"
+    },
+    input: {
+      symbol: "035420",
+      kisQuote: null,
+      kisQuoteSource: "none",
+      dailyClose: {
+        price: 255500,
+        baseDate: "2026-06-05",
+        updatedAt: "2026-06-05"
+      },
+      dailyCloseSource: "data.go.kr",
+      cachedPrice: 255500,
       cachedPriceSource: "cache",
       market: "KOSPI"
     }

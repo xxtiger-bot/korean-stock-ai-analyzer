@@ -126,13 +126,13 @@ export function StockDetailClient({
     resolvedPrice.priceKind === "kis_current"
       ? "현재가: KIS"
       : resolvedPrice.priceKind === "recent_close"
-        ? "현재가 확인 불가"
+        ? "최근 종가"
         : "가격 데이터 확인 필요";
   const sourceBadgeLabel =
     resolvedPrice.priceKind === "kis_current"
       ? "KIS 기준"
       : resolvedPrice.priceKind === "recent_close"
-        ? "최근 종가: data.go.kr"
+        ? "data.go.kr 기준"
         : "비정상 가격 감지";
   const detailTags = tags.filter(
     (tag) =>
@@ -246,7 +246,7 @@ export function StockDetailClient({
             {resolvedPrice.priceKind !== "kis_current" && (
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
                 {resolvedPrice.priceKind === "recent_close"
-                  ? "현재가 확인이 어려워 최근 종가를 참고합니다."
+                  ? "실시간 시세가 아닙니다."
                   : isAbnormalPrice
                     ? resolvedPrice.warningKo ??
                       "가격 데이터가 비정상 범위를 벗어나 현재 표시에서 제외되었습니다."

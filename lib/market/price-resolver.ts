@@ -240,15 +240,15 @@ export function resolveStockDisplayPrice({
       displayPrice: referenceClose,
       priceKind: "recent_close",
       source: "data.go.kr",
-      labelKo: "현재가 확인 불가",
-      basisKo: "최근 종가 참고",
+      labelKo: "최근 종가",
+      basisKo: "data.go.kr 기준",
       updatedAt,
       baseDate,
       isRealtime: false,
       isFallback: true,
       isUsableForAi: false,
-      aiConfidence: "low",
-      warningKo: "현재가 확인이 어려워 최근 종가를 참고합니다.",
+      aiConfidence: "medium",
+      warningKo: "실시간 시세가 아닙니다.",
       reason: `${symbol}(${marketLabel})의 KIS 현재가가 비정상 또는 확인 불가여서 data.go.kr 최근 종가를 참고했습니다.`
     };
   }
