@@ -217,6 +217,7 @@ export function AiReportCard({
             ? `기준일 ${stock.date}`
             : "데이터 기준 확인 필요"
         : "데이터 기준 확인 필요";
+  const generatedAtLabel = data ? formatGeneratedAt(data.generatedAt) : null;
   const aiConfidenceLabel =
     effectiveAiConfidence === "high"
       ? "높음"
@@ -243,6 +244,12 @@ export function AiReportCard({
       : priceKind === "unavailable"
       ? "가격 데이터가 불안정하여 리스크 판단은 참고용으로만 확인해 주세요."
       : data?.report.risk ?? "리스크 정보를 표시할 데이터가 부족합니다.";
+  const generationBasisText =
+    priceKind === "kis_current"
+      ? "KIS 현재가 기준 참고 분석입니다."
+      : priceKind === "recent_close"
+        ? "최근 종가 기준 참고 분석입니다."
+        : "가격 데이터 확인이 필요하여 확정적인 분석은 제공하지 않습니다.";
 
   async function generateReport() {
     setIsLoading(true);
@@ -293,9 +300,9 @@ export function AiReportCard({
               AI 신뢰도: {aiConfidenceLabel}
             </p>
           </div>
-          <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">
-            {analysisNotice}
-          </p>
+          {priceKind === "unavailable" ? (
+            <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">{analysisNotice}</p>
+          ) : null}
           <div className="mt-3">
             <ProUpgradePrompt
               compact
@@ -343,14 +350,16 @@ export function AiReportCard({
                   {stock.koreanName} 기술 분석 메모
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {data.source === "openai" ? "OpenAI 생성" : "실데이터 자동 생성"} ·{" "}
-                  {formatGeneratedAt(data.generatedAt)}
+                  생성 완료 · 보고서 생성: {generatedAtLabel ?? "생성 시간 확인 필요"}
                 </p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
                   데이터 기준: {dataBasisLabel}
                 </p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
                   {dataTimestampLabel}
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+                  템플릿 기반 AI 보조 분석
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
@@ -434,6 +443,9 @@ export function AiReportCard({
               </button>
             </article>
             <article className="bg-slate-50 p-4 dark:bg-slate-900/60">
+              <p className="text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                {generationBasisText}
+              </p>
               <h3 className="text-xs font-bold text-ink dark:text-white">면책 문구</h3>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
                 {DISCLAIMER}

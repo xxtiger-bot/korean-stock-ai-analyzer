@@ -201,7 +201,7 @@ export function StockDetailClient({
             </div>
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
               {resolvedPrice.priceKind === "recent_close"
-                ? "최근 종가 기준 참고 데이터로 상세 정보를 표시합니다."
+                ? "세부 지표와 차트는 현재 데이터 기준에 맞춰 표시됩니다."
                 : resolvedPrice.priceKind === "unavailable"
                   ? "가격 기반 정보는 현재 보수적으로 제한해 표시합니다."
                   : "실시간 기준으로 핵심 가격 정보를 확인할 수 있습니다."}
@@ -238,11 +238,6 @@ export function StockDetailClient({
               <div className="mt-3 inline-flex max-w-full flex-wrap rounded-md border border-dashed border-line bg-slate-50 px-3 py-2 text-sm font-bold text-slate-400 dark:border-dark-line dark:bg-slate-900/60">
                 가격 변동 데이터 확인 필요
               </div>
-            )}
-            {resolvedPrice.warningKo && resolvedPrice.priceKind === "unavailable" && (
-              <p className="mt-2 text-xs font-semibold leading-5 text-amber-600 dark:text-amber-300">
-                {resolvedPrice.warningKo}
-              </p>
             )}
           </div>
         </div>
