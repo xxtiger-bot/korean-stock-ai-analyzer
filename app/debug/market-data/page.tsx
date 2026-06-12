@@ -4,7 +4,11 @@ import { formatKRW } from "@/lib/format";
 import { resolveStockDisplayPrice } from "@/lib/market/price-resolver";
 import { getStockDetailFromDataGoKr } from "@/lib/providers/data-go-kr";
 import { diagnoseExternalReferenceQuote } from "@/lib/providers/external-reference";
-import { diagnoseKisCurrentQuote } from "@/lib/providers/kis";
+import {
+  diagnoseKisCurrentQuote,
+  diagnoseKisTokenEndpoint,
+  getKisEnvironmentDiagnostic
+} from "@/lib/providers/kis";
 import {
   getKoreaStockApiSource,
   getStockDataProviderMode
@@ -109,6 +113,8 @@ async function getRecentCloseDiagnostic(symbol: string) {
 export default async function MarketDataDebugPage() {
   const providerMode = getStockDataProviderMode();
   const apiSource = getKoreaStockApiSource();
+  const kisEnvironment = getKisEnvironmentDiagnostic();
+  const kisNetwork = await diagnoseKisTokenEndpoint();
 
   const stocks = await Promise.all(
     DIAGNOSTIC_STOCKS.map(async ({ symbol, stockName, market }) => {
@@ -176,6 +182,88 @@ export default async function MarketDataDebugPage() {
         </div>
       </section>
 
+      <section className="mt-4 rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <p className="text-xs font-bold uppercase tracking-normal text-brand">KIS Network Diagnostics</p>
+        <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">KIS endpoint / environment check</h2>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">Environment</p>
+            <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <div className="flex justify-between gap-3">
+                <dt>KIS_BASE_URL configured</dt>
+                <dd>{booleanLabel(kisEnvironment.baseUrlConfigured)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>KIS_BASE_URL</dt>
+                <dd className="text-right break-all">{kisEnvironment.baseUrl}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>KIS_APP_KEY</dt>
+                <dd>{safeText(kisEnvironment.appKeyMasked)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>KIS_APP_SECRET</dt>
+                <dd>{safeText(kisEnvironment.appSecretMasked)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>NODE_ENV</dt>
+                <dd>{safeText(kisEnvironment.nodeEnv)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>VERCEL</dt>
+                <dd>{booleanLabel(kisEnvironment.vercel)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>VERCEL_ENV</dt>
+                <dd>{safeText(kisEnvironment.vercelEnv)}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+            <p className="text-xs font-bold uppercase tracking-normal text-brand">Token endpoint</p>
+            <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <div className="flex justify-between gap-3">
+                <dt>baseUrl</dt>
+                <dd className="text-right break-all">{kisNetwork.baseUrl}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>tokenEndpoint</dt>
+                <dd className="text-right break-all">{kisNetwork.tokenEndpoint}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>status</dt>
+                <dd>{kisNetwork.status}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>elapsedMs</dt>
+                <dd>{typeof kisNetwork.elapsedMs === "number" ? `${kisNetwork.elapsedMs}ms` : "정보 없음"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>httpStatus</dt>
+                <dd>{typeof kisNetwork.httpStatus === "number" ? kisNetwork.httpStatus : "정보 없음"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>errorType</dt>
+                <dd>{kisNetwork.status}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>errorMessage</dt>
+                <dd className="text-right break-words">{safeText(kisNetwork.errorMessage)}</dd>
+              </div>
+            </dl>
+            <details className="mt-3 rounded-md border border-line bg-white/70 p-3 text-xs dark:border-dark-line dark:bg-slate-950/40">
+              <summary className="cursor-pointer font-bold text-slate-600 dark:text-slate-300">
+                response keys
+              </summary>
+              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">
+                {stringifyRaw(kisNetwork.responseKeys)}
+              </pre>
+            </details>
+          </section>
+        </div>
+      </section>
+
       <section className="mt-4 grid gap-4">
         {stocks.map(({ symbol, stockName, kis, external, recentClose, resolvedPrice }) => (
           <article
@@ -217,6 +305,10 @@ export default async function MarketDataDebugPage() {
                     <dd>{kis.tokenStatus}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>token endpoint</dt>
+                    <dd className="text-right break-all">{kis.tokenEndpoint}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>token source</dt>
                     <dd>{kis.tokenSource}</dd>
                   </div>
@@ -225,12 +317,32 @@ export default async function MarketDataDebugPage() {
                     <dd>{formatDateTime(kis.tokenExpiresAt)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>token elapsedMs</dt>
+                    <dd>{typeof kis.tokenElapsedMs === "number" ? `${kis.tokenElapsedMs}ms` : "정보 없음"}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>token httpStatus</dt>
+                    <dd>{typeof kis.tokenHttpStatus === "number" ? kis.tokenHttpStatus : "정보 없음"}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>quote status</dt>
                     <dd>{kis.quoteStatus}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>request symbol</dt>
                     <dd>{safeText(kis.requestSymbol)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>requestUrlPath</dt>
+                    <dd className="text-right break-all">{safeText(kis.requestUrlPath)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>has FID_COND_MRKT_DIV_CODE</dt>
+                    <dd>{booleanLabel(kis.hasMarketDivCodeParam)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>has FID_INPUT_ISCD</dt>
+                    <dd>{booleanLabel(kis.hasInputIscdParam)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>TR ID</dt>
@@ -255,6 +367,18 @@ export default async function MarketDataDebugPage() {
                   <div className="flex justify-between gap-3">
                     <dt>no data reason</dt>
                     <dd>{safeText(kis.noDataReason)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>rt_cd</dt>
+                    <dd>{safeText(kis.rawRtCd)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>msg_cd</dt>
+                    <dd>{safeText(kis.rawMsgCd)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>msg1</dt>
+                    <dd className="text-right break-words">{safeText(kis.rawMsg1)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>error code</dt>
@@ -289,6 +413,7 @@ export default async function MarketDataDebugPage() {
                     {stringifyRaw({
                       rawResponseKeys: kis.rawResponseKeys,
                       rawPriceCandidateFields: kis.rawPriceCandidateFields,
+                      tokenResponseKeys: kis.tokenResponseKeys,
                       tokenCache: kis.tokenCache,
                       quoteCache: kis.quoteCache
                     })}

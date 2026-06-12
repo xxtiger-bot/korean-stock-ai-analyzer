@@ -10,6 +10,7 @@
     "check:price": "tsx scripts/check-price-resolver.ts",
     "check:mobile": "tsx scripts/check-mobile.ts",
     "check:current-price": "tsx scripts/check-current-price-sources.ts",
+    "check:kis-network": "tsx scripts/check-kis-network.ts",
     "test:data-go-kr": "tsx scripts/test-data-go-kr.ts",
     "test:data-go-kr-index": "tsx scripts/test-data-go-kr-index.ts",
     "test:kis": "tsx scripts/test-kis-quote.ts",
