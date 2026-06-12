@@ -75,6 +75,32 @@ export type KisQuoteCacheSnapshot = {
   lastIssuedAtIso: string | null;
 };
 
+export type KisCurrentQuoteDiagnostic = {
+  appKeyConfigured: boolean;
+  appSecretConfigured: boolean;
+  baseUrl: string;
+  tokenStatus: "success" | "missing_credentials" | "error";
+  tokenErrorCode: string | null;
+  tokenErrorMessage: string | null;
+  tokenLikelyCooldownIssue: boolean;
+  tokenLikelyPermissionIssue: boolean;
+  tokenLikelyEndpointIssue: boolean;
+  tokenLikelyMockAccountIssue: boolean;
+  quoteStatus: "success" | "skipped" | "no_data" | "error";
+  rawPrice: string | null;
+  parsedPrice: number | null;
+  source: "KIS" | "none";
+  updatedAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  quoteLikelyCooldownIssue: boolean;
+  quoteLikelyPermissionIssue: boolean;
+  quoteLikelyEndpointIssue: boolean;
+  quoteLikelyMockAccountIssue: boolean;
+  tokenCache: KisTokenCacheSnapshot;
+  quoteCache: KisQuoteCacheSnapshot;
+};
+
 const TOKEN_REQUEST_COOLDOWN_MS = 5_000;
 const TOKEN_REUSE_BUFFER_MS = 60_000;
 const QUOTE_CACHE_TTL_MS = 15_000;
@@ -151,6 +177,19 @@ function getKisConfig() {
   }
 
   return { appKey, appSecret, baseUrl };
+}
+
+function getKisConfigSnapshot() {
+  const appKey = process.env.KIS_APP_KEY;
+  const appSecret = process.env.KIS_APP_SECRET;
+  const baseUrl =
+    process.env.KIS_BASE_URL?.replace(/\/$/, "") || "https://openapi.koreainvestment.com:9443";
+
+  return {
+    appKeyConfigured: Boolean(appKey),
+    appSecretConfigured: Boolean(appSecret),
+    baseUrl
+  };
 }
 
 const tokenState = globalThis as typeof globalThis & {
@@ -235,6 +274,42 @@ function parseKisRealtimeMeta(payload: unknown): { rtCd: string | null; message:
   const rtCd = asString(payload.rt_cd);
   const msg = asString(payload.msg1) ?? asString(payload.msg_cd);
   return { rtCd, message: msg };
+}
+
+function extractKisErrorCode(message: string | null): string | null {
+  if (!message) return null;
+  const match = message.match(/\b[A-Z]{2,}[0-9]{2,}\b/);
+  return match ? match[0] : null;
+}
+
+function getFailureFlags(message: string | null, baseUrl: string) {
+  const normalized = (message ?? "").toLowerCase();
+  const isMockBaseUrl = baseUrl.toLowerCase().includes("openapivts");
+
+  return {
+    likelyCooldownIssue:
+      normalized.includes("cooldown") ||
+      normalized.includes("too many") ||
+      normalized.includes("rate limit") ||
+      normalized.includes("too many requests"),
+    likelyPermissionIssue:
+      normalized.includes("permission") ||
+      normalized.includes("forbidden") ||
+      normalized.includes("unauthorized") ||
+      normalized.includes("접근"),
+    likelyEndpointIssue:
+      normalized.includes("endpoint") ||
+      normalized.includes("404") ||
+      normalized.includes("not found") ||
+      normalized.includes("fetch failed") ||
+      normalized.includes("network"),
+    likelyMockAccountIssue:
+      isMockBaseUrl &&
+      (normalized.includes("permission") ||
+        normalized.includes("authorization") ||
+        normalized.includes("tr_id") ||
+        normalized.includes("모의"))
+  };
 }
 
 async function ensureTokenRequestCooldown(requestTime: Date) {
@@ -403,6 +478,130 @@ export function getKisQuoteCacheSnapshot(code: string): KisQuoteCacheSnapshot {
     lastErrorAtIso: state.lastErrorAtIso,
     lastErrorMessage: state.lastErrorMessage,
     lastIssuedAtIso: kisQuoteRuntime.lastIssuedAtIso,
+  };
+}
+
+export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQuoteDiagnostic> {
+  const normalizedCode = code.trim();
+  const config = getKisConfigSnapshot();
+  const tokenCache = getKisTokenCacheSnapshot();
+  const initialQuoteCache = getKisQuoteCacheSnapshot(normalizedCode);
+
+  if (!config.appKeyConfigured || !config.appSecretConfigured) {
+    return {
+      ...config,
+      tokenStatus: "missing_credentials",
+      tokenErrorCode: null,
+      tokenErrorMessage: "KIS credentials are not configured.",
+      tokenLikelyCooldownIssue: false,
+      tokenLikelyPermissionIssue: false,
+      tokenLikelyEndpointIssue: false,
+      tokenLikelyMockAccountIssue: false,
+      quoteStatus: "skipped",
+      rawPrice: null,
+      parsedPrice: null,
+      source: "none",
+      updatedAt: null,
+      errorCode: null,
+      errorMessage: "KIS quote skipped because credentials are missing.",
+      quoteLikelyCooldownIssue: false,
+      quoteLikelyPermissionIssue: false,
+      quoteLikelyEndpointIssue: false,
+      quoteLikelyMockAccountIssue: false,
+      tokenCache,
+      quoteCache: initialQuoteCache
+    };
+  }
+
+  let tokenStatus: KisCurrentQuoteDiagnostic["tokenStatus"] = "success";
+  let tokenErrorMessage: string | null = null;
+  let tokenErrorCode: string | null = null;
+
+  try {
+    await getKisAccessToken();
+  } catch (error) {
+    tokenStatus = "error";
+    tokenErrorMessage =
+      error instanceof Error ? error.message : "Failed to issue KIS access token.";
+    tokenErrorCode = extractKisErrorCode(tokenErrorMessage);
+  }
+
+  const tokenFlags = getFailureFlags(tokenErrorMessage, config.baseUrl);
+
+  if (tokenStatus !== "success") {
+    return {
+      ...config,
+      tokenStatus,
+      tokenErrorCode,
+      tokenErrorMessage,
+      tokenLikelyCooldownIssue: tokenFlags.likelyCooldownIssue,
+      tokenLikelyPermissionIssue: tokenFlags.likelyPermissionIssue,
+      tokenLikelyEndpointIssue: tokenFlags.likelyEndpointIssue,
+      tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
+      quoteStatus: "skipped",
+      rawPrice: null,
+      parsedPrice: null,
+      source: "none",
+      updatedAt: null,
+      errorCode: null,
+      errorMessage: "KIS quote skipped because token issuance failed.",
+      quoteLikelyCooldownIssue: false,
+      quoteLikelyPermissionIssue: false,
+      quoteLikelyEndpointIssue: false,
+      quoteLikelyMockAccountIssue: false,
+      tokenCache: getKisTokenCacheSnapshot(),
+      quoteCache: getKisQuoteCacheSnapshot(normalizedCode)
+    };
+  }
+
+  let quoteStatus: KisCurrentQuoteDiagnostic["quoteStatus"] = "success";
+  let rawPrice: string | null = null;
+  let parsedPrice: number | null = null;
+  let updatedAt: string | null = null;
+  let errorMessage: string | null = null;
+  let errorCode: string | null = null;
+
+  try {
+    const output = await fetchDomesticQuoteOutput(normalizedCode, new Date());
+    rawPrice = findOutputValue(output, ["stck_prpr"]);
+    parsedPrice = toNumber(rawPrice);
+    updatedAt = formatAsOf(output.stck_bsop_date, output.stck_cntg_hour, new Date());
+
+    if (!parsedPrice || parsedPrice <= 0) {
+      quoteStatus = "no_data";
+      errorMessage = "KIS quote response did not include a valid current price.";
+      errorCode = extractKisErrorCode(errorMessage);
+    }
+  } catch (error) {
+    quoteStatus = "error";
+    errorMessage = error instanceof Error ? error.message : "Failed to fetch KIS quote.";
+    errorCode = extractKisErrorCode(errorMessage);
+  }
+
+  const quoteFlags = getFailureFlags(errorMessage, config.baseUrl);
+
+  return {
+    ...config,
+    tokenStatus,
+    tokenErrorCode,
+    tokenErrorMessage,
+    tokenLikelyCooldownIssue: tokenFlags.likelyCooldownIssue,
+    tokenLikelyPermissionIssue: tokenFlags.likelyPermissionIssue,
+    tokenLikelyEndpointIssue: tokenFlags.likelyEndpointIssue,
+    tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
+    quoteStatus,
+    rawPrice,
+    parsedPrice,
+    source: quoteStatus === "success" && parsedPrice ? "KIS" : "none",
+    updatedAt,
+    errorCode,
+    errorMessage,
+    quoteLikelyCooldownIssue: quoteFlags.likelyCooldownIssue,
+    quoteLikelyPermissionIssue: quoteFlags.likelyPermissionIssue,
+    quoteLikelyEndpointIssue: quoteFlags.likelyEndpointIssue,
+    quoteLikelyMockAccountIssue: quoteFlags.likelyMockAccountIssue,
+    tokenCache: getKisTokenCacheSnapshot(),
+    quoteCache: getKisQuoteCacheSnapshot(normalizedCode)
   };
 }
 

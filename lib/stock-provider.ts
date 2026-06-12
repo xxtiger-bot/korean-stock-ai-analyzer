@@ -14,12 +14,18 @@ import {
   searchStocksFromDataGoKr
 } from "@/lib/providers/data-go-kr";
 import {
+  diagnoseExternalReferenceQuote,
+  type ExternalReferenceQuoteDiagnostic
+} from "@/lib/providers/external-reference";
+import {
   getMarketOverviewFromKrx,
   getStockCandlesFromKrx,
   getStockDetailFromKrx,
   searchStocksFromKrx
 } from "@/lib/providers/krx";
 import {
+  diagnoseKisCurrentQuote,
+  type KisCurrentQuoteDiagnostic,
   getForeignOwnership as getForeignOwnershipFromKis,
   getRealtimeQuote as getRealtimeQuoteFromKis
 } from "@/lib/providers/kis";
@@ -61,6 +67,15 @@ export type ExternalReferenceQuote = {
   price: number;
   source: "Yahoo" | "Google" | "TradingView";
   updatedAt: string;
+};
+
+export type RecentCloseDiagnostic = {
+  status: "success" | "no_data" | "error";
+  recentClose: number | null;
+  baseDate: string | null;
+  source: "data.go.kr" | "none";
+  onlyRecentClose: true;
+  errorMessage: string | null;
 };
 
 type OpportunityRadarItems = ReturnType<typeof buildOpportunityRadar>;
@@ -1128,6 +1143,52 @@ export async function getExternalReferenceQuote(
   _code: string
 ): Promise<ExternalReferenceQuote | null> {
   return null;
+}
+
+export async function getExternalReferenceQuoteDiagnostic(
+  code: string
+): Promise<ExternalReferenceQuoteDiagnostic> {
+  return diagnoseExternalReferenceQuote(code);
+}
+
+export async function getRecentCloseDiagnostic(code: string): Promise<RecentCloseDiagnostic> {
+  try {
+    const detail = await getStockDetailFromDataGoKr(code);
+    if (!detail || !Number.isFinite(detail.price) || detail.price <= 0) {
+      return {
+        status: "no_data",
+        recentClose: null,
+        baseDate: detail?.date ?? null,
+        source: "none",
+        onlyRecentClose: true,
+        errorMessage: null
+      };
+    }
+
+    return {
+      status: "success",
+      recentClose: detail.price,
+      baseDate: detail.date ?? null,
+      source: "data.go.kr",
+      onlyRecentClose: true,
+      errorMessage: null
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      recentClose: null,
+      baseDate: null,
+      source: "none",
+      onlyRecentClose: true,
+      errorMessage: error instanceof Error ? error.message : "Failed to fetch recent close."
+    };
+  }
+}
+
+export async function getKisCurrentQuoteDiagnostic(
+  code: string
+): Promise<KisCurrentQuoteDiagnostic> {
+  return diagnoseKisCurrentQuote(code);
 }
 
 export async function getForeignOwnership(
