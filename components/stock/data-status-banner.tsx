@@ -16,10 +16,9 @@ function getBannerCopy(resolvedPrice: ResolvedStockDisplayPrice) {
   if (resolvedPrice.priceKind === "recent_close") {
     return {
       heading: "현재가 확인 불가",
-      primary: "최근 종가 · data.go.kr 기준",
-      secondary: `기준일: ${resolvedPrice.baseDate ?? "확인 필요"}`,
+      primary: "최근 종가 기준",
+      secondary: `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`,
       helper: "현재 사용 가능한 최신 종가 데이터입니다.",
-      subHelper: "실시간 시세가 아닙니다.",
       tertiary: "KIS 현재가 연결 시 자동으로 현재가 기준으로 전환됩니다."
     };
   }

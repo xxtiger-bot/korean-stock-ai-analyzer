@@ -176,8 +176,8 @@ export function StockDetailClient({
   const referenceCloseValue = referenceCloseAvailable
     ? formatKRW(resolvedPrice.displayPrice as number)
     : "최근 종가 데이터 없음";
-  const referenceCloseSubValue = referenceCloseAvailable
-    ? `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
+  const referenceCloseDateLabel = referenceCloseAvailable
+    ? `기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
     : "실시간 시세가 아닙니다.";
   const headlineSupportText =
     resolvedPrice.priceKind === "kis_current"
@@ -187,6 +187,10 @@ export function StockDetailClient({
         : resolvedPrice.priceKind === "recent_close"
           ? "KIS 현재가를 불러오지 못했습니다."
           : "가격 데이터를 확인할 수 없습니다.";
+  const chartDataLabel =
+    resolvedPrice.priceKind === "recent_close"
+      ? `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
+      : "최근 일봉 데이터 기준";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -224,7 +228,7 @@ export function StockDetailClient({
                 ? "세부 지표와 차트는 현재 데이터 기준에 맞춰 표시됩니다."
                 : resolvedPrice.priceKind === "external_reference"
                   ? "공식 KIS 실시간 시세가 아닌 외부 참고 가격 기준으로 보조 정보를 표시합니다."
-                : resolvedPrice.priceKind === "unavailable"
+                  : resolvedPrice.priceKind === "unavailable"
                   ? "가격 기반 정보는 현재 보수적으로 제한해 표시합니다."
                   : "실시간 기준으로 핵심 가격 정보를 확인할 수 있습니다."}
             </p>
@@ -274,12 +278,22 @@ export function StockDetailClient({
             </p>
             <p className="mt-1 text-base font-bold text-ink dark:text-white">{referenceCloseValue}</p>
             <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {referenceCloseSubValue}
+              data.go.kr 기준
             </p>
-            {resolvedPrice.priceKind === "recent_close" ? (
+            {referenceCloseAvailable ? (
               <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                실시간 시세가 아닙니다.
+                {referenceCloseDateLabel}
               </p>
+            ) : null}
+            {resolvedPrice.priceKind === "recent_close" ? (
+              <>
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  차트와 기술지표도 같은 기준일 데이터를 사용합니다.
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  실시간 현재가는 아닙니다.
+                </p>
+              </>
             ) : null}
           </div>
         )}
@@ -331,7 +345,12 @@ export function StockDetailClient({
               />
             </section>
           ) : (
-            <CandlestickChart series={technicalSeries} />
+            <div className="min-w-0 max-w-full">
+              <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {chartDataLabel}
+              </p>
+              <CandlestickChart series={technicalSeries} />
+            </div>
           )}
         </div>
         <div className="grid min-w-0 max-w-full content-start gap-5 xl:col-start-2 xl:row-span-3 xl:row-start-1">
