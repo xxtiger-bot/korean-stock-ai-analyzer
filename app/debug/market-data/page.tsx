@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 
 import { formatKRW } from "@/lib/format";
 import { resolveStockDisplayPrice } from "@/lib/market/price-resolver";
+import { getStockDetailFromDataGoKr } from "@/lib/providers/data-go-kr";
+import { diagnoseExternalReferenceQuote } from "@/lib/providers/external-reference";
+import { diagnoseKisCurrentQuote } from "@/lib/providers/kis";
 import {
-  getExternalReferenceQuoteDiagnostic,
-  getKisCurrentQuoteDiagnostic,
   getKoreaStockApiSource,
-  getRecentCloseDiagnostic,
   getStockDataProviderMode
 } from "@/lib/stock-provider";
 
@@ -72,6 +72,40 @@ function stringifyRaw(value: unknown) {
   }
 }
 
+async function getRecentCloseDiagnostic(symbol: string) {
+  try {
+    const detail = await getStockDetailFromDataGoKr(symbol);
+    if (!detail || !Number.isFinite(detail.price) || detail.price <= 0) {
+      return {
+        status: "no_data" as const,
+        recentClose: null,
+        baseDate: detail?.date ?? null,
+        source: "none" as const,
+        onlyRecentClose: true as const,
+        errorMessage: null
+      };
+    }
+
+    return {
+      status: "success" as const,
+      recentClose: detail.price,
+      baseDate: detail.date ?? null,
+      source: "data.go.kr" as const,
+      onlyRecentClose: true as const,
+      errorMessage: null
+    };
+  } catch (error) {
+    return {
+      status: "error" as const,
+      recentClose: null,
+      baseDate: null,
+      source: "none" as const,
+      onlyRecentClose: true as const,
+      errorMessage: error instanceof Error ? error.message : "Failed to fetch recent close."
+    };
+  }
+}
+
 export default async function MarketDataDebugPage() {
   const providerMode = getStockDataProviderMode();
   const apiSource = getKoreaStockApiSource();
@@ -79,8 +113,8 @@ export default async function MarketDataDebugPage() {
   const stocks = await Promise.all(
     DIAGNOSTIC_STOCKS.map(async ({ symbol, stockName, market }) => {
       const [kis, external, recentClose] = await Promise.all([
-        getKisCurrentQuoteDiagnostic(symbol),
-        getExternalReferenceQuoteDiagnostic(symbol),
+        diagnoseKisCurrentQuote(symbol),
+        diagnoseExternalReferenceQuote(symbol),
         getRecentCloseDiagnostic(symbol)
       ]);
 
