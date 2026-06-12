@@ -57,6 +57,12 @@ export type InvestorFlow = {
   netFlow: number;
 };
 
+export type ExternalReferenceQuote = {
+  price: number;
+  source: "Yahoo" | "Google" | "TradingView";
+  updatedAt: string;
+};
+
 type OpportunityRadarItems = ReturnType<typeof buildOpportunityRadar>;
 type PotentialRadarItems = ReturnType<typeof buildPotentialRadar>;
 type DangerWarningItems = ReturnType<typeof buildDangerWarnings>;
@@ -1116,6 +1122,12 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote | nu
       );
     return null;
   }
+}
+
+export async function getExternalReferenceQuote(
+  _code: string
+): Promise<ExternalReferenceQuote | null> {
+  return null;
 }
 
 export async function getForeignOwnership(

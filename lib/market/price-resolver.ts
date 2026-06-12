@@ -1,5 +1,15 @@
-export type ResolvedPriceKind = "kis_current" | "recent_close" | "unavailable";
-export type ResolvedPriceSource = "KIS" | "data.go.kr" | "none";
+export type ResolvedPriceKind =
+  | "kis_current"
+  | "external_reference"
+  | "recent_close"
+  | "unavailable";
+export type ResolvedPriceSource =
+  | "KIS"
+  | "Yahoo"
+  | "Google"
+  | "TradingView"
+  | "data.go.kr"
+  | "none";
 export type ResolvedPriceConfidence = "high" | "medium" | "low";
 
 export type KisQuoteLike = {
@@ -22,6 +32,9 @@ export type ResolvedPriceInput = {
   symbol: string;
   kisQuote?: KisQuoteLike | null;
   kisQuoteSource?: "KIS" | "none";
+  externalReferencePrice?: number | null;
+  externalReferenceSource?: "Yahoo" | "Google" | "TradingView" | "none";
+  externalReferenceUpdatedAt?: string | null;
   dailyClose?: DailyCloseLike | null;
   dailyCloseSource?: "data.go.kr" | "none";
   cachedPrice?: number | null;
@@ -159,10 +172,15 @@ function resolveReferenceClose(
   return null;
 }
 
-function resolveUpdatedAt(kisQuote?: KisQuoteLike | null, dailyClose?: DailyCloseLike | null) {
+function resolveUpdatedAt(
+  kisQuote?: KisQuoteLike | null,
+  externalReferenceUpdatedAt?: string | null,
+  dailyClose?: DailyCloseLike | null
+) {
   return (
     toNonEmptyString(kisQuote?.updatedAt) ??
     toNonEmptyString(kisQuote?.asOf) ??
+    toNonEmptyString(externalReferenceUpdatedAt) ??
     toNonEmptyString(dailyClose?.updatedAt) ??
     toNonEmptyString(dailyClose?.asOf)
   );
@@ -176,6 +194,9 @@ export function resolveStockDisplayPrice({
   symbol,
   kisQuote,
   kisQuoteSource = "none",
+  externalReferencePrice = null,
+  externalReferenceSource = "none",
+  externalReferenceUpdatedAt = null,
   dailyClose,
   dailyCloseSource = "none",
   cachedPrice,
@@ -185,8 +206,16 @@ export function resolveStockDisplayPrice({
 }: ResolvedPriceInput): ResolvedStockDisplayPrice {
   const normalizedSymbol = symbol.trim().toUpperCase();
   const kisPrice = toFinitePrice(kisQuote?.price);
+  const rawExternalReferencePrice =
+    externalReferenceSource !== "none" ? toFinitePrice(externalReferencePrice) : null;
   const rawReferenceClose = resolveReferenceClose(dailyClose, dailyCloseSource, dailyCloseSuspicious);
   const safeCachedPrice = cachedPriceSource === "cache" ? toFinitePrice(cachedPrice) : null;
+  const externalReferencePriceSuspicious =
+    isValidPrice(rawExternalReferencePrice) &&
+    isSuspiciousKoreanStockPrice(normalizedSymbol, rawExternalReferencePrice);
+  const externalReferencePriceSafe = externalReferencePriceSuspicious
+    ? null
+    : rawExternalReferencePrice;
   const dailyClosePriceSuspicious =
     isValidPrice(rawReferenceClose) &&
     isSuspiciousKoreanStockPrice(normalizedSymbol, rawReferenceClose);
@@ -199,7 +228,7 @@ export function resolveStockDisplayPrice({
   const kisSuspicious = isSuspiciousKisPrice(kisPrice, referenceClose) || kisPriceSuspicious;
 
   const marketLabel = toNonEmptyString(market) ?? "KR";
-  const updatedAt = resolveUpdatedAt(kisQuote, dailyClose);
+  const updatedAt = resolveUpdatedAt(kisQuote, externalReferenceUpdatedAt, dailyClose);
   const baseDate = resolveBaseDate(dailyClose);
   const suspiciousReasons: string[] = [];
 
@@ -210,6 +239,16 @@ export function resolveStockDisplayPrice({
   if (dailyCloseSource === "data.go.kr" && isValidPrice(rawReferenceClose) && dailyClosePriceSuspicious) {
     suspiciousReasons.push(
       `data.go.kr daily close ${rawReferenceClose} is suspicious for ${normalizedSymbol}`
+    );
+  }
+
+  if (
+    externalReferenceSource !== "none" &&
+    isValidPrice(rawExternalReferencePrice) &&
+    externalReferencePriceSuspicious
+  ) {
+    suspiciousReasons.push(
+      `${externalReferenceSource} reference price ${rawExternalReferencePrice} is suspicious for ${normalizedSymbol}`
     );
   }
 
@@ -235,6 +274,26 @@ export function resolveStockDisplayPrice({
     };
   }
 
+  if (
+    externalReferenceSource !== "none" &&
+    isValidPrice(externalReferencePriceSafe)
+  ) {
+    return {
+      displayPrice: externalReferencePriceSafe,
+      priceKind: "external_reference",
+      source: externalReferenceSource,
+      labelKo: "참고 현재가",
+      basisKo: "외부 참고 기준",
+      updatedAt,
+      isRealtime: false,
+      isFallback: true,
+      isUsableForAi: true,
+      aiConfidence: "medium",
+      warningKo: "공식 KIS 실시간 시세가 아닙니다.",
+      reason: `${symbol}(${marketLabel})의 KIS 현재가를 확인하지 못해 ${externalReferenceSource} 참고 가격을 사용했습니다.`
+    };
+  }
+
   if (isValidPrice(referenceClose)) {
     return {
       displayPrice: referenceClose,
@@ -246,7 +305,7 @@ export function resolveStockDisplayPrice({
       baseDate,
       isRealtime: false,
       isFallback: true,
-      isUsableForAi: false,
+      isUsableForAi: true,
       aiConfidence: "medium",
       warningKo: "실시간 시세가 아닙니다.",
       reason: `${symbol}(${marketLabel})의 KIS 현재가가 비정상 또는 확인 불가여서 data.go.kr 최근 종가를 참고했습니다.`

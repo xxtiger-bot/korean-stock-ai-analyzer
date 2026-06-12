@@ -1,1 +1,78 @@
-import { notFound } from "next/navigation"; import { StockDetailClient } from "@/components/stock-detail-client"; import { resolveStockDisplayPrice } from "@/lib/market/price-resolver"; import { getRealtimeQuote, getStockCandles, getStockDetail } from "@/lib/stock-provider";  export const dynamic = "force-dynamic"; export const revalidate = 0;  function normalizeRouteCode(code: string) {   return decodeURIComponent(code).trim().toUpperCase(); }  export default async function StockPage({ params }: { params: { code: string } }) {   const code = normalizeRouteCode(params.code);    const [stock, candles, realtimeQuote] = await Promise.all([     getStockDetail(code),     getStockCandles(code),     getRealtimeQuote(code)   ]);    if (!stock || stock.symbol !== code) {     notFound();   }    const tags = Array.isArray(stock.tags) ? stock.tags : [];   const hasDataGoKr = tags.some((tag) => tag.toLowerCase() === "data.go.kr");   const hasSuspiciousDailyClose = tags.some(     (tag) => tag.toLowerCase() === "data.go.kr:suspicious-close"   );   const hasKisRealtime = realtimeQuote?.source === "kis";   const resolvedPrice = resolveStockDisplayPrice({     symbol: stock.symbol,     kisQuote: hasKisRealtime && realtimeQuote       ? {           price: realtimeQuote.price,           change: realtimeQuote.change,           changeRate: realtimeQuote.changeRate,           volume: realtimeQuote.volume,           asOf: realtimeQuote.asOf,           updatedAt: realtimeQuote.asOf         }       : null,     kisQuoteSource: hasKisRealtime ? "KIS" : "none",     dailyClose: hasDataGoKr       ? {           price: stock.price,           baseDate: stock.date,           updatedAt: stock.date         }       : null,     dailyCloseSource: hasDataGoKr ? "data.go.kr" : "none",     cachedPrice: Number.isFinite(stock.price) && stock.price > 0 ? stock.price : null,     cachedPriceSource: Number.isFinite(stock.price) && stock.price > 0 ? "cache" : "none",     dailyCloseSuspicious: hasSuspiciousDailyClose,     market: stock.market   });    return (     <StockDetailClient       stock={stock}       candles={candles}       realtimeQuote={realtimeQuote}       resolvedPrice={resolvedPrice}     />   ); }
+import { notFound } from "next/navigation";
+import { StockDetailClient } from "@/components/stock-detail-client";
+import { resolveStockDisplayPrice } from "@/lib/market/price-resolver";
+import {
+  getExternalReferenceQuote,
+  getRealtimeQuote,
+  getStockCandles,
+  getStockDetail
+} from "@/lib/stock-provider";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function normalizeRouteCode(code: string) {
+  return decodeURIComponent(code).trim().toUpperCase();
+}
+
+export default async function StockPage({ params }: { params: { code: string } }) {
+  const code = normalizeRouteCode(params.code);
+
+  const [stock, candles, realtimeQuote, externalReferenceQuote] = await Promise.all([
+    getStockDetail(code),
+    getStockCandles(code),
+    getRealtimeQuote(code),
+    getExternalReferenceQuote(code)
+  ]);
+
+  if (!stock || stock.symbol !== code) {
+    notFound();
+  }
+
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  const hasDataGoKr = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
+  const hasSuspiciousDailyClose = tags.some(
+    (tag) => tag.toLowerCase() === "data.go.kr:suspicious-close"
+  );
+  const hasKisRealtime = realtimeQuote?.source === "kis";
+
+  const resolvedPrice = resolveStockDisplayPrice({
+    symbol: stock.symbol,
+    kisQuote:
+      hasKisRealtime && realtimeQuote
+        ? {
+            price: realtimeQuote.price,
+            change: realtimeQuote.change,
+            changeRate: realtimeQuote.changeRate,
+            volume: realtimeQuote.volume,
+            asOf: realtimeQuote.asOf,
+            updatedAt: realtimeQuote.asOf
+          }
+        : null,
+    kisQuoteSource: hasKisRealtime ? "KIS" : "none",
+    externalReferencePrice: externalReferenceQuote?.price ?? null,
+    externalReferenceSource: externalReferenceQuote?.source ?? "none",
+    externalReferenceUpdatedAt: externalReferenceQuote?.updatedAt ?? null,
+    dailyClose: hasDataGoKr
+      ? {
+          price: stock.price,
+          baseDate: stock.date,
+          updatedAt: stock.date
+        }
+      : null,
+    dailyCloseSource: hasDataGoKr ? "data.go.kr" : "none",
+    cachedPrice: Number.isFinite(stock.price) && stock.price > 0 ? stock.price : null,
+    cachedPriceSource: Number.isFinite(stock.price) && stock.price > 0 ? "cache" : "none",
+    dailyCloseSuspicious: hasSuspiciousDailyClose,
+    market: stock.market
+  });
+
+  return (
+    <StockDetailClient
+      stock={stock}
+      candles={candles}
+      realtimeQuote={realtimeQuote}
+      resolvedPrice={resolvedPrice}
+    />
+  );
+}

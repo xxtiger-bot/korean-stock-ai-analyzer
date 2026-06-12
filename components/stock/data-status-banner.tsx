@@ -24,6 +24,16 @@ function getBannerCopy(resolvedPrice: ResolvedStockDisplayPrice) {
     };
   }
 
+  if (resolvedPrice.priceKind === "external_reference") {
+    return {
+      heading: "참고 현재가 기준",
+      primary: "외부 참고 기준",
+      secondary: `마지막 확인: ${resolvedPrice.updatedAt ?? "확인 필요"}`,
+      helper: "현재 사용 가능한 참고 가격 데이터입니다.",
+      subHelper: "공식 KIS 실시간 시세가 아닙니다."
+    };
+  }
+
   return {
     heading: "가격 데이터 확인 필요",
     primary: "현재 사용 가능한 가격 데이터를 확인하지 못했습니다.",

@@ -103,7 +103,9 @@ export function StockDetailClient({
       ? realtimeQuote && Number.isFinite(realtimeQuote.change)
         ? realtimeQuote.change
         : null
-      : resolvedPrice.priceKind === "recent_close" && Number.isFinite(stock.change)
+      : (resolvedPrice.priceKind === "external_reference" ||
+            resolvedPrice.priceKind === "recent_close") &&
+          Number.isFinite(stock.change)
         ? stock.change
         : null;
   const headlineChangeRate =
@@ -111,7 +113,9 @@ export function StockDetailClient({
       ? realtimeQuote && Number.isFinite(realtimeQuote.changeRate)
         ? realtimeQuote.changeRate
         : null
-      : resolvedPrice.priceKind === "recent_close" && Number.isFinite(stock.changeRate)
+      : (resolvedPrice.priceKind === "external_reference" ||
+            resolvedPrice.priceKind === "recent_close") &&
+          Number.isFinite(stock.changeRate)
         ? stock.changeRate
         : null;
   const headlineLabel = resolvedPrice.labelKo;
@@ -126,6 +130,8 @@ export function StockDetailClient({
   const statusBadgeLabel =
     resolvedPrice.priceKind === "kis_current"
       ? "현재가: KIS"
+      : resolvedPrice.priceKind === "external_reference"
+        ? `참고 현재가: ${resolvedPrice.source}`
       : resolvedPrice.priceKind === "recent_close"
         ? "최근 종가: data.go.kr"
         : "가격 데이터 확인 필요";
@@ -203,6 +209,8 @@ export function StockDetailClient({
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
               {resolvedPrice.priceKind === "recent_close"
                 ? "세부 지표와 차트는 현재 데이터 기준에 맞춰 표시됩니다."
+                : resolvedPrice.priceKind === "external_reference"
+                  ? "공식 KIS 실시간 시세가 아닌 외부 참고 가격 기준으로 보조 정보를 표시합니다."
                 : resolvedPrice.priceKind === "unavailable"
                   ? "가격 기반 정보는 현재 보수적으로 제한해 표시합니다."
                   : "실시간 기준으로 핵심 가격 정보를 확인할 수 있습니다."}
