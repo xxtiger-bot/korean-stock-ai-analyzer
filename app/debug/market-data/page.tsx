@@ -1,345 +1,352 @@
 import type { Metadata } from "next";
+
 import { formatKRW } from "@/lib/format";
+import { resolveStockDisplayPrice } from "@/lib/market/price-resolver";
 import {
-  isSuspiciousKisPrice,
-  isSuspiciousKoreanStockPrice,
-  resolveStockDisplayPrice
-} from "@/lib/market/price-resolver";
-import {
-  getExternalReferenceQuote,
+  getExternalReferenceQuoteDiagnostic,
+  getKisCurrentQuoteDiagnostic,
   getKoreaStockApiSource,
-  getRealtimeQuote,
-  getStockDataProviderMode,
-  getStockDetail
+  getRecentCloseDiagnostic,
+  getStockDataProviderMode
 } from "@/lib/stock-provider";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Debug Market Data | KRX Insight",
-  description: "가격 결정 결과와 KIS / 외부 참고 / data.go.kr 기준을 점검하는 내부 진단 페이지",
+  title: "Current Price Source Diagnostic",
+  description: "KRX Insight current price source diagnostics for KIS, external references, and data.go.kr.",
   robots: {
     index: false,
     follow: false
   }
 };
 
-type DebugStockSeed = {
-  symbol: string;
-  koreanName: string;
-};
+const DIAGNOSTIC_STOCKS = [
+  { symbol: "005930", stockName: "삼성전자", market: "KOSPI" },
+  { symbol: "000660", stockName: "SK하이닉스", market: "KOSPI" },
+  { symbol: "035420", stockName: "NAVER", market: "KOSPI" }
+] as const;
 
-type DebugStockRecord = DebugStockSeed & {
-  rawStock: Awaited<ReturnType<typeof getStockDetail>> | null;
-  rawQuote: Awaited<ReturnType<typeof getRealtimeQuote>> | null;
-  rawExternalReference: Awaited<ReturnType<typeof getExternalReferenceQuote>> | null;
-  resolved: ReturnType<typeof resolveStockDisplayPrice>;
-};
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "정보 없음";
 
-const testStocks: DebugStockSeed[] = [
-  { symbol: "005930", koreanName: "삼성전자" },
-  { symbol: "000660", koreanName: "SK하이닉스" },
-  { symbol: "035420", koreanName: "NAVER" }
-];
-
-function normalizePriceText(value: number | null | undefined) {
-  return Number.isFinite(value ?? NaN) && (value ?? 0) > 0 ? formatKRW(value as number) : "가격 데이터 없음";
-}
-
-function formatOptionalText(value: string | null | undefined) {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text.length > 0 ? text : "-";
-}
-
-function formatProviderMode(value: string) {
-  if (value === "real") return "real";
-  if (value === "mock") return "mock";
-  return value || "-";
-}
-
-function getStatusBadge(priceKind: ReturnType<typeof resolveStockDisplayPrice>["priceKind"]) {
-  if (priceKind === "kis_current") {
-    return {
-      label: "PASS",
-      className:
-        "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-    };
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
   }
 
-  if (priceKind === "external_reference") {
-    return {
-      label: "REFERENCE",
-      className:
-        "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
-    };
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(parsed);
+}
+
+function safeCurrency(value: number | null | undefined) {
+  return Number.isFinite(value ?? NaN) ? formatKRW(value as number) : "정보 없음";
+}
+
+function safeText(value: string | null | undefined) {
+  if (typeof value !== "string") return "정보 없음";
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : "정보 없음";
+}
+
+function booleanLabel(value: boolean) {
+  return value ? "예" : "아니오";
+}
+
+function stringifyRaw(value: unknown) {
+  if (value === null || value === undefined) return "정보 없음";
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
   }
-
-  if (priceKind === "recent_close") {
-    return {
-      label: "FALLBACK",
-      className:
-        "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-    };
-  }
-
-  return {
-    label: "UNAVAILABLE",
-    className:
-      "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
-  };
 }
 
-async function loadDebugStock(seed: DebugStockSeed): Promise<DebugStockRecord> {
-  const [rawStock, rawQuote, rawExternalReference] = await Promise.all([
-    getStockDetail(seed.symbol),
-    getRealtimeQuote(seed.symbol),
-    getExternalReferenceQuote(seed.symbol)
-  ]);
-
-  const stockTags = Array.isArray(rawStock?.tags) ? rawStock.tags : [];
-  const hasDataGoKr = stockTags.some((tag) => tag.toLowerCase() === "data.go.kr");
-  const hasSuspiciousDailyClose = stockTags.some(
-    (tag) => tag.toLowerCase() === "data.go.kr:suspicious-close"
-  );
-  const hasKisRealtime = rawQuote?.source === "kis";
-
-  const resolved = resolveStockDisplayPrice({
-    symbol: seed.symbol,
-    kisQuote:
-      hasKisRealtime && rawQuote
-        ? {
-            price: rawQuote.price,
-            updatedAt: rawQuote.asOf,
-            asOf: rawQuote.asOf,
-            change: rawQuote.change,
-            changeRate: rawQuote.changeRate,
-            volume: rawQuote.volume
-          }
-        : null,
-    kisQuoteSource: hasKisRealtime ? "KIS" : "none",
-    externalReferencePrice: rawExternalReference?.price ?? null,
-    externalReferenceSource: rawExternalReference?.source ?? "none",
-    externalReferenceUpdatedAt: rawExternalReference?.updatedAt ?? null,
-    dailyClose:
-      hasDataGoKr && rawStock
-        ? {
-            price: rawStock.price,
-            baseDate: rawStock.date,
-            updatedAt: rawStock.date,
-            asOf: rawStock.date
-          }
-        : null,
-    dailyCloseSource: hasDataGoKr ? "data.go.kr" : "none",
-    cachedPrice: rawStock?.price ?? null,
-    cachedPriceSource:
-      typeof rawStock?.price === "number" && Number.isFinite(rawStock.price) && rawStock.price > 0
-        ? "cache"
-        : "none",
-    dailyCloseSuspicious: hasSuspiciousDailyClose,
-    market: rawStock?.market ?? null
-  });
-
-  return {
-    ...seed,
-    rawStock: rawStock ?? null,
-    rawQuote: rawQuote ?? null,
-    rawExternalReference: rawExternalReference ?? null,
-    resolved
-  };
-}
-
-function KeyValueRow({
-  label,
-  value,
-  valueClassName = ""
-}: {
-  label: string;
-  value: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {label}
-      </div>
-      <div className={`mt-1 text-sm font-semibold text-slate-900 dark:text-white ${valueClassName}`}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function SectionHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="space-y-2">
-      <div className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-        Debug market-data
-      </div>
-      <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-        {title}
-      </h1>
-      <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-        {description}
-      </p>
-    </div>
-  );
-}
-
-function DebugStockCard({ record }: { record: DebugStockRecord }) {
-  const badge = getStatusBadge(record.resolved.priceKind);
-  const stockName = record.rawStock?.koreanName || record.rawStock?.name || record.koreanName;
-  const stockTags = Array.isArray(record.rawStock?.tags) ? record.rawStock?.tags : [];
-  const rawKisStatus = record.rawQuote ? "ok" : "unavailable";
-  const rawKisSource = record.rawQuote?.source === "kis" ? "KIS" : "none";
-  const rawKisPrice = record.rawQuote?.price ?? null;
-  const rawKisUpdatedAt = record.rawQuote?.asOf ?? null;
-  const rawExternalPrice = record.rawExternalReference?.price ?? null;
-  const rawExternalSource = record.rawExternalReference?.source ?? "none";
-  const rawExternalUpdatedAt = record.rawExternalReference?.updatedAt ?? null;
-  const rawRecentClose = record.rawStock?.price ?? null;
-  const rawRecentCloseSource = stockTags.some((tag) => tag.toLowerCase() === "data.go.kr")
-    ? "data.go.kr"
-    : "none";
-  const rawRecentCloseTagSuspicious = stockTags.some(
-    (tag) => tag.toLowerCase() === "data.go.kr:suspicious-close"
-  );
-  const rawRecentCloseSuspicious =
-    rawRecentCloseTagSuspicious ||
-    (typeof rawRecentClose === "number" &&
-      Number.isFinite(rawRecentClose) &&
-      isSuspiciousKoreanStockPrice(record.symbol, rawRecentClose));
-  const rawKisSuspicious =
-    (typeof rawKisPrice === "number" &&
-      Number.isFinite(rawKisPrice) &&
-      isSuspiciousKoreanStockPrice(record.symbol, rawKisPrice)) ||
-    (rawKisSource === "KIS" && isSuspiciousKisPrice(rawKisPrice, rawRecentClose));
-  const rawExternalSuspicious =
-    typeof rawExternalPrice === "number" &&
-    Number.isFinite(rawExternalPrice) &&
-    isSuspiciousKoreanStockPrice(record.symbol, rawExternalPrice);
-  const rawBaseDate = record.rawStock?.date ?? null;
-  const cachedPrice = record.rawStock?.price ?? null;
-
-  return (
-    <article className="rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)] dark:border-slate-700/80 dark:bg-slate-900/70">
-      <div className="flex flex-col gap-3 border-b border-slate-200/70 pb-4 dark:border-slate-700/70 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-            {stockName}
-          </div>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
-            {record.symbol}
-          </h2>
-        </div>
-        <span
-          className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide ${badge.className}`}
-        >
-          {badge.label}
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-950/40">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">원본 입력</h3>
-          <div className="mt-3 grid gap-3">
-            <KeyValueRow label="symbol" value={record.symbol} />
-            <KeyValueRow label="stock name" value={stockName} />
-            <KeyValueRow label="KIS quote status" value={rawKisStatus} />
-            <KeyValueRow label="KIS quote source" value={rawKisSource} />
-            <KeyValueRow label="KIS raw price" value={rawKisPrice !== null ? formatKRW(rawKisPrice) : "-"} />
-            <KeyValueRow label="KIS suspicious" value={rawKisSuspicious ? "true" : "false"} />
-            <KeyValueRow label="KIS updatedAt" value={formatOptionalText(rawKisUpdatedAt)} />
-            <KeyValueRow
-              label="externalReferencePrice"
-              value={rawExternalPrice !== null ? formatKRW(rawExternalPrice) : "-"}
-            />
-            <KeyValueRow label="externalReferenceSource" value={rawExternalSource} />
-            <KeyValueRow
-              label="externalReferenceUpdatedAt"
-              value={formatOptionalText(rawExternalUpdatedAt)}
-            />
-            <KeyValueRow
-              label="externalReference suspicious"
-              value={rawExternalSuspicious ? "true" : "false"}
-            />
-            <KeyValueRow
-              label="data.go.kr recent close"
-              value={rawRecentClose !== null ? formatKRW(rawRecentClose) : "-"}
-            />
-            <KeyValueRow label="dailyClose source" value={rawRecentCloseSource} />
-            <KeyValueRow
-              label="dailyClose suspicious"
-              value={rawRecentCloseSuspicious ? "true" : "false"}
-            />
-            <KeyValueRow label="data.go.kr baseDate" value={formatOptionalText(rawBaseDate)} />
-            <KeyValueRow label="cached price" value={cachedPrice !== null ? formatKRW(cachedPrice) : "-"} />
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-sky-200/70 bg-sky-50/60 p-4 shadow-sm dark:border-sky-500/20 dark:bg-sky-500/10">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">resolvedPrice</h3>
-          <div className="mt-3 grid gap-3">
-            <KeyValueRow
-              label="displayPrice"
-              value={normalizePriceText(record.resolved.displayPrice)}
-              valueClassName={
-                record.resolved.displayPrice !== null
-                  ? "text-slate-950 dark:text-white"
-                  : "text-rose-600 dark:text-rose-300"
-              }
-            />
-            <KeyValueRow label="priceKind" value={record.resolved.priceKind} />
-            <KeyValueRow label="source" value={record.resolved.source} />
-            <KeyValueRow label="labelKo" value={record.resolved.labelKo} />
-            <KeyValueRow label="basisKo" value={record.resolved.basisKo} />
-            <KeyValueRow label="isRealtime" value={record.resolved.isRealtime ? "true" : "false"} />
-            <KeyValueRow label="isFallback" value={record.resolved.isFallback ? "true" : "false"} />
-            <KeyValueRow
-              label="isUsableForAi"
-              value={record.resolved.isUsableForAi ? "true" : "false"}
-            />
-            <KeyValueRow label="aiConfidence" value={record.resolved.aiConfidence} />
-            <KeyValueRow label="warningKo" value={formatOptionalText(record.resolved.warningKo)} />
-            <KeyValueRow label="reason" value={record.resolved.reason} />
-          </div>
-        </section>
-      </div>
-    </article>
-  );
-}
-
-export default async function DebugMarketDataPage() {
-  const stockProviderMode = getStockDataProviderMode();
+export default async function MarketDataDebugPage() {
+  const providerMode = getStockDataProviderMode();
   const apiSource = getKoreaStockApiSource();
-  const realtimeProvider = process.env.REALTIME_STOCK_PROVIDER?.trim() === "kis" ? "kis" : "none";
-  const records = await Promise.all(testStocks.map((stock) => loadDebugStock(stock)));
+
+  const stocks = await Promise.all(
+    DIAGNOSTIC_STOCKS.map(async ({ symbol, stockName, market }) => {
+      const [kis, external, recentClose] = await Promise.all([
+        getKisCurrentQuoteDiagnostic(symbol),
+        getExternalReferenceQuoteDiagnostic(symbol),
+        getRecentCloseDiagnostic(symbol)
+      ]);
+
+      const resolvedPrice = resolveStockDisplayPrice({
+        symbol,
+        market,
+        kisQuote:
+          kis.quoteStatus === "success" && Number.isFinite(kis.parsedPrice ?? NaN) && (kis.parsedPrice ?? 0) > 0
+            ? {
+                price: kis.parsedPrice,
+                updatedAt: kis.updatedAt,
+                asOf: kis.updatedAt
+              }
+            : null,
+        kisQuoteSource: kis.source === "KIS" ? "KIS" : "none",
+        dailyClose:
+          recentClose.status === "success" &&
+          Number.isFinite(recentClose.recentClose ?? NaN) &&
+          (recentClose.recentClose ?? 0) > 0
+            ? {
+                price: recentClose.recentClose,
+                baseDate: recentClose.baseDate,
+                updatedAt: recentClose.baseDate,
+                asOf: recentClose.baseDate
+              }
+            : null,
+        dailyCloseSource: recentClose.status === "success" ? "data.go.kr" : "none",
+        cachedPrice: recentClose.status === "success" ? recentClose.recentClose : null,
+        cachedPriceSource: recentClose.status === "success" ? "cache" : "none"
+      });
+
+      return {
+        symbol,
+        stockName,
+        kis,
+        external,
+        recentClose,
+        resolvedPrice
+      };
+    })
+  );
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-6 text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <SectionHeading
-          title="가격 진단"
-          description="KIS 현재가, 외부 참고 가격, data.go.kr 최근 종가를 함께 비교해 실제로 어떤 기준이 화면에 표시되는지 확인하는 내부 점검용 페이지입니다."
-        />
-
-        <section className="rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-soft dark:border-slate-700/80 dark:bg-slate-900/70">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <KeyValueRow label="test symbols" value="005930 · 000660 · 035420" />
-            <KeyValueRow label="resolver" value="resolveStockDisplayPrice()" />
-            <KeyValueRow label="stock data provider" value={formatProviderMode(stockProviderMode)} />
-            <KeyValueRow label="api source" value={apiSource} />
-            <KeyValueRow label="realtime provider" value={realtimeProvider} />
-            <KeyValueRow label="purpose" value="가격 원본 / fallback / AI 사용 가능 여부 점검" />
-          </div>
-        </section>
-
-        <div className="grid gap-5">
-          {records.map((record) => (
-            <DebugStockCard key={record.symbol} record={record} />
-          ))}
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+        <p className="text-xs font-bold uppercase tracking-normal text-brand">Debug</p>
+        <h1 className="mt-2 text-2xl font-bold text-ink dark:text-white">Current Price Source Diagnostic</h1>
+        <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
+          현재 사용자 페이지 가격 표시 규칙은 그대로 유지한 상태에서, KIS 현재가 / 외부 참고가 / data.go.kr 최근
+          종가의 상태만 진단합니다.
+        </p>
+        <div className="mt-4 grid gap-2 text-sm font-semibold sm:grid-cols-2">
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            STOCK_DATA_PROVIDER: {providerMode}
+          </p>
+          <p className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/50">
+            KOREA_STOCK_API_SOURCE: {apiSource}
+          </p>
         </div>
-      </div>
+      </section>
+
+      <section className="mt-4 grid gap-4">
+        {stocks.map(({ symbol, stockName, kis, external, recentClose, resolvedPrice }) => (
+          <article
+            key={symbol}
+            className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-ink dark:text-white">
+                  {stockName} · {symbol}
+                </h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  최종 resolver 결과는 현재 사용자 페이지와 동일한 주가격 규칙을 기준으로 계산됩니다.
+                </p>
+              </div>
+              <div className="rounded-full border border-line bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/50 dark:text-slate-300">
+                priceKind: {resolvedPrice.priceKind}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-2">
+              <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">KIS current quote</p>
+                <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="flex justify-between gap-3">
+                    <dt>KIS App Key</dt>
+                    <dd>{booleanLabel(kis.appKeyConfigured)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>KIS App Secret</dt>
+                    <dd>{booleanLabel(kis.appSecretConfigured)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>Base URL</dt>
+                    <dd className="text-right break-all">{kis.baseUrl}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>token status</dt>
+                    <dd>{kis.tokenStatus}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>quote status</dt>
+                    <dd>{kis.quoteStatus}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>raw price</dt>
+                    <dd>{safeText(kis.rawPrice)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>parsed price</dt>
+                    <dd>{safeCurrency(kis.parsedPrice)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>source</dt>
+                    <dd>{kis.source}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>updatedAt</dt>
+                    <dd>{formatDateTime(kis.updatedAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>error code</dt>
+                    <dd>{safeText(kis.errorCode ?? kis.tokenErrorCode)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>error message</dt>
+                    <dd className="text-right break-words">{safeText(kis.errorMessage ?? kis.tokenErrorMessage)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>cooldown issue</dt>
+                    <dd>{booleanLabel(kis.quoteLikelyCooldownIssue || kis.tokenLikelyCooldownIssue)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>permission issue</dt>
+                    <dd>{booleanLabel(kis.quoteLikelyPermissionIssue || kis.tokenLikelyPermissionIssue)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>endpoint issue</dt>
+                    <dd>{booleanLabel(kis.quoteLikelyEndpointIssue || kis.tokenLikelyEndpointIssue)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>mock account issue</dt>
+                    <dd>{booleanLabel(kis.quoteLikelyMockAccountIssue || kis.tokenLikelyMockAccountIssue)}</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">External reference quote</p>
+                <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="flex justify-between gap-3">
+                    <dt>enabled</dt>
+                    <dd>{booleanLabel(external.enabled)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>status</dt>
+                    <dd>{external.status}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>source</dt>
+                    <dd>{external.source}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>attempted symbols</dt>
+                    <dd className="text-right break-all">
+                      {external.attemptedSymbols.length > 0 ? external.attemptedSymbols.join(", ") : "정보 없음"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>parsed price</dt>
+                    <dd>{safeCurrency(external.price)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>updatedAt</dt>
+                    <dd>{formatDateTime(external.updatedAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>error</dt>
+                    <dd className="text-right break-words">{safeText(external.errorMessage)}</dd>
+                  </div>
+                </dl>
+                <details className="mt-3 rounded-md border border-line bg-white/70 p-3 text-xs dark:border-dark-line dark:bg-slate-950/40">
+                  <summary className="cursor-pointer font-bold text-slate-600 dark:text-slate-300">
+                    raw response
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">
+                    {stringifyRaw(external.rawResponse)}
+                  </pre>
+                </details>
+                <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  외부 참고가는 진단 전용이며, KIS 공식 현재가로 표시되지 않습니다.
+                </p>
+              </section>
+
+              <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">data.go.kr recent close</p>
+                <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="flex justify-between gap-3">
+                    <dt>status</dt>
+                    <dd>{recentClose.status}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>recent close</dt>
+                    <dd>{safeCurrency(recentClose.recentClose)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>baseDate</dt>
+                    <dd>{safeText(recentClose.baseDate)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>source</dt>
+                    <dd>{recentClose.source}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>only recent close</dt>
+                    <dd>{booleanLabel(recentClose.onlyRecentClose)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>note</dt>
+                    <dd className="text-right">최근 종가 전용이며 현재가로 사용하면 안 됩니다.</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>error</dt>
+                    <dd className="text-right break-words">{safeText(recentClose.errorMessage)}</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">Final resolvedPrice result</p>
+                <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="flex justify-between gap-3">
+                    <dt>priceKind</dt>
+                    <dd>{resolvedPrice.priceKind}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>displayPrice</dt>
+                    <dd>{safeCurrency(resolvedPrice.displayPrice)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>labelKo</dt>
+                    <dd>{resolvedPrice.labelKo}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>basisKo</dt>
+                    <dd>{resolvedPrice.basisKo}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>warningKo</dt>
+                    <dd className="text-right break-words">{safeText(resolvedPrice.warningKo)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>aiConfidence</dt>
+                    <dd>{resolvedPrice.aiConfidence}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>reason</dt>
+                    <dd className="text-right break-words">{resolvedPrice.reason}</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
+          </article>
+        ))}
+      </section>
     </main>
   );
 }
