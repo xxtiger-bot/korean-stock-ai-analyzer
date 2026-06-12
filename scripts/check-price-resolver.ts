@@ -111,6 +111,28 @@ const cases: PriceResolverCase[] = [
   },
   {
     symbol: "005930",
+    name: "KIS null, data.go.kr null => unavailable",
+    expected: {
+      priceKind: "unavailable",
+      source: "none",
+      aiConfidence: "low",
+      basisKo: "데이터 확인 필요"
+    },
+    input: {
+      symbol: "005930",
+      kisQuote: null,
+      kisQuoteSource: "none",
+      externalReferencePrice: null,
+      externalReferenceSource: "none",
+      dailyClose: null,
+      dailyCloseSource: "none",
+      cachedPrice: null,
+      cachedPriceSource: "none",
+      market: "KOSPI"
+    }
+  },
+  {
+    symbol: "005930",
     name: "Suspicious externalReference 005930 = 600000 => recent_close",
     expected: {
       priceKind: "recent_close",

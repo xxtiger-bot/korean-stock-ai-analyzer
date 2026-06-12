@@ -15,8 +15,8 @@ function getBannerCopy(resolvedPrice: ResolvedStockDisplayPrice) {
 
   if (resolvedPrice.priceKind === "recent_close") {
     return {
-      heading: "최근 종가 기준",
-      primary: "data.go.kr 기준",
+      heading: "현재가 확인 불가",
+      primary: "최근 종가 · data.go.kr 기준",
       secondary: `기준일: ${resolvedPrice.baseDate ?? "확인 필요"}`,
       helper: "현재 사용 가능한 최신 종가 데이터입니다.",
       subHelper: "실시간 시세가 아닙니다.",
@@ -26,7 +26,7 @@ function getBannerCopy(resolvedPrice: ResolvedStockDisplayPrice) {
 
   if (resolvedPrice.priceKind === "external_reference") {
     return {
-      heading: "참고 현재가 기준",
+      heading: "참고 현재가",
       primary: "외부 참고 기준",
       secondary: `마지막 확인: ${resolvedPrice.updatedAt ?? "확인 필요"}`,
       helper: "현재 사용 가능한 참고 가격 데이터입니다.",
@@ -35,10 +35,10 @@ function getBannerCopy(resolvedPrice: ResolvedStockDisplayPrice) {
   }
 
   return {
-    heading: "가격 데이터 확인 필요",
+    heading: "현재가 확인 불가",
     primary: "현재 사용 가능한 가격 데이터를 확인하지 못했습니다.",
     secondary: "",
-    helper: "데이터 출처 또는 가격 범위를 확인해야 합니다."
+    helper: "최근 종가 데이터 없음"
   };
 }
 

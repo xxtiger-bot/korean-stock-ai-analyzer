@@ -97,28 +97,27 @@ export function StockDetailClient({
     ]
   );
 
-  const headlinePrice = resolvedPrice.displayPrice;
+  const isMainPriceAvailable =
+    resolvedPrice.priceKind === "kis_current" || resolvedPrice.priceKind === "external_reference";
+  const headlinePrice = isMainPriceAvailable ? resolvedPrice.displayPrice : null;
   const headlineChange =
     resolvedPrice.priceKind === "kis_current"
       ? realtimeQuote && Number.isFinite(realtimeQuote.change)
         ? realtimeQuote.change
         : null
-      : (resolvedPrice.priceKind === "external_reference" ||
-            resolvedPrice.priceKind === "recent_close") &&
-          Number.isFinite(stock.change)
-        ? stock.change
-        : null;
+      : null;
   const headlineChangeRate =
     resolvedPrice.priceKind === "kis_current"
       ? realtimeQuote && Number.isFinite(realtimeQuote.changeRate)
         ? realtimeQuote.changeRate
         : null
-      : (resolvedPrice.priceKind === "external_reference" ||
-            resolvedPrice.priceKind === "recent_close") &&
-          Number.isFinite(stock.changeRate)
-        ? stock.changeRate
-        : null;
-  const headlineLabel = resolvedPrice.labelKo;
+      : null;
+  const headlineLabel =
+    resolvedPrice.priceKind === "kis_current"
+      ? "현재가"
+      : resolvedPrice.priceKind === "external_reference"
+        ? "참고 현재가"
+        : "현재가 확인 불가";
   const tone =
     typeof headlineChange === "number"
       ? headlineChange > 0
@@ -132,9 +131,7 @@ export function StockDetailClient({
       ? "현재가: KIS"
       : resolvedPrice.priceKind === "external_reference"
         ? `참고 현재가: ${resolvedPrice.source}`
-      : resolvedPrice.priceKind === "recent_close"
-        ? "최근 종가: data.go.kr"
-        : "가격 데이터 확인 필요";
+        : "현재가 확인 불가";
   const detailTags = tags.filter(
     (tag) =>
       tag.toLowerCase() !== "data.go.kr" &&
@@ -163,9 +160,7 @@ export function StockDetailClient({
   const displayPriceText =
     hasPrice && headlinePrice !== null
       ? formatKRW(headlinePrice)
-      : resolvedPrice.priceKind === "unavailable"
-        ? "가격 데이터 확인 필요"
-        : "가격 데이터 없음";
+      : "현재가 확인 불가";
   const hasPe = Number.isFinite(stock.pe) && stock.pe > 0;
   const hasEps = Number.isFinite(stock.eps) && stock.eps > 0;
   const valuationValue = hasPe ? `${stock.pe.toFixed(1)}x` : "데이터 없음";
@@ -174,6 +169,24 @@ export function StockDetailClient({
     : hasPe
       ? "EPS 데이터 없음"
       : "재무 지표는 아직 제공되지 않습니다.";
+  const referenceCloseAvailable =
+    resolvedPrice.priceKind === "recent_close" &&
+    Number.isFinite(resolvedPrice.displayPrice ?? NaN) &&
+    (resolvedPrice.displayPrice ?? 0) > 0;
+  const referenceCloseValue = referenceCloseAvailable
+    ? formatKRW(resolvedPrice.displayPrice as number)
+    : "최근 종가 데이터 없음";
+  const referenceCloseSubValue = referenceCloseAvailable
+    ? `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
+    : "실시간 시세가 아닙니다.";
+  const headlineSupportText =
+    resolvedPrice.priceKind === "kis_current"
+      ? `업데이트 ${resolvedPrice.updatedAt ?? "확인 필요"}`
+      : resolvedPrice.priceKind === "external_reference"
+        ? "공식 KIS 실시간 시세가 아닙니다."
+        : resolvedPrice.priceKind === "recent_close"
+          ? "KIS 현재가를 불러오지 못했습니다."
+          : "가격 데이터를 확인할 수 없습니다.";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -235,6 +248,9 @@ export function StockDetailClient({
             <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
               {displayPriceText}
             </p>
+            <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {headlineSupportText}
+            </p>
             {headlineChangeLabel ? (
               <div
                 className={`mt-3 inline-flex max-w-full flex-wrap rounded-md border px-3 py-2 text-sm font-bold ${changeBgClass(
@@ -251,6 +267,22 @@ export function StockDetailClient({
           </div>
         </div>
         <DataStatusBanner resolvedPrice={resolvedPrice} />
+        {(resolvedPrice.priceKind === "recent_close" || resolvedPrice.priceKind === "unavailable") && (
+          <div className="mt-4 rounded-lg border border-line bg-slate-50 px-3 py-3 dark:border-dark-line dark:bg-slate-900/50">
+            <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400">
+              최근 종가
+            </p>
+            <p className="mt-1 text-base font-bold text-ink dark:text-white">{referenceCloseValue}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {referenceCloseSubValue}
+            </p>
+            {resolvedPrice.priceKind === "recent_close" ? (
+              <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                실시간 시세가 아닙니다.
+              </p>
+            ) : null}
+          </div>
+        )}
         {visibleTags.length > 0 && (
           <div className="mt-5 flex max-w-full flex-wrap gap-2">
             {visibleTags.map((tag) => (

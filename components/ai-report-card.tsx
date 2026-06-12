@@ -189,6 +189,8 @@ export function AiReportCard({
   const analysisBasisText =
     isKisCurrent
       ? "KIS 기준 참고 분석"
+      : priceKind === "external_reference"
+        ? "외부 참고 기준 분석"
       : priceKind === "recent_close"
         ? "최근 종가 기준 참고 분석"
         : isAbnormalPrice
@@ -197,8 +199,10 @@ export function AiReportCard({
   const analysisNotice =
     isKisCurrent
       ? "현재가는 KIS 기준으로 확인되었습니다."
+      : priceKind === "external_reference"
+        ? resolvedPrice?.warningKo ?? "공식 KIS 실시간 시세가 아닙니다."
       : priceKind === "recent_close"
-        ? "실시간 시세가 아닙니다."
+        ? "현재가 기준 분석이 아닙니다."
         : isAbnormalPrice
           ? resolvedPrice?.warningKo ??
             "현재 가격 데이터가 비정상 범위를 벗어나 확정적인 매매 판단을 제공하지 않습니다."
@@ -232,7 +236,9 @@ export function AiReportCard({
         : "현재 가격 데이터가 불안정하여 확정적인 매매 판단을 제공하지 않습니다.";
   const technicalSummary =
     priceKind === "recent_close"
-      ? "최근 종가 기준 참고 분석입니다. 가격 판단은 보수적으로 참고해 주세요."
+      ? "최근 종가 기준 참고 분석입니다. 현재가 기준 분석이 아닙니다."
+      : priceKind === "external_reference"
+        ? "외부 참고 가격 기준 분석입니다. 공식 KIS 실시간 시세는 아닙니다."
       : isAbnormalPrice
         ? "가격 데이터가 비정상 범위를 벗어나 기술적 판단은 현재 보류합니다."
         : priceKind === "unavailable"
@@ -247,6 +253,8 @@ export function AiReportCard({
   const generationBasisText =
     priceKind === "kis_current"
       ? "KIS 현재가 기준 참고 분석입니다."
+      : priceKind === "external_reference"
+        ? "외부 참고 가격 기준 참고 분석입니다."
       : priceKind === "recent_close"
         ? "최근 종가 기준 참고 분석입니다."
         : "가격 데이터 확인이 필요하여 확정적인 분석은 제공하지 않습니다.";
@@ -290,8 +298,10 @@ export function AiReportCard({
             <p className="mt-1">
               {priceKind === "kis_current"
                 ? "현재가와 보조 지표를 함께 참고해 리포트를 구성했습니다."
+                : priceKind === "external_reference"
+                  ? "외부 참고 가격을 기준으로 보조 분석을 구성했습니다. 공식 KIS 실시간 시세는 아닙니다."
                 : priceKind === "recent_close"
-                  ? "현재 가격 데이터가 불안정하여 최근 종가를 기준으로 참고 분석합니다."
+                  ? "최근 종가를 기준으로 참고 분석합니다. 현재가 기준 분석이 아닙니다."
                   : isAbnormalPrice
                     ? "현재 가격 데이터가 비정상 범위를 벗어나 분석에서 제외했습니다."
                     : "가격 데이터를 일시적으로 불러올 수 없어 매매 판단은 보류했습니다."}
