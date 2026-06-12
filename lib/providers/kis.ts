@@ -47,7 +47,7 @@ type KisQuoteCacheState = {
   lastRequestAtIso: string | null;
   lastErrorAtIso: string | null;
   lastErrorMessage: string | null;
-  pending: Promise<KisQuotePayload> | null;
+  pending: Promise<unknown> | null;
 };
 
 type KisQuoteRuntimeState = {
@@ -55,6 +55,18 @@ type KisQuoteRuntimeState = {
   lastIssuedAtIso: string | null;
   lastErrorAtIso: string | null;
   lastErrorMessage: string | null;
+};
+
+type KisTokenSource = "fresh" | "cache";
+
+type KisQuoteDebugValue = string | null;
+
+type KisQuoteRequestResult = {
+  output: Record<string, unknown>;
+  requestSymbol: string;
+  trId: string;
+  rawResponseKeys: string[];
+  rawPriceCandidateFields: Record<string, KisQuoteDebugValue>;
 };
 
 export type KisTokenCacheSnapshot = {
@@ -86,13 +98,20 @@ export type KisCurrentQuoteDiagnostic = {
   tokenLikelyPermissionIssue: boolean;
   tokenLikelyEndpointIssue: boolean;
   tokenLikelyMockAccountIssue: boolean;
+  tokenSource: KisTokenSource | "none";
+  tokenExpiresAt: string | null;
   quoteStatus: "success" | "skipped" | "no_data" | "error";
+  requestSymbol: string;
+  trId: string;
+  rawResponseKeys: string[];
+  rawPriceCandidateFields: Record<string, KisQuoteDebugValue>;
   rawPrice: string | null;
   parsedPrice: number | null;
   source: "KIS" | "none";
   updatedAt: string | null;
   errorCode: string | null;
   errorMessage: string | null;
+  noDataReason: string | null;
   quoteLikelyCooldownIssue: boolean;
   quoteLikelyPermissionIssue: boolean;
   quoteLikelyEndpointIssue: boolean;
@@ -102,20 +121,49 @@ export type KisCurrentQuoteDiagnostic = {
 };
 
 const TOKEN_REQUEST_COOLDOWN_MS = 5_000;
-const TOKEN_REUSE_BUFFER_MS = 60_000;
+const TOKEN_REUSE_BUFFER_MS = 5 * 60_000;
+const TOKEN_DEFAULT_TTL_MS = 6 * 60 * 60_000;
 const QUOTE_CACHE_TTL_MS = 15_000;
 const QUOTE_MIN_INTERVAL_MS = 1_500;
+const QUOTE_RETRY_DELAY_MS = 500;
 const MARKET_CAP_SCALE = 100_000_000;
 const TURNOVER_SCALE = 1_000_000;
 const FOREIGN_OWNERSHIP_NOT_AVAILABLE_MESSAGE = "외국인 보유 정보는 현재 KIS 응답에서 제공되지 않습니다.";
 const KOREA_TIME_ZONE = "Asia/Seoul";
+const KIS_QUOTE_TR_ID = "FHKST01010100";
+const QUOTE_PRICE_CANDIDATE_KEYS = [
+  "stck_prpr",
+  "stck_sdpr",
+  "stck_oprc",
+  "stck_hgpr",
+  "stck_lwpr",
+  "prdy_vrss",
+  "prdy_ctrt"
+] as const;
 
 class KisQuoteRequestError extends Error {
   requestTime: Date;
-  constructor(message: string, requestTime: Date) {
+  details: {
+    requestSymbol: string;
+    trId: string;
+    rawResponseKeys: string[];
+    rawPriceCandidateFields: Record<string, KisQuoteDebugValue>;
+    errorCode: string | null;
+    noDataReason: string | null;
+    statusCode: number | null;
+  };
+  retryable: boolean;
+  constructor(
+    message: string,
+    requestTime: Date,
+    details: KisQuoteRequestError["details"],
+    retryable: boolean
+  ) {
     super(message);
     this.name = "KisQuoteRequestError";
     this.requestTime = requestTime;
+    this.details = details;
+    this.retryable = retryable;
   }
 }
 
@@ -160,7 +208,7 @@ function sleep(ms: number) {
 }
 
 function toIso(timestampMs: number | null): string | null {
-  if (timestampMs === null || !Number.isFinite(timestampMs)) {
+  if (timestampMs === null || !Number.isFinite(timestampMs) || timestampMs <= 0) {
     return null;
   }
   return new Date(timestampMs).toISOString();
@@ -190,6 +238,73 @@ function getKisConfigSnapshot() {
     appSecretConfigured: Boolean(appSecret),
     baseUrl
   };
+}
+
+function toDebugValue(value: unknown): KisQuoteDebugValue {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+}
+
+function getRawResponseKeys(payload: Record<string, unknown> | null) {
+  return payload ? Object.keys(payload) : [];
+}
+
+function getRawPriceCandidateFields(output: Record<string, unknown> | null) {
+  return Object.fromEntries(
+    QUOTE_PRICE_CANDIDATE_KEYS.map((key) => [key, toDebugValue(output?.[key])])
+  ) as Record<string, KisQuoteDebugValue>;
+}
+
+function parseTokenExpiryMs(payload: KisAccessTokenResponse) {
+  const now = Date.now();
+  const explicitExpiry = asString(payload.access_token_token_expired);
+  const explicitExpiryMs = explicitExpiry ? Date.parse(explicitExpiry) : NaN;
+  if (Number.isFinite(explicitExpiryMs) && explicitExpiryMs > now) {
+    return explicitExpiryMs;
+  }
+
+  const expiresInSeconds = toNumber(payload.expires_in);
+  if (expiresInSeconds && expiresInSeconds > 0) {
+    return now + expiresInSeconds * 1000;
+  }
+
+  return now + TOKEN_DEFAULT_TTL_MS;
+}
+
+function shouldRetryQuoteRequest(error: unknown) {
+  if (error instanceof KisQuoteRequestError) {
+    return error.retryable;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalized = error.message.toLowerCase();
+  if (
+    normalized.includes("permission") ||
+    normalized.includes("forbidden") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("authorization") ||
+    normalized.includes("접근")
+  ) {
+    return false;
+  }
+
+  return (
+    normalized.includes("fetch failed") ||
+    normalized.includes("network") ||
+    normalized.includes("timeout") ||
+    normalized.includes("temporary")
+  );
 }
 
 const tokenState = globalThis as typeof globalThis & {
@@ -396,11 +511,14 @@ async function runQuoteRequestSerial<T>(code: string, task: () => Promise<T>) {
     }
   });
   const executionPromise = execution;
-  state.pending = executionPromise as Promise<KisQuotePayload>;
+  state.pending = executionPromise;
   return executionPromise;
 }
 
-async function requestDomesticQuoteOutput(code: string, requestTime: Date): Promise<Record<string, unknown>> {
+async function requestDomesticQuoteOutputOnce(
+  code: string,
+  requestTime: Date
+): Promise<KisQuoteRequestResult> {
   const token = await getKisAccessToken();
   const { appKey, appSecret, baseUrl } = getKisConfig();
 
@@ -410,19 +528,33 @@ async function requestDomesticQuoteOutput(code: string, requestTime: Date): Prom
       Authorization: `Bearer ${token}`,
       appkey: appKey,
       appsecret: appSecret,
-      tr_id: "FHKST01010100",
+      tr_id: KIS_QUOTE_TR_ID,
     },
     cache: "no-store",
     next: { revalidate: 0 },
   });
 
-  const payload = await response.json().catch(() => null);
+  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   const meta = parseKisRealtimeMeta(payload);
+  const output = isRecord(payload?.output) ? (payload.output as Record<string, unknown>) : null;
+  const errorCode = asString(payload?.msg_cd) ?? null;
+  const rawResponseKeys = getRawResponseKeys(payload);
+  const rawPriceCandidateFields = getRawPriceCandidateFields(output);
 
   if (!response.ok) {
     throw new KisQuoteRequestError(
       meta.message ?? `KIS quote request failed (${response.status}).`,
       requestTime,
+      {
+        requestSymbol: code.trim(),
+        trId: KIS_QUOTE_TR_ID,
+        rawResponseKeys,
+        rawPriceCandidateFields,
+        errorCode,
+        noDataReason: null,
+        statusCode: response.status
+      },
+      response.status >= 500
     );
   }
 
@@ -430,17 +562,86 @@ async function requestDomesticQuoteOutput(code: string, requestTime: Date): Prom
     throw new KisQuoteRequestError(
       meta.message ?? `KIS quote request returned rt_cd=${meta.rtCd}.`,
       requestTime,
+      {
+        requestSymbol: code.trim(),
+        trId: KIS_QUOTE_TR_ID,
+        rawResponseKeys,
+        rawPriceCandidateFields,
+        errorCode,
+        noDataReason: null,
+        statusCode: response.status
+      },
+      false
     );
   }
 
-  if (!isRecord(payload) || !isRecord(payload.output)) {
-    throw new KisQuoteRequestError("Unexpected KIS quote response format.", requestTime);
+  if (!output) {
+    throw new KisQuoteRequestError(
+      "Unexpected KIS quote response format.",
+      requestTime,
+      {
+        requestSymbol: code.trim(),
+        trId: KIS_QUOTE_TR_ID,
+        rawResponseKeys,
+        rawPriceCandidateFields,
+        errorCode,
+        noDataReason: "empty_response",
+        statusCode: response.status
+      },
+      true
+    );
   }
 
-  return payload.output as Record<string, unknown>;
+  const parsedPrice = toNumber(findOutputValue(output, ["stck_prpr"]));
+  if (!parsedPrice || parsedPrice <= 0) {
+    throw new KisQuoteRequestError(
+      "KIS quote response did not include a valid current price.",
+      requestTime,
+      {
+        requestSymbol: code.trim(),
+        trId: KIS_QUOTE_TR_ID,
+        rawResponseKeys,
+        rawPriceCandidateFields,
+        errorCode,
+        noDataReason: "invalid_current_price",
+        statusCode: response.status
+      },
+      true
+    );
+  }
+
+  return {
+    output,
+    requestSymbol: code.trim(),
+    trId: KIS_QUOTE_TR_ID,
+    rawResponseKeys,
+    rawPriceCandidateFields
+  };
 }
 
-async function fetchDomesticQuoteOutput(code: string, requestTime: Date): Promise<Record<string, unknown>> {
+async function requestDomesticQuoteOutput(
+  code: string,
+  requestTime: Date
+): Promise<KisQuoteRequestResult> {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await requestDomesticQuoteOutputOnce(code, requestTime);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0 && shouldRetryQuoteRequest(error)) {
+        await sleep(QUOTE_RETRY_DELAY_MS);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Failed to request KIS quote.");
+}
+
+async function fetchDomesticQuoteOutput(code: string, requestTime: Date): Promise<KisQuoteRequestResult> {
   const state = getQuoteState(code);
   const elapsed = requestTime.getTime() - state.lastRequestedAtMs;
   if (state.lastRequestedAtMs > 0 && elapsed < QUOTE_MIN_INTERVAL_MS) {
@@ -451,10 +652,7 @@ async function fetchDomesticQuoteOutput(code: string, requestTime: Date): Promis
   state.lastRequestAtIso = new Date(state.lastRequestedAtMs).toISOString();
 
   return runQuoteRequestSerial(code, async () => {
-    const output = await requestDomesticQuoteOutput(code, requestTime);
-    return {
-      ...output,
-    };
+    return requestDomesticQuoteOutput(code, requestTime);
   });
 }
 
@@ -497,13 +695,20 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenLikelyPermissionIssue: false,
       tokenLikelyEndpointIssue: false,
       tokenLikelyMockAccountIssue: false,
+      tokenSource: "none",
+      tokenExpiresAt: null,
       quoteStatus: "skipped",
+      requestSymbol: normalizedCode,
+      trId: KIS_QUOTE_TR_ID,
+      rawResponseKeys: [],
+      rawPriceCandidateFields: getRawPriceCandidateFields(null),
       rawPrice: null,
       parsedPrice: null,
       source: "none",
       updatedAt: null,
       errorCode: null,
       errorMessage: "KIS quote skipped because credentials are missing.",
+      noDataReason: null,
       quoteLikelyCooldownIssue: false,
       quoteLikelyPermissionIssue: false,
       quoteLikelyEndpointIssue: false,
@@ -516,9 +721,13 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   let tokenStatus: KisCurrentQuoteDiagnostic["tokenStatus"] = "success";
   let tokenErrorMessage: string | null = null;
   let tokenErrorCode: string | null = null;
+  let tokenSource: KisCurrentQuoteDiagnostic["tokenSource"] = "none";
+  let tokenExpiresAt: string | null = tokenCache.expiresAtIso;
 
   try {
-    await getKisAccessToken();
+    const tokenMeta = await getKisAccessTokenWithMeta();
+    tokenSource = tokenMeta.source;
+    tokenExpiresAt = tokenMeta.expiresAtIso;
   } catch (error) {
     tokenStatus = "error";
     tokenErrorMessage =
@@ -538,13 +747,20 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenLikelyPermissionIssue: tokenFlags.likelyPermissionIssue,
       tokenLikelyEndpointIssue: tokenFlags.likelyEndpointIssue,
       tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
+      tokenSource,
+      tokenExpiresAt,
       quoteStatus: "skipped",
+      requestSymbol: normalizedCode,
+      trId: KIS_QUOTE_TR_ID,
+      rawResponseKeys: [],
+      rawPriceCandidateFields: getRawPriceCandidateFields(null),
       rawPrice: null,
       parsedPrice: null,
       source: "none",
       updatedAt: null,
       errorCode: null,
       errorMessage: "KIS quote skipped because token issuance failed.",
+      noDataReason: null,
       quoteLikelyCooldownIssue: false,
       quoteLikelyPermissionIssue: false,
       quoteLikelyEndpointIssue: false,
@@ -560,9 +776,19 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   let updatedAt: string | null = null;
   let errorMessage: string | null = null;
   let errorCode: string | null = null;
+  let requestSymbol = normalizedCode;
+  let trId = KIS_QUOTE_TR_ID;
+  let rawResponseKeys: string[] = [];
+  let rawPriceCandidateFields = getRawPriceCandidateFields(null);
+  let noDataReason: string | null = null;
 
   try {
-    const output = await fetchDomesticQuoteOutput(normalizedCode, new Date());
+    const result = await fetchDomesticQuoteOutput(normalizedCode, new Date());
+    const { output } = result;
+    requestSymbol = result.requestSymbol;
+    trId = result.trId;
+    rawResponseKeys = result.rawResponseKeys;
+    rawPriceCandidateFields = result.rawPriceCandidateFields;
     rawPrice = findOutputValue(output, ["stck_prpr"]);
     parsedPrice = toNumber(rawPrice);
     updatedAt = formatAsOf(output.stck_bsop_date, output.stck_cntg_hour, new Date());
@@ -571,11 +797,23 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       quoteStatus = "no_data";
       errorMessage = "KIS quote response did not include a valid current price.";
       errorCode = extractKisErrorCode(errorMessage);
+      noDataReason = "invalid_current_price";
     }
   } catch (error) {
-    quoteStatus = "error";
+    quoteStatus =
+      error instanceof KisQuoteRequestError && error.details.noDataReason ? "no_data" : "error";
     errorMessage = error instanceof Error ? error.message : "Failed to fetch KIS quote.";
-    errorCode = extractKisErrorCode(errorMessage);
+    errorCode =
+      error instanceof KisQuoteRequestError
+        ? error.details.errorCode ?? extractKisErrorCode(errorMessage)
+        : extractKisErrorCode(errorMessage);
+    if (error instanceof KisQuoteRequestError) {
+      requestSymbol = error.details.requestSymbol;
+      trId = error.details.trId;
+      rawResponseKeys = error.details.rawResponseKeys;
+      rawPriceCandidateFields = error.details.rawPriceCandidateFields;
+      noDataReason = error.details.noDataReason;
+    }
   }
 
   const quoteFlags = getFailureFlags(errorMessage, config.baseUrl);
@@ -589,13 +827,20 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     tokenLikelyPermissionIssue: tokenFlags.likelyPermissionIssue,
     tokenLikelyEndpointIssue: tokenFlags.likelyEndpointIssue,
     tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
+    tokenSource,
+    tokenExpiresAt,
     quoteStatus,
+    requestSymbol,
+    trId,
+    rawResponseKeys,
+    rawPriceCandidateFields,
     rawPrice,
     parsedPrice,
     source: quoteStatus === "success" && parsedPrice ? "KIS" : "none",
     updatedAt,
     errorCode,
     errorMessage,
+    noDataReason,
     quoteLikelyCooldownIssue: quoteFlags.likelyCooldownIssue,
     quoteLikelyPermissionIssue: quoteFlags.likelyPermissionIssue,
     quoteLikelyEndpointIssue: quoteFlags.likelyEndpointIssue,
@@ -605,59 +850,82 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   };
 }
 
-export async function getKisAccessToken(): Promise<string> {
+async function getKisAccessTokenWithMeta(): Promise<{
+  token: string;
+  source: KisTokenSource;
+  expiresAtMs: number;
+  expiresAtIso: string | null;
+  issuedAtIso: string | null;
+}> {
   if (kisTokenCache.token && Date.now() < kisTokenCache.expiresAtMs - TOKEN_REUSE_BUFFER_MS) {
-    return kisTokenCache.token;
+    return {
+      token: kisTokenCache.token,
+      source: "cache",
+      expiresAtMs: kisTokenCache.expiresAtMs,
+      expiresAtIso: toIso(kisTokenCache.expiresAtMs),
+      issuedAtIso: toIso(kisTokenCache.lastIssuedAtMs)
+    };
   }
 
-  if (kisTokenCache.refreshing) {
-    return kisTokenCache.refreshing;
-  }
+  if (!kisTokenCache.refreshing) {
+    kisTokenCache.refreshing = (async () => {
+      const requestTime = new Date();
+      try {
+        await ensureTokenRequestCooldown(requestTime);
 
-  kisTokenCache.refreshing = (async () => {
-    const requestTime = new Date();
-    try {
-      await ensureTokenRequestCooldown(requestTime);
+        const { appKey, appSecret, baseUrl } = getKisConfig();
+        kisTokenCache.lastRequestedAtMs = Date.now();
+        kisTokenCache.lastRequestAtIso = new Date(kisTokenCache.lastRequestedAtMs).toISOString();
 
-      const { appKey, appSecret, baseUrl } = getKisConfig();
-      kisTokenCache.lastRequestedAtMs = Date.now();
-      kisTokenCache.lastRequestAtIso = new Date(kisTokenCache.lastRequestedAtMs).toISOString();
+        const response = await fetch(`${baseUrl}/oauth2/tokenP`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            grant_type: "client_credentials",
+            appkey: appKey,
+            appsecret: appSecret,
+          }),
+          cache: "no-store",
+        });
 
-      const response = await fetch(`${baseUrl}/oauth2/tokenP`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "client_credentials",
-          appkey: appKey,
-          appsecret: appSecret,
-        }),
-        cache: "no-store",
-      });
+        const payload = parseTokenResponse(await response.json().catch(() => null));
+        const accessToken = asString(payload.access_token);
+        const expiresAtMs = parseTokenExpiryMs(payload);
 
-      const payload = parseTokenResponse(await response.json().catch(() => null));
-      const accessToken = asString(payload.access_token);
-      const expiresInSeconds = toNumber(payload.expires_in);
+        if (!response.ok || !accessToken) {
+          throw new Error(normalizeKisTokenMessage(payload));
+        }
 
-      if (!response.ok || !accessToken || !expiresInSeconds || expiresInSeconds <= 0) {
-        throw new Error(normalizeKisTokenMessage(payload));
+        kisTokenCache.token = accessToken;
+        kisTokenCache.expiresAtMs = expiresAtMs;
+        kisTokenCache.lastIssuedAtMs = Date.now();
+        kisTokenCache.lastErrorAtIso = null;
+        kisTokenCache.lastErrorMessage = null;
+        return accessToken;
+      } catch (error) {
+        kisTokenCache.lastErrorAtIso = new Date().toISOString();
+        kisTokenCache.lastErrorMessage =
+          error instanceof Error ? error.message : "Failed to issue KIS access token.";
+        throw error;
+      } finally {
+        kisTokenCache.refreshing = null;
       }
+    })();
+  }
 
-      kisTokenCache.token = accessToken;
-      kisTokenCache.expiresAtMs = Date.now() + expiresInSeconds * 1000;
-      kisTokenCache.lastIssuedAtMs = Date.now();
-      kisTokenCache.lastErrorAtIso = null;
-      kisTokenCache.lastErrorMessage = null;
-      return accessToken;
-    } catch (error) {
-      kisTokenCache.lastErrorAtIso = new Date().toISOString();
-      kisTokenCache.lastErrorMessage = error instanceof Error ? error.message : "Failed to issue KIS access token.";
-      throw error;
-    } finally {
-      kisTokenCache.refreshing = null;
-    }
-  })();
+  const token = await kisTokenCache.refreshing;
+  return {
+    token,
+    source: "fresh",
+    expiresAtMs: kisTokenCache.expiresAtMs,
+    expiresAtIso: toIso(kisTokenCache.expiresAtMs),
+    issuedAtIso: toIso(kisTokenCache.lastIssuedAtMs)
+  };
+}
 
-  return kisTokenCache.refreshing;
+export async function getKisAccessToken(): Promise<string> {
+  const tokenMeta = await getKisAccessTokenWithMeta();
+  return tokenMeta.token;
 }
 
 export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
@@ -679,11 +947,25 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
   const state = getQuoteState(normalizedCode);
 
   try {
-    const output = await fetchDomesticQuoteOutput(normalizedCode, requestTime);
+    const result = await fetchDomesticQuoteOutput(normalizedCode, requestTime);
+    const { output } = result;
 
     const price = toNumber(findOutputValue(output, ["stck_prpr"]));
     if (!price || price <= 0) {
-      throw new KisQuoteRequestError("KIS quote response did not include a valid current price.", requestTime);
+      throw new KisQuoteRequestError(
+        "KIS quote response did not include a valid current price.",
+        requestTime,
+        {
+          requestSymbol: result.requestSymbol,
+          trId: result.trId,
+          rawResponseKeys: result.rawResponseKeys,
+          rawPriceCandidateFields: result.rawPriceCandidateFields,
+          errorCode: null,
+          noDataReason: "invalid_current_price",
+          statusCode: null
+        },
+        true
+      );
     }
 
     const changePercent = toNullableNumber(toNumber(findOutputValue(output, ["prdy_ctrt"])));

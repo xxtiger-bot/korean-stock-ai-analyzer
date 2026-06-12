@@ -217,8 +217,24 @@ export default async function MarketDataDebugPage() {
                     <dd>{kis.tokenStatus}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>token source</dt>
+                    <dd>{kis.tokenSource}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>token expiresAt</dt>
+                    <dd>{formatDateTime(kis.tokenExpiresAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>quote status</dt>
                     <dd>{kis.quoteStatus}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>request symbol</dt>
+                    <dd>{safeText(kis.requestSymbol)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>TR ID</dt>
+                    <dd>{safeText(kis.trId)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>raw price</dt>
@@ -237,12 +253,16 @@ export default async function MarketDataDebugPage() {
                     <dd>{formatDateTime(kis.updatedAt)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>no data reason</dt>
+                    <dd>{safeText(kis.noDataReason)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>error code</dt>
                     <dd>{safeText(kis.errorCode ?? kis.tokenErrorCode)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>error message</dt>
-                    <dd className="text-right break-words">{safeText(kis.errorMessage ?? kis.tokenErrorMessage)}</dd>
+                    <dd className="text-right break-words">{safeText(kis.tokenErrorMessage ?? kis.errorMessage)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>cooldown issue</dt>
@@ -261,6 +281,19 @@ export default async function MarketDataDebugPage() {
                     <dd>{booleanLabel(kis.quoteLikelyMockAccountIssue || kis.tokenLikelyMockAccountIssue)}</dd>
                   </div>
                 </dl>
+                <details className="mt-3 rounded-md border border-line bg-white/70 p-3 text-xs dark:border-dark-line dark:bg-slate-950/40">
+                  <summary className="cursor-pointer font-bold text-slate-600 dark:text-slate-300">
+                    raw response keys / price candidate fields
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">
+                    {stringifyRaw({
+                      rawResponseKeys: kis.rawResponseKeys,
+                      rawPriceCandidateFields: kis.rawPriceCandidateFields,
+                      tokenCache: kis.tokenCache,
+                      quoteCache: kis.quoteCache
+                    })}
+                  </pre>
+                </details>
               </section>
 
               <section className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">

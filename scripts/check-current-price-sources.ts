@@ -2,21 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveStockDisplayPrice } from "../lib/market/price-resolver";
+import { diagnoseKisCurrentQuote } from "../lib/providers/kis";
 
 const DIAGNOSTIC_STOCKS = [
   { symbol: "005930", stockName: "삼성전자", market: "KOSPI" },
   { symbol: "000660", stockName: "SK하이닉스", market: "KOSPI" },
   { symbol: "035420", stockName: "NAVER", market: "KOSPI" }
 ] as const;
-
-type LocalKisDiagnostic = {
-  quoteStatus: "success" | "skipped" | "no_data" | "error";
-  parsedPrice: number | null;
-  source: "KIS" | "none";
-  updatedAt: string | null;
-  errorMessage: string | null;
-  tokenErrorMessage: string | null;
-};
 
 type LocalExternalDiagnostic = {
   enabled: boolean;
@@ -84,132 +76,6 @@ function toStringValue(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function formatKisAsOf(baseDateRaw: unknown, baseTimeRaw: unknown) {
-  const baseDate = toStringValue(baseDateRaw);
-  const baseTime = toStringValue(baseTimeRaw);
-  if (baseDate && baseTime && /^\d{8}$/.test(baseDate) && /^\d{4,6}$/.test(baseTime)) {
-    const paddedTime = baseTime.padStart(6, "0");
-    return `${baseDate.slice(0, 4)}-${baseDate.slice(4, 6)}-${baseDate.slice(6, 8)} ${paddedTime.slice(
-      0,
-      2
-    )}:${paddedTime.slice(2, 4)} KST`;
-  }
-
-  return null;
-}
-
-async function diagnoseKis(symbol: string): Promise<LocalKisDiagnostic> {
-  const appKey = process.env.KIS_APP_KEY?.trim();
-  const appSecret = process.env.KIS_APP_SECRET?.trim();
-  const baseUrl =
-    process.env.KIS_BASE_URL?.replace(/\/$/, "") || "https://openapi.koreainvestment.com:9443";
-
-  if (!appKey || !appSecret) {
-    return {
-      quoteStatus: "skipped",
-      parsedPrice: null,
-      source: "none",
-      updatedAt: null,
-      errorMessage: "KIS credentials are not configured.",
-      tokenErrorMessage: "KIS credentials are not configured."
-    };
-  }
-
-  try {
-    const tokenResponse = await fetch(`${baseUrl}/oauth2/tokenP`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        appkey: appKey,
-        appsecret: appSecret
-      }),
-      cache: "no-store"
-    });
-
-    const tokenPayload = (await tokenResponse.json().catch(() => null)) as Record<string, unknown> | null;
-    const accessToken = toStringValue(tokenPayload?.access_token);
-    if (!tokenResponse.ok || !accessToken) {
-      const tokenErrorMessage =
-        toStringValue(tokenPayload?.msg1) ??
-        toStringValue(tokenPayload?.msg_cd) ??
-        `Failed to issue KIS token (${tokenResponse.status}).`;
-      return {
-        quoteStatus: "skipped",
-        parsedPrice: null,
-        source: "none",
-        updatedAt: null,
-        errorMessage: "KIS quote skipped because token issuance failed.",
-        tokenErrorMessage
-      };
-    }
-
-    const quoteResponse = await fetch(`${baseUrl}/uapi/domestic-stock/v1/quotations/inquire-price`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        appkey: appKey,
-        appsecret: appSecret,
-        tr_id: "FHKST01010100"
-      },
-      cache: "no-store"
-    });
-
-    const quotePayload = (await quoteResponse.json().catch(() => null)) as
-      | Record<string, unknown>
-      | null;
-    const output =
-      quotePayload && typeof quotePayload.output === "object" && quotePayload.output
-        ? (quotePayload.output as Record<string, unknown>)
-        : null;
-    const rawPrice = toStringValue(output?.stck_prpr);
-    const parsedPrice = toNumber(rawPrice);
-
-    if (!quoteResponse.ok) {
-      return {
-        quoteStatus: "error",
-        parsedPrice: null,
-        source: "none",
-        updatedAt: null,
-        errorMessage:
-          toStringValue(quotePayload?.msg1) ??
-          toStringValue(quotePayload?.msg_cd) ??
-          `KIS quote request failed (${quoteResponse.status}).`,
-        tokenErrorMessage: null
-      };
-    }
-
-    if (!parsedPrice || parsedPrice <= 0) {
-      return {
-        quoteStatus: "no_data",
-        parsedPrice: null,
-        source: "none",
-        updatedAt: formatKisAsOf(output?.stck_bsop_date, output?.stck_cntg_hour),
-        errorMessage: "KIS quote response did not include a valid current price.",
-        tokenErrorMessage: null
-      };
-    }
-
-    return {
-      quoteStatus: "success",
-      parsedPrice,
-      source: "KIS",
-      updatedAt: formatKisAsOf(output?.stck_bsop_date, output?.stck_cntg_hour),
-      errorMessage: null,
-      tokenErrorMessage: null
-    };
-  } catch (error) {
-    return {
-      quoteStatus: "error",
-      parsedPrice: null,
-      source: "none",
-      updatedAt: null,
-      errorMessage: error instanceof Error ? error.message : "Failed to fetch KIS quote.",
-      tokenErrorMessage: null
-    };
-  }
 }
 
 function encodeServiceKey(apiKey: string) {
@@ -381,9 +247,11 @@ async function diagnoseExternal(symbol: string): Promise<LocalExternalDiagnostic
 async function run() {
   loadLocalEnvFile();
 
+  const results = [];
+
   for (const { symbol, stockName, market } of DIAGNOSTIC_STOCKS) {
     const [kis, external, recentClose] = await Promise.all([
-      diagnoseKis(symbol),
+      diagnoseKisCurrentQuote(symbol),
       diagnoseExternal(symbol),
       diagnoseRecentClose(symbol)
     ]);
@@ -416,13 +284,29 @@ async function run() {
       cachedPriceSource: recentClose.status === "success" ? "cache" : "none"
     });
 
+    results.push({ symbol, stockName, kis, external, recentClose, resolvedPrice });
+  }
+
+  const issuedAtValues = results
+    .map((result) => result.kis.tokenCache.lastIssuedAtIso)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const sharedTokenReused =
+    issuedAtValues.length === DIAGNOSTIC_STOCKS.length &&
+    new Set(issuedAtValues).size === 1 &&
+    results.slice(1).every((result) => result.kis.tokenSource === "cache");
+
+  for (const { symbol, stockName, kis, external, recentClose, resolvedPrice } of results) {
     console.log(
       [
         `symbol=${symbol}`,
         `stockName=${stockName}`,
+        `tokenStatus=${kis.tokenStatus}`,
+        `tokenSource=${kis.tokenSource}`,
+        `tokenExpiresAt=${safeText(kis.tokenExpiresAt)}`,
+        `sharedTokenReused=${sharedTokenReused ? "yes" : "no"}`,
         `kisStatus=${kis.quoteStatus}`,
         `kisPrice=${safeNumber(kis.parsedPrice)}`,
-        `kisError=${safeText(kis.errorMessage ?? kis.tokenErrorMessage)}`,
+        `kisError=${safeText(kis.tokenErrorMessage ?? kis.errorMessage)}`,
         `externalStatus=${external.status}`,
         `externalPrice=${safeNumber(external.price)}`,
         `externalError=${safeText(external.errorMessage)}`,
