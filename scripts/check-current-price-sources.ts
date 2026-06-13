@@ -314,8 +314,7 @@ async function run() {
     .filter((value): value is string => typeof value === "string" && value.length > 0);
   const sharedTokenReused =
     issuedAtValues.length === DIAGNOSTIC_STOCKS.length &&
-    new Set(issuedAtValues).size === 1 &&
-    results.slice(1).every((result) => result.kis.tokenSource === "cache");
+    new Set(issuedAtValues).size === 1;
 
   for (const { symbol, stockName, kis, external, recentClose, resolvedPrice } of results) {
     console.log(
@@ -326,6 +325,9 @@ async function run() {
         `tokenRequestMethod=${kis.tokenRequestMethod}`,
         `tokenSource=${kis.tokenSource}`,
         `tokenExpiresAt=${safeText(kis.tokenExpiresAt)}`,
+        `tokenErrorType=${safeText(kis.tokenErrorType)}`,
+        `lastTokenRequestAt=${safeText(kis.lastTokenRequestAt)}`,
+        `nextAllowedTokenRequestAt=${safeText(kis.nextAllowedTokenRequestAt)}`,
         `sharedTokenReused=${sharedTokenReused ? "yes" : "no"}`,
         `kisStatus=${kis.quoteStatus}`,
         `requestUrlPath=${safeText(kis.requestUrlPath)}`,

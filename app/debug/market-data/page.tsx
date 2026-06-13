@@ -6,7 +6,6 @@ import { getStockDetailFromDataGoKr } from "@/lib/providers/data-go-kr";
 import { diagnoseExternalReferenceQuote } from "@/lib/providers/external-reference";
 import {
   diagnoseKisCurrentQuote,
-  diagnoseKisTokenEndpoint,
   getKisEnvironmentDiagnostic
 } from "@/lib/providers/kis";
 import {
@@ -114,7 +113,6 @@ export default async function MarketDataDebugPage() {
   const providerMode = getStockDataProviderMode();
   const apiSource = getKoreaStockApiSource();
   const kisEnvironment = getKisEnvironmentDiagnostic();
-  const kisNetwork = await diagnoseKisTokenEndpoint();
 
   const stocks = await Promise.all(
     DIAGNOSTIC_STOCKS.map(async ({ symbol, stockName, market }) => {
@@ -162,6 +160,14 @@ export default async function MarketDataDebugPage() {
       };
     })
   );
+
+  const tokenIssuedAtValues = stocks
+    .map((stock) => stock.kis.tokenCache.lastIssuedAtIso)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const sharedTokenReused =
+    tokenIssuedAtValues.length === DIAGNOSTIC_STOCKS.length &&
+    new Set(tokenIssuedAtValues).size === 1;
+  const kisNetwork = stocks[0]?.kis ?? null;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -225,31 +231,53 @@ export default async function MarketDataDebugPage() {
             <dl className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
               <div className="flex justify-between gap-3">
                 <dt>baseUrl</dt>
-                <dd className="text-right break-all">{kisNetwork.baseUrl}</dd>
+                <dd className="text-right break-all">{safeText(kisNetwork?.baseUrl)}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt>tokenEndpoint</dt>
-                <dd className="text-right break-all">{kisNetwork.tokenEndpoint}</dd>
+                <dd className="text-right break-all">{safeText(kisNetwork?.tokenEndpoint)}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt>status</dt>
-                <dd>{kisNetwork.status}</dd>
+                <dt>tokenStatus</dt>
+                <dd>{safeText(kisNetwork?.tokenStatus)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>tokenSource</dt>
+                <dd>{safeText(kisNetwork?.tokenSource)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>tokenRequestMethod</dt>
+                <dd>{safeText(kisNetwork?.tokenRequestMethod)}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt>elapsedMs</dt>
-                <dd>{typeof kisNetwork.elapsedMs === "number" ? `${kisNetwork.elapsedMs}ms` : "정보 없음"}</dd>
+                <dd>
+                  {typeof kisNetwork?.tokenElapsedMs === "number" ? `${kisNetwork.tokenElapsedMs}ms` : "정보 없음"}
+                </dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt>httpStatus</dt>
-                <dd>{typeof kisNetwork.httpStatus === "number" ? kisNetwork.httpStatus : "정보 없음"}</dd>
+                <dd>{typeof kisNetwork?.tokenHttpStatus === "number" ? kisNetwork.tokenHttpStatus : "정보 없음"}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt>errorType</dt>
-                <dd>{kisNetwork.status}</dd>
+                <dt>tokenErrorType</dt>
+                <dd>{safeText(kisNetwork?.tokenErrorType)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>lastTokenRequestAt</dt>
+                <dd>{formatDateTime(kisNetwork?.lastTokenRequestAt)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>nextAllowedTokenRequestAt</dt>
+                <dd>{formatDateTime(kisNetwork?.nextAllowedTokenRequestAt)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>sharedTokenReused</dt>
+                <dd>{booleanLabel(sharedTokenReused)}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt>errorMessage</dt>
-                <dd className="text-right break-words">{safeText(kisNetwork.errorMessage)}</dd>
+                <dd className="text-right break-words">{safeText(kisNetwork?.tokenErrorMessage)}</dd>
               </div>
             </dl>
             <details className="mt-3 rounded-md border border-line bg-white/70 p-3 text-xs dark:border-dark-line dark:bg-slate-950/40">
@@ -257,7 +285,7 @@ export default async function MarketDataDebugPage() {
                 response keys
               </summary>
               <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">
-                {stringifyRaw(kisNetwork.responseKeys)}
+                {stringifyRaw(kisNetwork?.tokenResponseKeys ?? [])}
               </pre>
             </details>
           </section>
@@ -317,8 +345,24 @@ export default async function MarketDataDebugPage() {
                     <dd>{kis.tokenSource}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>token error type</dt>
+                    <dd>{safeText(kis.tokenErrorType)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>token expiresAt</dt>
                     <dd>{formatDateTime(kis.tokenExpiresAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>lastTokenRequestAt</dt>
+                    <dd>{formatDateTime(kis.lastTokenRequestAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>nextAllowedTokenRequestAt</dt>
+                    <dd>{formatDateTime(kis.nextAllowedTokenRequestAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>sharedTokenReused</dt>
+                    <dd>{booleanLabel(sharedTokenReused)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>token elapsedMs</dt>

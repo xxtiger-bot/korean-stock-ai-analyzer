@@ -86,6 +86,7 @@ async function run() {
           `hasAccessToken=${result.hasAccessToken ? "yes" : "no"}`,
           `tlsSocketProtocol=${safeText(result.tlsSocketProtocol)}`,
           `errorCode=${safeText(result.errorCode)}`,
+          `errorType=${safeText(result.errorType)}`,
           `errorName=${safeText(result.errorName)}`,
           `errorMessage=${safeText(result.errorMessage)}`,
           `errorCause=${safeText(result.errorCause)}`,
