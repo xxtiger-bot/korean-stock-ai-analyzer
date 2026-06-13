@@ -76,24 +76,30 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
   function getQuoteMeta(stock: Stock) {
     if (stock.quoteSource === "KIS") {
       return {
-        label: "현재가",
-        sourceText: "현재가: KIS",
+        heading: "현재가",
+        statusText: "KIS 현재가",
+        sourceText: "KIS 기준",
+        helperText: stock.date ? `${stock.date} 기준` : "업데이트 확인 필요",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
 
     if (stock.quoteSource === "data.go.kr") {
       return {
-        label: "현재가 확인 불가",
-        sourceText: "최근 종가: data.go.kr",
+        heading: "최근 종가 참고",
+        statusText: "현재가 확인 불가",
+        sourceText: "data.go.kr 기준",
+        helperText: "실시간 현재가는 아닙니다.",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
 
     if (stock.quoteSource === "none") {
       return {
-        label: "현재가 데이터 없음",
-        sourceText: "최근 종가 참고",
+        heading: "현재가 확인 불가",
+        statusText: "데이터 확인 필요",
+        sourceText: "데이터 확인 필요",
+        helperText: "",
         hasPrice: false
       };
     }
@@ -101,8 +107,10 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      label: isDataGo ? "현재가 확인 불가" : "현재가 데이터 없음",
-      sourceText: isDataGo ? "최근 종가: data.go.kr" : "최근 종가 참고",
+      heading: isDataGo ? "최근 종가 참고" : "현재가 확인 불가",
+      statusText: isDataGo ? "현재가 확인 불가" : "데이터 확인 필요",
+      sourceText: isDataGo ? "data.go.kr 기준" : "데이터 확인 필요",
+      helperText: isDataGo ? "실시간 현재가는 아닙니다." : "",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };
   }
@@ -170,7 +178,9 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                         </p>
                         <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {stock.symbol} · {stock.market}
-                          {stock.date ? ` · ${stock.date} 기준` : ""}
+                        </p>
+                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          {quote.statusText}
                         </p>
                         <p className="mt-1 text-[11px] font-bold text-slate-400">
                           {quote.sourceText}
@@ -189,20 +199,30 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                     const quote = getQuoteMeta(stock);
                     return (
                       <>
-                        <p className="mb-1 text-[11px] font-bold text-slate-400">{quote.label}</p>
+                        <p className="mb-1 text-[11px] font-bold text-slate-400">{quote.heading}</p>
                         <p className="text-sm font-bold text-ink dark:text-white">
                           {quote.hasPrice
-                            ? quote.label === "현재가"
+                            ? quote.heading === "현재가"
                               ? formatKRW(stock.price)
-                              : `최근 종가 ${formatKRW(stock.price)}`
-                            : "최근 종가 참고"}
+                              : formatKRW(stock.price)
+                            : "데이터 확인 필요"}
                         </p>
-                        {quote.hasPrice ? (
+                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          {quote.sourceText}
+                        </p>
+                        {quote.helperText ? (
+                          <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                            {quote.helperText}
+                          </p>
+                        ) : null}
+                        {quote.hasPrice && quote.heading === "현재가" ? (
                           <p className={`mt-1 text-xs font-bold ${changeColorClass(stock.change)}`}>
                             {formatPercent(stock.changeRate)}
                           </p>
                         ) : (
-                          <p className="mt-1 text-xs font-bold text-slate-400">확인 필요</p>
+                          <p className="mt-1 text-xs font-bold text-slate-400">
+                            {quote.hasPrice ? "참고 가격" : "데이터 확인 필요"}
+                          </p>
                         )}
                       </>
                     );

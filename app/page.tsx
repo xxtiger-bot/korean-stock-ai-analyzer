@@ -83,8 +83,11 @@ export default async function Home() {
   rawPopularStocks.slice(0, 3).forEach((stock) => {
     if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
   });
-  rawAllStocks.slice(0, 3).forEach((stock) => {
+  rawAllStocks.slice(0, 12).forEach((stock) => {
     if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
+  });
+  ["005930", "000660", "035420"].forEach((symbol) => {
+    quoteCandidateSymbols.add(symbol);
   });
 
   const quoteCandidates = Array.from(quoteCandidateSymbols)
