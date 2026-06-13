@@ -25,11 +25,13 @@ type KisAccessTokenCacheState = {
   lastErrorAtIso: string | null;
   lastErrorMessage: string | null;
   lastErrorCode: string | null;
+  lastErrorType: KisTokenErrorType | null;
   lastStatus: KisTokenEndpointStatus | null;
   lastHttpStatus: number | null;
   lastElapsedMs: number | null;
   lastResponseKeys: string[];
   lastTokenEndpoint: string | null;
+  lastRequestMethod: KisTokenRequestMethod | null;
   refreshing: Promise<string> | null;
 };
 
@@ -94,6 +96,9 @@ export type KisTokenCacheSnapshot = {
   expiresAtIso: string | null;
   lastIssuedAtIso: string | null;
   lastRequestAtIso: string | null;
+  nextAllowedRequestAtIso: string | null;
+  lastStatus: KisTokenEndpointStatus | null;
+  lastErrorType: KisTokenErrorType | null;
   lastErrorAtIso: string | null;
   lastErrorMessage: string | null;
 };
@@ -120,6 +125,7 @@ export type KisCurrentQuoteDiagnostic = {
   tokenHasAccessToken: boolean;
   tokenTlsSocketProtocol: string | null;
   tokenErrorCode: string | null;
+  tokenErrorType: KisTokenErrorType | null;
   tokenErrorName: string | null;
   tokenErrorMessage: string | null;
   tokenErrorCause: string | null;
@@ -129,6 +135,8 @@ export type KisCurrentQuoteDiagnostic = {
   tokenLikelyMockAccountIssue: boolean;
   tokenSource: KisTokenSource | "none";
   tokenExpiresAt: string | null;
+  lastTokenRequestAt: string | null;
+  nextAllowedTokenRequestAt: string | null;
   quoteStatus: "success" | "skipped" | "no_data" | "error";
   requestSymbol: string;
   requestUrlPath: string;
@@ -171,6 +179,18 @@ export type KisEnvironmentDiagnostic = {
 export type KisTokenEndpointStatus =
   | "success"
   | "missing_env"
+  | "rate_limited_locally"
+  | "rate_limited_by_kis"
+  | "network_fetch_failed"
+  | "timeout"
+  | "http_error"
+  | "kis_error_response"
+  | "invalid_token_response";
+
+export type KisTokenErrorType =
+  | "missing_env"
+  | "local_token_cooldown"
+  | "kis_token_rate_limit"
   | "network_fetch_failed"
   | "timeout"
   | "http_error"
@@ -188,6 +208,7 @@ export type KisTokenEndpointDiagnostic = {
   hasAccessToken: boolean;
   tlsSocketProtocol: string | null;
   errorCode: string | null;
+  errorType: KisTokenErrorType | null;
   errorName: string | null;
   errorMessage: string | null;
   errorCause: string | null;
@@ -195,6 +216,7 @@ export type KisTokenEndpointDiagnostic = {
 };
 
 const TOKEN_REQUEST_COOLDOWN_MS = 5_000;
+const TOKEN_LOCAL_RATE_LIMIT_GUARD_MS = 65_000;
 const TOKEN_REUSE_BUFFER_MS = 5 * 60_000;
 const TOKEN_DEFAULT_TTL_MS = 6 * 60 * 60_000;
 const QUOTE_CACHE_TTL_MS = 15_000;
@@ -367,6 +389,15 @@ function getTokenErrorParts(payload: KisAccessTokenResponse) {
   return { errorCode, errorMessage };
 }
 
+function isKisTokenRateLimitMessage(message: string | null) {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("접근토큰 발급 잠시 후 다시 시도하세요") ||
+    normalized.includes("1분당 1회") ||
+    normalized.includes("1분당1회")
+  );
+}
+
 export function getKisEnvironmentDiagnostic(): KisEnvironmentDiagnostic {
   const appKey = process.env.KIS_APP_KEY?.trim();
   const appSecret = process.env.KIS_APP_SECRET?.trim();
@@ -436,10 +467,30 @@ function buildTokenDiagnostic(params: {
   hasAccessToken?: boolean;
   tlsSocketProtocol?: string | null;
   errorCode?: string | null;
+  errorType?: KisTokenErrorType | null;
   errorName?: string | null;
   errorMessage?: string | null;
   errorCause?: string | null;
 }): KisTokenEndpointDiagnostic {
+  const defaultErrorType: KisTokenErrorType | null =
+    params.status === "missing_env"
+      ? "missing_env"
+      : params.status === "rate_limited_locally"
+        ? "local_token_cooldown"
+        : params.status === "rate_limited_by_kis"
+          ? "kis_token_rate_limit"
+          : params.status === "network_fetch_failed"
+            ? "network_fetch_failed"
+            : params.status === "timeout"
+              ? "timeout"
+              : params.status === "http_error"
+                ? "http_error"
+                : params.status === "kis_error_response"
+                  ? "kis_error_response"
+                  : params.status === "invalid_token_response"
+                    ? "invalid_token_response"
+                    : null;
+
   return {
     requestMethod: params.requestMethod,
     baseUrl: params.baseUrl,
@@ -451,11 +502,45 @@ function buildTokenDiagnostic(params: {
     hasAccessToken: params.hasAccessToken ?? false,
     tlsSocketProtocol: params.tlsSocketProtocol ?? null,
     errorCode: params.errorCode ?? null,
+    errorType: params.errorType ?? defaultErrorType,
     errorName: params.errorName ?? null,
     errorMessage: params.errorMessage ?? null,
     errorCause: params.errorCause ?? null,
     environment: getKisEnvironmentDiagnostic()
   };
+}
+
+function getNextAllowedTokenRequestAtIso(lastRequestedAtMs: number) {
+  if (!Number.isFinite(lastRequestedAtMs) || lastRequestedAtMs <= 0) {
+    return null;
+  }
+  return new Date(lastRequestedAtMs + TOKEN_LOCAL_RATE_LIMIT_GUARD_MS).toISOString();
+}
+
+function getLocalTokenRateLimitDiagnostic(
+  baseUrl: string,
+  requestMethod: KisTokenRequestMethod
+): KisTokenEndpointDiagnostic | null {
+  if (!kisTokenCache.lastRequestedAtMs) {
+    return null;
+  }
+
+  if (Date.now() >= kisTokenCache.lastRequestedAtMs + TOKEN_LOCAL_RATE_LIMIT_GUARD_MS) {
+    return null;
+  }
+
+  return buildTokenDiagnostic({
+    requestMethod,
+    baseUrl,
+    tokenEndpoint: kisTokenCache.lastTokenEndpoint ?? getTokenEndpoint(baseUrl),
+    status: "rate_limited_locally",
+    httpStatus: kisTokenCache.lastHttpStatus,
+    elapsedMs: 0,
+    responseKeys: kisTokenCache.lastResponseKeys,
+    hasAccessToken: false,
+    errorType: "local_token_cooldown",
+    errorMessage: "skip token request to avoid KIS 1-minute limit"
+  });
 }
 
 function shouldRetryQuoteRequest(error: unknown) {
@@ -506,11 +591,13 @@ if (!tokenState.__krxKisTokenCache) {
     lastErrorAtIso: null,
     lastErrorMessage: null,
     lastErrorCode: null,
+    lastErrorType: null,
     lastStatus: null,
     lastHttpStatus: null,
     lastElapsedMs: null,
     lastResponseKeys: [],
     lastTokenEndpoint: null,
+    lastRequestMethod: null,
     refreshing: null,
   };
 }
@@ -626,17 +713,19 @@ async function requestKisTokenEndpoint(
     const elapsedMs = Date.now() - startedAt;
 
     if (!response.ok) {
+      const isRateLimited = isKisTokenRateLimitMessage(errorMessage);
       return {
         diagnostic: buildTokenDiagnostic({
           requestMethod: "fetch",
           baseUrl,
           tokenEndpoint,
-          status: "http_error",
+          status: isRateLimited ? "rate_limited_by_kis" : "http_error",
           httpStatus: response.status,
           elapsedMs,
           responseKeys,
           hasAccessToken: Boolean(accessToken),
           errorCode,
+          errorType: isRateLimited ? "kis_token_rate_limit" : "http_error",
           errorMessage: errorMessage ?? `KIS token request failed (${response.status}).`
         }),
         accessToken: null,
@@ -734,6 +823,11 @@ export async function diagnoseKisTokenEndpointViaHttps(
     });
   }
 
+  const localCooldown = getLocalTokenRateLimitDiagnostic(baseUrl, mode);
+  if (localCooldown) {
+    return localCooldown;
+  }
+
   const requestBody = JSON.stringify({
     grant_type: "client_credentials",
     appkey: appKey,
@@ -820,18 +914,20 @@ export async function diagnoseKisTokenEndpointViaHttps(
           }
 
           if ((response.statusCode ?? 0) < 200 || (response.statusCode ?? 0) >= 300) {
+            const isRateLimited = isKisTokenRateLimitMessage(errorMessage);
             finish(
               buildTokenDiagnostic({
                 requestMethod: mode,
                 baseUrl,
                 tokenEndpoint,
-                status: "http_error",
+                status: isRateLimited ? "rate_limited_by_kis" : "http_error",
                 httpStatus: response.statusCode ?? null,
                 elapsedMs,
                 responseKeys,
                 hasAccessToken: Boolean(accessToken),
                 tlsSocketProtocol,
                 errorCode,
+                errorType: isRateLimited ? "kis_token_rate_limit" : "http_error",
                 errorMessage: errorMessage ?? `KIS token request failed (${response.statusCode}).`
               })
             );
@@ -928,6 +1024,11 @@ export async function diagnoseKisTokenEndpoint(
     });
   }
 
+  const localCooldown = getLocalTokenRateLimitDiagnostic(baseUrl, "fetch");
+  if (localCooldown) {
+    return localCooldown;
+  }
+
   const result = await requestKisTokenEndpoint(baseUrl, appKey, appSecret);
   return result.diagnostic;
 }
@@ -956,7 +1057,10 @@ function getFailureFlags(message: string | null, baseUrl: string) {
       normalized.includes("cooldown") ||
       normalized.includes("too many") ||
       normalized.includes("rate limit") ||
-      normalized.includes("too many requests"),
+      normalized.includes("too many requests") ||
+      normalized.includes("접근토큰 발급 잠시 후 다시 시도하세요") ||
+      normalized.includes("1분당 1회") ||
+      normalized.includes("1분당1회"),
     likelyPermissionIssue:
       normalized.includes("permission") ||
       normalized.includes("forbidden") ||
@@ -1266,6 +1370,9 @@ export function getKisTokenCacheSnapshot(): KisTokenCacheSnapshot {
     expiresAtIso: toIso(kisTokenCache.expiresAtMs),
     lastIssuedAtIso: toIso(kisTokenCache.lastIssuedAtMs),
     lastRequestAtIso: kisTokenCache.lastRequestAtIso,
+    nextAllowedRequestAtIso: getNextAllowedTokenRequestAtIso(kisTokenCache.lastRequestedAtMs),
+    lastStatus: kisTokenCache.lastStatus,
+    lastErrorType: kisTokenCache.lastErrorType,
     lastErrorAtIso: kisTokenCache.lastErrorAtIso,
     lastErrorMessage: kisTokenCache.lastErrorMessage,
   };
@@ -1301,6 +1408,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenHasAccessToken: false,
       tokenTlsSocketProtocol: null,
       tokenErrorCode: null,
+      tokenErrorType: "missing_env",
       tokenErrorName: null,
       tokenErrorMessage: "KIS credentials are not configured.",
       tokenErrorCause: null,
@@ -1310,6 +1418,8 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenLikelyMockAccountIssue: false,
       tokenSource: "none",
       tokenExpiresAt: null,
+      lastTokenRequestAt: tokenCache.lastRequestAtIso,
+      nextAllowedTokenRequestAt: tokenCache.nextAllowedRequestAtIso,
       quoteStatus: "skipped",
       requestSymbol: normalizedCode,
       requestUrlPath: buildKisQuoteRequest(normalizedCode, config.baseUrl).requestUrlPath,
@@ -1342,6 +1452,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   let tokenRequestMethod: KisCurrentQuoteDiagnostic["tokenRequestMethod"] = "fetch";
   let tokenErrorMessage: string | null = null;
   let tokenErrorCode: string | null = null;
+  let tokenErrorType: KisTokenErrorType | null = tokenCache.lastErrorType;
   let tokenErrorName: string | null = null;
   let tokenErrorCause: string | null = null;
   let tokenSource: KisCurrentQuoteDiagnostic["tokenSource"] = "none";
@@ -1365,6 +1476,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     tokenResponseKeys = tokenMeta.diagnostic.responseKeys;
     tokenHasAccessToken = tokenMeta.diagnostic.hasAccessToken;
     tokenTlsSocketProtocol = tokenMeta.diagnostic.tlsSocketProtocol;
+    tokenErrorType = tokenMeta.diagnostic.errorType;
     tokenErrorName = tokenMeta.diagnostic.errorName;
     tokenErrorCause = tokenMeta.diagnostic.errorCause;
   } catch (error) {
@@ -1373,6 +1485,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenRequestMethod = error.diagnostic.requestMethod;
       tokenErrorMessage = error.diagnostic.errorMessage;
       tokenErrorCode = error.diagnostic.errorCode;
+      tokenErrorType = error.diagnostic.errorType;
       tokenErrorName = error.diagnostic.errorName;
       tokenErrorCause = error.diagnostic.errorCause;
       tokenEndpoint = error.diagnostic.tokenEndpoint;
@@ -1386,6 +1499,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenErrorMessage =
         error instanceof Error ? error.message : "Failed to issue KIS access token.";
       tokenErrorCode = extractKisErrorCode(tokenErrorMessage);
+      tokenErrorType = "network_fetch_failed";
       tokenErrorName = error instanceof Error ? error.name : null;
       tokenErrorCause = extractErrorCause(error);
     }
@@ -1405,6 +1519,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenHasAccessToken,
       tokenTlsSocketProtocol,
       tokenErrorCode,
+      tokenErrorType,
       tokenErrorName,
       tokenErrorMessage,
       tokenErrorCause,
@@ -1414,6 +1529,8 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
       tokenSource,
       tokenExpiresAt,
+      lastTokenRequestAt: getKisTokenCacheSnapshot().lastRequestAtIso,
+      nextAllowedTokenRequestAt: getKisTokenCacheSnapshot().nextAllowedRequestAtIso,
       quoteStatus: "skipped",
       requestSymbol: normalizedCode,
       requestUrlPath: buildKisQuoteRequest(normalizedCode, config.baseUrl).requestUrlPath,
@@ -1522,6 +1639,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     tokenHasAccessToken,
     tokenTlsSocketProtocol,
     tokenErrorCode,
+    tokenErrorType,
     tokenErrorName,
     tokenErrorMessage,
     tokenErrorCause,
@@ -1531,6 +1649,8 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
     tokenSource,
     tokenExpiresAt,
+    lastTokenRequestAt: getKisTokenCacheSnapshot().lastRequestAtIso,
+    nextAllowedTokenRequestAt: getKisTokenCacheSnapshot().nextAllowedRequestAtIso,
     quoteStatus,
     requestSymbol,
     requestUrlPath,
@@ -1569,7 +1689,7 @@ async function getKisAccessTokenWithMeta(): Promise<{
 }> {
   const config = getKisConfigSnapshot();
   const cachedDiagnostic: KisTokenEndpointDiagnostic = {
-    requestMethod: "fetch",
+    requestMethod: kisTokenCache.lastRequestMethod ?? "fetch",
     baseUrl: config.baseUrl,
     tokenEndpoint: kisTokenCache.lastTokenEndpoint ?? getTokenEndpoint(config.baseUrl),
     status: kisTokenCache.lastStatus ?? "success",
@@ -1579,6 +1699,7 @@ async function getKisAccessTokenWithMeta(): Promise<{
     hasAccessToken: Boolean(kisTokenCache.token),
     tlsSocketProtocol: null,
     errorCode: kisTokenCache.lastErrorCode,
+    errorType: kisTokenCache.lastErrorType,
     errorName: null,
     errorMessage: kisTokenCache.lastErrorMessage,
     errorCause: null,
@@ -1594,6 +1715,24 @@ async function getKisAccessTokenWithMeta(): Promise<{
       issuedAtIso: toIso(kisTokenCache.lastIssuedAtMs),
       diagnostic: cachedDiagnostic
     };
+  }
+
+  const localCooldown = getLocalTokenRateLimitDiagnostic(config.baseUrl, "fetch");
+  if (localCooldown && !kisTokenCache.refreshing) {
+    kisTokenCache.lastStatus = localCooldown.status;
+    kisTokenCache.lastHttpStatus = localCooldown.httpStatus;
+    kisTokenCache.lastElapsedMs = localCooldown.elapsedMs;
+    kisTokenCache.lastResponseKeys = localCooldown.responseKeys;
+    kisTokenCache.lastTokenEndpoint = localCooldown.tokenEndpoint;
+    kisTokenCache.lastRequestMethod = localCooldown.requestMethod;
+    kisTokenCache.lastErrorCode = localCooldown.errorCode;
+    kisTokenCache.lastErrorType = localCooldown.errorType;
+    kisTokenCache.lastErrorMessage = localCooldown.errorMessage;
+    kisTokenCache.lastErrorAtIso = new Date().toISOString();
+    throw new KisTokenRequestError(
+      localCooldown.errorMessage ?? "KIS token request skipped due to local cooldown.",
+      localCooldown
+    );
   }
 
   if (!kisTokenCache.refreshing) {
@@ -1612,7 +1751,9 @@ async function getKisAccessTokenWithMeta(): Promise<{
         kisTokenCache.lastElapsedMs = diagnostic.elapsedMs;
         kisTokenCache.lastResponseKeys = diagnostic.responseKeys;
         kisTokenCache.lastTokenEndpoint = diagnostic.tokenEndpoint;
+        kisTokenCache.lastRequestMethod = diagnostic.requestMethod;
         kisTokenCache.lastErrorCode = diagnostic.errorCode;
+        kisTokenCache.lastErrorType = diagnostic.errorType;
         kisTokenCache.lastErrorMessage = diagnostic.errorMessage;
 
         if (diagnostic.status !== "success") {
@@ -1639,6 +1780,7 @@ async function getKisAccessTokenWithMeta(): Promise<{
         kisTokenCache.lastErrorAtIso = null;
         kisTokenCache.lastErrorMessage = null;
         kisTokenCache.lastErrorCode = null;
+        kisTokenCache.lastErrorType = null;
         return accessToken;
       } catch (error) {
         kisTokenCache.lastErrorAtIso = new Date().toISOString();
@@ -1650,7 +1792,9 @@ async function getKisAccessTokenWithMeta(): Promise<{
           kisTokenCache.lastElapsedMs = error.diagnostic.elapsedMs;
           kisTokenCache.lastResponseKeys = error.diagnostic.responseKeys;
           kisTokenCache.lastTokenEndpoint = error.diagnostic.tokenEndpoint;
+          kisTokenCache.lastRequestMethod = error.diagnostic.requestMethod;
           kisTokenCache.lastErrorCode = error.diagnostic.errorCode;
+          kisTokenCache.lastErrorType = error.diagnostic.errorType;
         }
         throw error;
       } finally {
@@ -1667,7 +1811,7 @@ async function getKisAccessTokenWithMeta(): Promise<{
     expiresAtIso: toIso(kisTokenCache.expiresAtMs),
     issuedAtIso: toIso(kisTokenCache.lastIssuedAtMs),
     diagnostic: {
-      requestMethod: "fetch",
+      requestMethod: kisTokenCache.lastRequestMethod ?? "fetch",
       baseUrl: config.baseUrl,
       tokenEndpoint: kisTokenCache.lastTokenEndpoint ?? getTokenEndpoint(config.baseUrl),
       status: kisTokenCache.lastStatus ?? "success",
@@ -1677,6 +1821,7 @@ async function getKisAccessTokenWithMeta(): Promise<{
       hasAccessToken: Boolean(kisTokenCache.token),
       tlsSocketProtocol: null,
       errorCode: kisTokenCache.lastErrorCode,
+      errorType: kisTokenCache.lastErrorType,
       errorName: null,
       errorMessage: kisTokenCache.lastErrorMessage,
       errorCause: null,
