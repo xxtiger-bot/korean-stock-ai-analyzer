@@ -223,42 +223,48 @@ export default async function Home() {
               </p>
             </div>
             <div className="rounded-full border border-line bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
-              Daily AI Trading Desk
+              아침 점검
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 lg:grid-cols-2">
-            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
-              <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                데이터 상태
-              </p>
-              <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
-                데이터 확인 필요
-              </h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-                가격 기준은 각 종목 페이지에서 확인할 수 있습니다.
-              </p>
+          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="grid gap-3">
+              <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                  AI 오늘의 한 줄 전략
+                </p>
+                <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+                  오늘은 추격매수보다 리스크 관리가 우선입니다.
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                  먼저 확인할 종목과 리스크 상태를 가볍게 정리한 뒤 움직이는 편이 좋습니다.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link
+                  href="#watchlist-desk"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+                >
+                  관심종목 추가하기
+                </Link>
+                <Link
+                  href="/stocks/005930"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-white px-5 py-3 text-sm font-bold text-ink transition hover:bg-slate-50 dark:border-dark-line dark:bg-dark-panel dark:text-white dark:hover:bg-slate-900/80"
+                >
+                  AI 분석 보러가기
+                </Link>
+              </div>
             </div>
 
-            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
-              <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                오늘 시장 온도
-              </p>
-              <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
-                시장 데이터 확인 필요
-              </h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-                지수 데이터 연결 후 자동 업데이트됩니다.
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+            <div className="grid gap-3">
+              <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
               <p className="text-xs font-bold uppercase tracking-normal text-brand">
                 내 리스크 요약
               </p>
               {riskSummaryStatuses.length > 0 ? (
                 <>
-                  <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+                  <p className="mt-2 text-xl font-bold leading-8 text-ink dark:text-white">
                     오늘 우선 확인 종목 {riskSummaryStatuses.length}개
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
@@ -272,85 +278,59 @@ export default async function Home() {
               )}
             </div>
 
-            <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                  오늘 우선 확인할 종목
-                </p>
-                {dailyDeskPriorityItems.length > 0 ? (
-                  <span className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
-                    TOP {dailyDeskPriorityItems.length}
-                  </span>
-                ) : null}
-              </div>
-              {dailyDeskPriorityItems.length > 0 ? (
-                <div className="mt-3 grid gap-3">
-                  {dailyDeskPriorityItems.map((item, index) => {
-                    const stockName = item?.stock?.koreanName ?? item?.stock?.name ?? "종목명 확인 필요";
-                    const symbol = item?.stock?.symbol ?? "코드 확인 필요";
-                    const riskLevel =
-                      typeof item?.riskLevel === "string" ? item.riskLevel : undefined;
-                    const aiSummary =
-                      typeof item?.aiSummary === "string" && item.aiSummary.trim().length > 0
-                        ? item.aiSummary
-                        : "우선 확인이 필요한 흐름이 감지되었습니다.";
-
-                    return (
-                      <div
-                        key={`${symbol}-${index}`}
-                        className="rounded-lg border border-line bg-white p-3 shadow-soft dark:border-dark-line dark:bg-dark-panel"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-base font-bold text-ink dark:text-white">
-                              {stockName}
-                            </p>
-                            <p className="mt-1 text-xs font-semibold text-slate-400">{symbol}</p>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
-                            {getPriorityStatus(riskLevel)}
-                          </span>
-                        </div>
-                        <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-                          {aiSummary}
-                        </p>
-                      </div>
-                    );
-                  })}
+              <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                    오늘 우선 확인할 종목
+                  </p>
+                  {dailyDeskPriorityItems.length > 0 ? (
+                    <span className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
+                      TOP {dailyDeskPriorityItems.length}
+                    </span>
+                  ) : null}
                 </div>
-              ) : (
-                <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
-                  관심종목과 보유종목을 기준으로 우선 확인 종목이 표시됩니다.
-                </p>
-              )}
+                {dailyDeskPriorityItems.length > 0 ? (
+                  <div className="mt-3 grid gap-3">
+                    {dailyDeskPriorityItems.map((item, index) => {
+                      const stockName = item?.stock?.koreanName ?? item?.stock?.name ?? "종목명 확인 필요";
+                      const symbol = item?.stock?.symbol ?? "코드 확인 필요";
+                      const riskLevel =
+                        typeof item?.riskLevel === "string" ? item.riskLevel : undefined;
+                      const aiSummary =
+                        typeof item?.aiSummary === "string" && item.aiSummary.trim().length > 0
+                          ? item.aiSummary
+                          : "우선 확인이 필요한 흐름이 감지되었습니다.";
+
+                      return (
+                        <div
+                          key={`${symbol}-${index}`}
+                          className="rounded-lg border border-line bg-white p-3 shadow-soft dark:border-dark-line dark:bg-dark-panel"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-base font-bold text-ink dark:text-white">
+                                {stockName}
+                              </p>
+                              <p className="mt-1 text-xs font-semibold text-slate-400">{symbol}</p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                              {getPriorityStatus(riskLevel)}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                            {aiSummary}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
+                    관심종목과 보유종목을 기준으로 우선 확인 종목이 표시됩니다.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-
-          <div className="mt-3 rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
-            <p className="text-xs font-bold uppercase tracking-normal text-brand">
-              AI 오늘의 한 줄 전략
-            </p>
-            <p className="mt-2 text-lg font-bold leading-8 text-ink dark:text-white">
-              오늘은 추격매수보다 리스크 관리가 우선입니다.
-            </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-              현재 일부 시장 데이터가 제한되어 보수적으로 판단합니다.
-            </p>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link
-              href="#watchlist-desk"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
-            >
-              관심종목 추가하기
-            </Link>
-            <Link
-              href="/stocks/005930"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-white px-5 py-3 text-sm font-bold text-ink transition hover:bg-slate-50 dark:border-dark-line dark:bg-dark-panel dark:text-white dark:hover:bg-slate-900/80"
-            >
-              AI 분석 보러가기
-            </Link>
           </div>
 
           <div className="mt-4">
@@ -377,18 +357,41 @@ export default async function Home() {
 
       <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
         <div className="grid min-w-0 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                데이터 상태
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
+                데이터 확인 필요
+              </h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                가격 기준은 각 종목 페이지에서 확인할 수 있습니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+              <p className="text-xs font-bold uppercase tracking-normal text-brand">
+                오늘 시장 온도
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
+                시장 데이터 확인 필요
+              </h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                지수 데이터 연결 후 자동 업데이트됩니다.
+              </p>
+            </div>
+          </div>
           <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                  한국 시장
+                  시장 확인
                 </p>
-                <h1 className="mt-1 text-xl font-bold tracking-tight text-ink dark:text-white sm:text-[1.65rem]">
-                  한국 주식 대시보드
-                </h1>
+                <h2 className="mt-1 text-lg font-bold tracking-tight text-ink dark:text-white sm:text-xl">
+                  한국 시장 요약
+                </h2>
                 <p className="mt-1.5 max-w-2xl text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
-                  data.go.kr 데이터는 일별 종가 기준이며 실시간 시세가 아닙니다.
+                  일별 지수와 주요 종목 흐름을 가볍게 확인할 수 있습니다.
                 </p>
               </div>
               <div className="grid w-full grid-cols-3 gap-2 text-center sm:w-auto">

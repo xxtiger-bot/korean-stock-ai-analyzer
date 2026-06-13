@@ -123,7 +123,7 @@ export function PortfolioRiskRadar({ stocks }: { stocks: Stock[] }) {
   return (
     <section className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
       <div className="rounded-xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio</p>
+        <p className="text-xs font-bold uppercase tracking-normal text-brand">Risk Radar</p>
         <h1 className="mt-2 text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
           관심/보유 종목 리스크 레이더
         </h1>
@@ -173,7 +173,7 @@ export function PortfolioRiskRadar({ stocks }: { stocks: Stock[] }) {
           <div className="mt-5 grid gap-4">
             <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
               <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                Portfolio Risk Summary
+                보유 요약
               </p>
               <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
                 총 확인 종목 {priorities.length}개
@@ -187,7 +187,7 @@ export function PortfolioRiskRadar({ stocks }: { stocks: Stock[] }) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                    Today Risk Focus
+                    오늘 확인할 리스크
                   </p>
                   <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
                     오늘 먼저 확인할 종목

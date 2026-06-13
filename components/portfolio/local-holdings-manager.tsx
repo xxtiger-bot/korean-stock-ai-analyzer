@@ -329,12 +329,12 @@ export function LocalHoldingsManager({
   return (
     <section className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
       <div className="rounded-xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">Local Holdings</p>
+        <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio</p>
         <h1 className="mt-2 text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
-          로컬 보유종목 관리
+          내 보유종목
         </h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-          현재 로컬 브라우저에만 저장됩니다. 계정 동기화는 추후 제공됩니다.
+          로컬 브라우저에만 저장됩니다. 계정 동기화는 추후 제공됩니다.
         </p>
         {existingHoldingForFormSymbol ? (
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
@@ -443,34 +443,49 @@ export function LocalHoldingsManager({
           </div>
         ) : (
           <div className="mt-5 grid gap-3">
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3">
               <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
-                <p className="text-xs font-bold uppercase tracking-normal text-brand">Portfolio Summary</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                    <p className="text-xs font-bold uppercase tracking-normal text-slate-400">보유 종목 수</p>
-                    <p className="mt-2 text-lg font-bold text-ink dark:text-white">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-normal text-brand">보유 요약</p>
+                    <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
+                      총 손익과 평가금액을 먼저 확인하세요
+                    </h2>
+                  </div>
+                  <div className="rounded-lg border border-line bg-white px-3 py-2 text-right dark:border-dark-line dark:bg-dark-panel">
+                    <p className="text-[11px] font-bold uppercase tracking-normal text-slate-400">보유 종목 수</p>
+                    <p className="mt-1 text-base font-bold text-ink dark:text-white">
                       {summaryStats.holdingCount}개
                     </p>
                   </div>
-                  <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                    <p className="text-xs font-bold uppercase tracking-normal text-slate-400">총 매입금액</p>
-                    <p className="mt-2 text-lg font-bold text-ink dark:text-white">
-                      {formatKRW(summaryStats.totalBuyAmount)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel sm:col-span-2">
                     <p className="text-xs font-bold uppercase tracking-normal text-slate-400">총 평가금액</p>
-                    <p className="mt-2 text-lg font-bold text-ink dark:text-white">
+                    <p className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white">
                       {summaryStats.evaluableCount > 0
                         ? formatKRW(summaryStats.totalValuationAmount)
                         : "평가 데이터 확인 필요"}
                     </p>
                   </div>
-                  <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
+                  <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+                    <p className="text-xs font-bold uppercase tracking-normal text-slate-400">총 수익률</p>
+                    <p
+                      className={`mt-2 text-xl font-bold tracking-tight ${
+                        summaryStats.totalReturnRate !== null
+                          ? changeColorClass(summaryStats.totalReturnRate)
+                          : "text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      {summaryStats.totalReturnRate !== null
+                        ? formatPercent(summaryStats.totalReturnRate)
+                        : "평가 데이터 확인 필요"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel sm:col-span-2">
                     <p className="text-xs font-bold uppercase tracking-normal text-slate-400">총 손익</p>
                     <p
-                      className={`mt-2 text-lg font-bold ${
+                      className={`mt-2 text-2xl font-bold tracking-tight ${
                         summaryStats.evaluableCount > 0
                           ? changeColorClass(summaryStats.totalProfitLoss)
                           : "text-slate-500 dark:text-slate-400"
@@ -481,33 +496,22 @@ export function LocalHoldingsManager({
                         : "평가 데이터 확인 필요"}
                     </p>
                   </div>
+                  <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+                    <p className="text-xs font-bold uppercase tracking-normal text-slate-400">총 매입금액</p>
+                    <p className="mt-2 text-base font-bold text-ink dark:text-white">
+                      {formatKRW(summaryStats.totalBuyAmount)}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-                  총 수익률{" "}
-                  <span
-                    className={
-                      summaryStats.totalReturnRate !== null
-                        ? changeColorClass(summaryStats.totalReturnRate)
-                        : "text-slate-500 dark:text-slate-400"
-                    }
-                  >
-                    {summaryStats.totalReturnRate !== null
-                      ? formatPercent(summaryStats.totalReturnRate)
-                      : "평가 데이터 확인 필요"}
-                  </span>
-                </p>
                 {summaryStats.unavailableCount > 0 ? (
-                  <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  <p className="mt-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
                     일부 종목은 평가 데이터 확인이 필요합니다.
                   </p>
                 ) : null}
               </div>
 
               <div className="rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
-                <p className="text-xs font-bold uppercase tracking-normal text-brand">AI Local Summary</p>
-                <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
-                  로컬 보유종목 요약
-                </h2>
+                <p className="text-xs font-bold uppercase tracking-normal text-brand">AI 보유종목 요약</p>
                 <ul className="mt-3 grid gap-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
                   <li>보유종목 {summaryStats.holdingCount}개를 로컬 기준으로 관리 중입니다.</li>
                   <li>평가 가능한 종목 {summaryStats.evaluableCount}개</li>
@@ -544,7 +548,49 @@ export function LocalHoldingsManager({
                     </button>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">현재 참고가</p>
+                      <p className="mt-2 text-xl font-bold tracking-tight text-ink dark:text-white">
+                        {priceAvailable ? formatKRW(referencePrice) : "데이터 확인 필요"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        {priceAvailable ? referenceLabel : "데이터 확인 필요"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        {referenceDescription}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{profitLossLabel}</p>
+                      <p
+                        className={`mt-2 text-xl font-bold tracking-tight ${
+                          profitLoss !== null ? changeColorClass(profitLoss) : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        {profitLoss !== null ? formatKRW(profitLoss) : "평가 데이터 확인 필요"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">수익률</p>
+                      <p
+                        className={`mt-2 text-xl font-bold tracking-tight ${
+                          returnRate !== null ? changeColorClass(returnRate) : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        {returnRate !== null ? formatPercent(returnRate) : "평가 데이터 확인 필요"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">평가금액</p>
+                      <p className="mt-2 text-base font-bold text-ink dark:text-white">
+                        {priceAvailable && referencePrice !== null
+                          ? formatKRW(referencePrice * holding.quantity)
+                          : "평가 데이터 확인 필요"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
                       <p className="text-xs font-bold uppercase tracking-normal text-slate-400">수량</p>
                       <p className="mt-2 text-base font-bold text-ink dark:text-white">
@@ -555,46 +601,6 @@ export function LocalHoldingsManager({
                       <p className="text-xs font-bold uppercase tracking-normal text-slate-400">매입 평균가</p>
                       <p className="mt-2 text-base font-bold text-ink dark:text-white">
                         {formatKRW(holding.averageBuyPrice)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">현재 참고가</p>
-                      <p className="mt-2 text-base font-bold text-ink dark:text-white">
-                        {priceAvailable ? formatKRW(referencePrice) : "데이터 확인 필요"}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-slate-400">
-                        {priceAvailable ? referenceLabel : "데이터 확인 필요"}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-slate-400">
-                        {referenceDescription}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">평가금액</p>
-                      <p className="mt-2 text-base font-bold text-ink dark:text-white">
-                        {priceAvailable && referencePrice !== null
-                          ? formatKRW(referencePrice * holding.quantity)
-                          : "평가 데이터 확인 필요"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{profitLossLabel}</p>
-                      <p
-                        className={`mt-2 text-base font-bold ${
-                          profitLoss !== null ? changeColorClass(profitLoss) : "text-slate-500 dark:text-slate-400"
-                        }`}
-                      >
-                        {profitLoss !== null ? formatKRW(profitLoss) : "평가 데이터 확인 필요"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">수익률</p>
-                      <p
-                        className={`mt-2 text-base font-bold ${
-                          returnRate !== null ? changeColorClass(returnRate) : "text-slate-500 dark:text-slate-400"
-                        }`}
-                      >
-                        {returnRate !== null ? formatPercent(returnRate) : "평가 데이터 확인 필요"}
                       </p>
                     </div>
                     <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">

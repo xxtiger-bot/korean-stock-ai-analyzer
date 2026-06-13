@@ -195,38 +195,32 @@ export function StockDetailClient({
     add: stock.symbol,
     name: stock.koreanName
   }).toString()}`;
+  const statusToneClass =
+    resolvedPrice.priceKind === "kis_current"
+      ? "border-brand/20 bg-blue-50 text-brand dark:border-brand/30 dark:bg-blue-950/20 dark:text-blue-200"
+      : resolvedPrice.priceKind === "external_reference"
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200"
+        : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/70 dark:text-slate-300";
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            홈
-          </Link>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href={addToPortfolioHref}
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
-          >
-            내 보유종목에 추가
-          </Link>
-          <WatchlistButton symbol={stock.symbol} />
-        </div>
+      <div className="mb-4">
+        <Link
+          href="/"
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          홈
+        </Link>
       </div>
 
       <section className="min-w-0 max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="min-w-0">
             <div className="flex max-w-full flex-wrap items-center gap-2">
-              {[ 
+              {[
                 ["시장", stock.market],
-                ["코드", stock.symbol],
-                ["상태", statusBadgeLabel]
+                ["코드", stock.symbol]
               ].map(([label, value]) => (
                 <span
                   key={label}
@@ -237,22 +231,13 @@ export function StockDetailClient({
                 </span>
               ))}
             </div>
-            <p className="mt-3 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              {resolvedPrice.priceKind === "recent_close"
-                ? "세부 지표와 차트는 현재 데이터 기준에 맞춰 표시됩니다."
-                : resolvedPrice.priceKind === "external_reference"
-                  ? "공식 KIS 실시간 시세가 아닌 외부 참고 가격 기준으로 보조 정보를 표시합니다."
-                  : resolvedPrice.priceKind === "unavailable"
-                  ? "가격 기반 정보는 현재 보수적으로 제한해 표시합니다."
-                  : "실시간 기준으로 핵심 가격 정보를 확인할 수 있습니다."}
-            </p>
             {process.env.NODE_ENV === "development" && (
               <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-400 dark:text-slate-500">
                 resolvedPrice.priceKind: {resolvedPrice.priceKind} · resolvedPrice.basisKo:{" "}
                 {resolvedPrice.basisKo}
               </p>
             )}
-            <h1 className="mt-4 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
+            <h1 className="mt-3 break-words text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
               {stock.koreanName}
             </h1>
             {secondaryName && (
@@ -260,10 +245,27 @@ export function StockDetailClient({
                 {secondaryName}
               </p>
             )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusToneClass}`}>
+                {statusBadgeLabel}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-line bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+                {resolvedPrice.basisKo}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
+              <Link
+                href={addToPortfolioHref}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+              >
+                내 보유종목에 추가
+              </Link>
+              <WatchlistButton symbol={stock.symbol} />
+            </div>
           </div>
-          <div className="min-w-0 max-w-full text-left lg:text-right">
+          <div className="min-w-0 max-w-full rounded-lg border border-line bg-slate-50/80 p-4 text-left dark:border-dark-line dark:bg-slate-900/50 lg:min-w-[260px] lg:text-right">
             <p className="mb-1 text-xs font-bold text-slate-400">{headlineLabel}</p>
-            <p className="break-words text-2xl font-bold text-ink dark:text-white sm:text-3xl">
+            <p className="break-words text-3xl font-bold text-ink dark:text-white sm:text-4xl">
               {displayPriceText}
             </p>
             <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
