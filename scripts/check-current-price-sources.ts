@@ -1,5 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
+import { loadEnvConfig } from "@next/env";
 
 import { resolveStockDisplayPrice } from "../lib/market/price-resolver";
 import { diagnoseKisCurrentQuote } from "../lib/providers/kis";
@@ -9,6 +8,8 @@ const DIAGNOSTIC_STOCKS = [
   { symbol: "000660", stockName: "SK하이닉스", market: "KOSPI" },
   { symbol: "035420", stockName: "NAVER", market: "KOSPI" }
 ] as const;
+
+loadEnvConfig(process.cwd());
 
 type LocalExternalDiagnostic = {
   enabled: boolean;
@@ -25,34 +26,6 @@ type LocalRecentCloseDiagnostic = {
   errorMessage: string | null;
 };
 
-function loadLocalEnvFile() {
-  const envPath = path.join(process.cwd(), ".env.local");
-  if (!fs.existsSync(envPath)) return;
-
-  const content = fs.readFileSync(envPath, "utf8");
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    const separatorIndex = trimmed.indexOf("=");
-    if (separatorIndex <= 0) continue;
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    let value = trimmed.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    if (!(key in process.env)) {
-      process.env[key] = value;
-    }
-  }
-}
-
 function safeText(value: string | null | undefined) {
   if (typeof value !== "string") return "N/A";
   const trimmed = value.trim();
@@ -61,6 +34,55 @@ function safeText(value: string | null | undefined) {
 
 function safeNumber(value: number | null | undefined) {
   return Number.isFinite(value ?? NaN) ? String(value) : "N/A";
+}
+
+function maskValue(value: string | undefined) {
+  if (!value) return "N/A";
+  const trimmed = value.trim();
+  if (trimmed.length <= 8) {
+    return `${trimmed.slice(0, 2)}***${trimmed.slice(-2)}`;
+  }
+  return `${trimmed.slice(0, 4)}***${trimmed.slice(-4)}`;
+}
+
+function hasWhitespaceInside(value: string | undefined) {
+  if (!value) return false;
+  return /\s/.test(value);
+}
+
+function hasQuotes(value: string | undefined) {
+  if (!value) return false;
+  return /['"]/.test(value);
+}
+
+function hasNewline(value: string | undefined) {
+  if (!value) return false;
+  return /[\r\n]/.test(value);
+}
+
+function printEnvDiagnostics() {
+  const baseUrl = process.env.KIS_BASE_URL?.trim() || "N/A";
+  const appKey = process.env.KIS_APP_KEY;
+  const appSecret = process.env.KIS_APP_SECRET;
+
+  console.log(
+    [
+      `envLoaded=.env.local via @next/env`,
+      `KIS_BASE_URL=${baseUrl}`,
+      `KIS_APP_KEY exists=${appKey ? "yes" : "no"}`,
+      `KIS_APP_KEY length=${appKey?.length ?? 0}`,
+      `KIS_APP_KEY masked=${maskValue(appKey)}`,
+      `KIS_APP_KEY hasSpaces=${hasWhitespaceInside(appKey) ? "yes" : "no"}`,
+      `KIS_APP_KEY hasQuotes=${hasQuotes(appKey) ? "yes" : "no"}`,
+      `KIS_APP_KEY hasNewline=${hasNewline(appKey) ? "yes" : "no"}`,
+      `KIS_APP_SECRET exists=${appSecret ? "yes" : "no"}`,
+      `KIS_APP_SECRET length=${appSecret?.length ?? 0}`,
+      `KIS_APP_SECRET masked=${maskValue(appSecret)}`,
+      `KIS_APP_SECRET hasSpaces=${hasWhitespaceInside(appSecret) ? "yes" : "no"}`,
+      `KIS_APP_SECRET hasQuotes=${hasQuotes(appSecret) ? "yes" : "no"}`,
+      `KIS_APP_SECRET hasNewline=${hasNewline(appSecret) ? "yes" : "no"}`
+    ].join(" | ")
+  );
 }
 
 function toNumber(value: unknown) {
@@ -245,7 +267,7 @@ async function diagnoseExternal(symbol: string): Promise<LocalExternalDiagnostic
 }
 
 async function run() {
-  loadLocalEnvFile();
+  printEnvDiagnostics();
 
   const results = [];
 
@@ -301,6 +323,7 @@ async function run() {
         `symbol=${symbol}`,
         `stockName=${stockName}`,
         `tokenStatus=${kis.tokenStatus}`,
+        `tokenRequestMethod=${kis.tokenRequestMethod}`,
         `tokenSource=${kis.tokenSource}`,
         `tokenExpiresAt=${safeText(kis.tokenExpiresAt)}`,
         `sharedTokenReused=${sharedTokenReused ? "yes" : "no"}`,
@@ -315,6 +338,8 @@ async function run() {
         `kisMsg1=${safeText(kis.rawMsg1)}`,
         `kisRawResponseKeys=${kis.rawResponseKeys.join(",") || "N/A"}`,
         `kisRawPriceFields=${JSON.stringify(kis.rawPriceCandidateFields)}`,
+        `tokenErrorName=${safeText(kis.tokenErrorName)}`,
+        `tokenErrorCause=${safeText(kis.tokenErrorCause)}`,
         `kisError=${safeText(kis.tokenErrorMessage ?? kis.errorMessage)}`,
         `externalStatus=${external.status}`,
         `externalPrice=${safeNumber(external.price)}`,

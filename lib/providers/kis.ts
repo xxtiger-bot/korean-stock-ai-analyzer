@@ -1,3 +1,7 @@
+import { constants as cryptoConstants } from "node:crypto";
+import https from "node:https";
+import type { TLSSocket } from "node:tls";
+
 import type { ForeignOwnershipData, RealtimeQuote } from "@/lib/types";
 
 type KisAccessTokenResponse = {
@@ -8,6 +12,8 @@ type KisAccessTokenResponse = {
   rt_cd?: string;
   msg_cd?: string;
   msg1?: string;
+  error_code?: string;
+  error_description?: string;
 };
 
 type KisAccessTokenCacheState = {
@@ -64,6 +70,7 @@ type KisQuoteRuntimeState = {
 };
 
 type KisTokenSource = "fresh" | "cache";
+type KisTokenRequestMethod = "fetch" | "normal_https_request" | "legacy_tls_https_request";
 
 type KisQuoteDebugValue = string | null;
 
@@ -104,12 +111,17 @@ export type KisCurrentQuoteDiagnostic = {
   appSecretConfigured: boolean;
   baseUrl: string;
   tokenStatus: KisTokenEndpointStatus;
+  tokenRequestMethod: KisTokenRequestMethod;
   tokenEndpoint: string;
   tokenHttpStatus: number | null;
   tokenElapsedMs: number | null;
   tokenResponseKeys: string[];
+  tokenHasAccessToken: boolean;
+  tokenTlsSocketProtocol: string | null;
   tokenErrorCode: string | null;
+  tokenErrorName: string | null;
   tokenErrorMessage: string | null;
+  tokenErrorCause: string | null;
   tokenLikelyCooldownIssue: boolean;
   tokenLikelyPermissionIssue: boolean;
   tokenLikelyEndpointIssue: boolean;
@@ -164,14 +176,19 @@ export type KisTokenEndpointStatus =
   | "invalid_token_response";
 
 export type KisTokenEndpointDiagnostic = {
+  requestMethod: KisTokenRequestMethod;
   baseUrl: string;
   tokenEndpoint: string;
   status: KisTokenEndpointStatus;
   httpStatus: number | null;
   elapsedMs: number | null;
   responseKeys: string[];
+  hasAccessToken: boolean;
+  tlsSocketProtocol: string | null;
   errorCode: string | null;
+  errorName: string | null;
   errorMessage: string | null;
+  errorCause: string | null;
   environment: KisEnvironmentDiagnostic;
 };
 
@@ -320,6 +337,33 @@ function maskSecret(value: string | undefined) {
   return `${trimmed.slice(0, 4)}***${trimmed.slice(-2)}`;
 }
 
+function extractErrorCause(error: unknown) {
+  if (!(error instanceof Error)) return null;
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+  if (typeof cause === "string") {
+    return cause;
+  }
+  if (cause && typeof cause === "object") {
+    try {
+      return JSON.stringify(cause);
+    } catch {
+      return String(cause);
+    }
+  }
+  return null;
+}
+
+function getTokenErrorParts(payload: KisAccessTokenResponse) {
+  const errorCode = asString(payload.error_code) ?? asString(payload.msg_cd) ?? null;
+  const errorMessage =
+    asString(payload.error_description) ?? asString(payload.msg1) ?? asString(payload.msg_cd) ?? null;
+
+  return { errorCode, errorMessage };
+}
+
 export function getKisEnvironmentDiagnostic(): KisEnvironmentDiagnostic {
   const appKey = process.env.KIS_APP_KEY?.trim();
   const appSecret = process.env.KIS_APP_SECRET?.trim();
@@ -376,6 +420,39 @@ function parseTokenExpiryMs(payload: KisAccessTokenResponse) {
   }
 
   return now + TOKEN_DEFAULT_TTL_MS;
+}
+
+function buildTokenDiagnostic(params: {
+  requestMethod: KisTokenRequestMethod;
+  baseUrl: string;
+  tokenEndpoint: string;
+  status: KisTokenEndpointStatus;
+  httpStatus: number | null;
+  elapsedMs: number | null;
+  responseKeys?: string[];
+  hasAccessToken?: boolean;
+  tlsSocketProtocol?: string | null;
+  errorCode?: string | null;
+  errorName?: string | null;
+  errorMessage?: string | null;
+  errorCause?: string | null;
+}): KisTokenEndpointDiagnostic {
+  return {
+    requestMethod: params.requestMethod,
+    baseUrl: params.baseUrl,
+    tokenEndpoint: params.tokenEndpoint,
+    status: params.status,
+    httpStatus: params.httpStatus,
+    elapsedMs: params.elapsedMs,
+    responseKeys: params.responseKeys ?? [],
+    hasAccessToken: params.hasAccessToken ?? false,
+    tlsSocketProtocol: params.tlsSocketProtocol ?? null,
+    errorCode: params.errorCode ?? null,
+    errorName: params.errorName ?? null,
+    errorMessage: params.errorMessage ?? null,
+    errorCause: params.errorCause ?? null,
+    environment: getKisEnvironmentDiagnostic()
+  };
 }
 
 function shouldRetryQuoteRequest(error: unknown) {
@@ -502,7 +579,6 @@ async function requestKisTokenEndpoint(
   accessToken: string | null;
   expiresAtMs: number | null;
 }> {
-  const environment = getKisEnvironmentDiagnostic();
   const tokenEndpoint = getTokenEndpoint(baseUrl);
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -524,17 +600,17 @@ async function requestKisTokenEndpoint(
     const rawPayload = await response.json().catch(() => null);
     if (!isRecord(rawPayload)) {
       return {
-        diagnostic: {
+        diagnostic: buildTokenDiagnostic({
+          requestMethod: "fetch",
           baseUrl,
           tokenEndpoint,
           status: "invalid_token_response",
           httpStatus: response.status,
           elapsedMs: Date.now() - startedAt,
           responseKeys: [],
-          errorCode: null,
-          errorMessage: "Unexpected KIS token response format.",
-          environment
-        },
+          hasAccessToken: false,
+          errorMessage: "Unexpected KIS token response format."
+        }),
         accessToken: null,
         expiresAtMs: null
       };
@@ -543,23 +619,23 @@ async function requestKisTokenEndpoint(
     const payload = parseTokenResponse(rawPayload);
     const responseKeys = getRawResponseKeys(rawPayload);
     const accessToken = asString(payload.access_token);
-    const errorCode = asString(payload.msg_cd) ?? null;
-    const errorMessage = asString(payload.msg1) ?? asString(payload.msg_cd) ?? null;
+    const { errorCode, errorMessage } = getTokenErrorParts(payload);
     const elapsedMs = Date.now() - startedAt;
 
     if (!response.ok) {
       return {
-        diagnostic: {
+        diagnostic: buildTokenDiagnostic({
+          requestMethod: "fetch",
           baseUrl,
           tokenEndpoint,
           status: "http_error",
           httpStatus: response.status,
           elapsedMs,
           responseKeys,
+          hasAccessToken: Boolean(accessToken),
           errorCode,
-          errorMessage: errorMessage ?? `KIS token request failed (${response.status}).`,
-          environment
-        },
+          errorMessage: errorMessage ?? `KIS token request failed (${response.status}).`
+        }),
         accessToken: null,
         expiresAtMs: null
       };
@@ -567,34 +643,36 @@ async function requestKisTokenEndpoint(
 
     if (!accessToken) {
       return {
-        diagnostic: {
+        diagnostic: buildTokenDiagnostic({
+          requestMethod: "fetch",
           baseUrl,
           tokenEndpoint,
           status: errorMessage ? "kis_error_response" : "invalid_token_response",
           httpStatus: response.status,
           elapsedMs,
           responseKeys,
+          hasAccessToken: false,
           errorCode,
-          errorMessage: errorMessage ?? "KIS token response did not include an access token.",
-          environment
-        },
+          errorMessage: errorMessage ?? "KIS token response did not include an access token."
+        }),
         accessToken: null,
         expiresAtMs: null
       };
     }
 
     return {
-      diagnostic: {
+      diagnostic: buildTokenDiagnostic({
+        requestMethod: "fetch",
         baseUrl,
         tokenEndpoint,
         status: "success",
         httpStatus: response.status,
         elapsedMs,
         responseKeys,
+        hasAccessToken: true,
         errorCode,
-        errorMessage: null,
-        environment
-      },
+        errorMessage: null
+      }),
       accessToken,
       expiresAtMs: parseTokenExpiryMs(payload)
     };
@@ -604,28 +682,224 @@ async function requestKisTokenEndpoint(
       (error instanceof Error && error.name === "AbortError");
 
     return {
-      diagnostic: {
+      diagnostic: buildTokenDiagnostic({
+        requestMethod: "fetch",
         baseUrl,
         tokenEndpoint,
         status: isTimeout ? "timeout" : "network_fetch_failed",
         httpStatus: null,
         elapsedMs: Date.now() - startedAt,
         responseKeys: [],
-        errorCode: null,
+        hasAccessToken: false,
+        errorName: error instanceof Error ? error.name : null,
         errorMessage:
           error instanceof Error
             ? error.message
             : isTimeout
               ? `KIS token request timed out after ${TOKEN_FETCH_TIMEOUT_MS}ms.`
               : "KIS token request failed.",
-        environment
-      },
+        errorCause: extractErrorCause(error)
+      }),
       accessToken: null,
       expiresAtMs: null
     };
   } finally {
     clearTimeout(timeoutHandle);
   }
+}
+
+export async function diagnoseKisTokenEndpointViaHttps(
+  baseUrlOverride?: string,
+  mode: Extract<KisTokenRequestMethod, "normal_https_request" | "legacy_tls_https_request"> = "normal_https_request"
+): Promise<KisTokenEndpointDiagnostic> {
+  const environment = getKisEnvironmentDiagnostic();
+  const baseUrl = baseUrlOverride?.replace(/\/$/, "") || environment.baseUrl;
+  const tokenEndpoint = getTokenEndpoint(baseUrl);
+  const appKey = process.env.KIS_APP_KEY?.trim();
+  const appSecret = process.env.KIS_APP_SECRET?.trim();
+
+  if (!appKey || !appSecret) {
+    return buildTokenDiagnostic({
+      requestMethod: mode,
+      baseUrl,
+      tokenEndpoint,
+      status: "missing_env",
+      httpStatus: null,
+      elapsedMs: null,
+      hasAccessToken: false,
+      errorMessage: "KIS credentials are not configured."
+    });
+  }
+
+  const requestBody = JSON.stringify({
+    grant_type: "client_credentials",
+    appkey: appKey,
+    appsecret: appSecret
+  });
+
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const url = new URL(tokenEndpoint);
+    let settled = false;
+    let timedOut = false;
+    const legacyOption =
+      mode === "legacy_tls_https_request" && typeof cryptoConstants.SSL_OP_LEGACY_SERVER_CONNECT === "number"
+        ? cryptoConstants.SSL_OP_LEGACY_SERVER_CONNECT
+        : undefined;
+    const agent =
+      mode === "legacy_tls_https_request"
+        ? new https.Agent(legacyOption ? { secureOptions: legacyOption } : {})
+        : undefined;
+
+    const finish = (diagnostic: KisTokenEndpointDiagnostic) => {
+      if (!settled) {
+        settled = true;
+        resolve(diagnostic);
+      }
+    };
+
+    const request = https.request(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port ? Number(url.port) : undefined,
+        path: `${url.pathname}${url.search}`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Length": Buffer.byteLength(requestBody)
+        },
+        agent
+      },
+      (response) => {
+        const chunks: string[] = [];
+        const tlsSocket = response.socket as TLSSocket | undefined;
+        const tlsSocketProtocol =
+          typeof tlsSocket?.getProtocol === "function" ? tlsSocket.getProtocol() : null;
+
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          chunks.push(chunk);
+        });
+        response.on("end", () => {
+          const rawText = chunks.join("");
+          let rawPayload: unknown = null;
+          try {
+            rawPayload = rawText.length > 0 ? JSON.parse(rawText) : null;
+          } catch {
+            rawPayload = null;
+          }
+
+          const payload = isRecord(rawPayload) ? parseTokenResponse(rawPayload) : null;
+          const responseKeys = isRecord(rawPayload) ? getRawResponseKeys(rawPayload) : [];
+          const accessToken = payload ? asString(payload.access_token) : null;
+          const { errorCode, errorMessage } = payload
+            ? getTokenErrorParts(payload)
+            : { errorCode: null, errorMessage: "Unexpected KIS token response format." };
+          const elapsedMs = Date.now() - startedAt;
+
+          if (!payload) {
+            finish(
+              buildTokenDiagnostic({
+                requestMethod: mode,
+                baseUrl,
+                tokenEndpoint,
+                status: "invalid_token_response",
+                httpStatus: response.statusCode ?? null,
+                elapsedMs,
+                responseKeys,
+                hasAccessToken: false,
+                tlsSocketProtocol,
+                errorMessage
+              })
+            );
+            return;
+          }
+
+          if ((response.statusCode ?? 0) < 200 || (response.statusCode ?? 0) >= 300) {
+            finish(
+              buildTokenDiagnostic({
+                requestMethod: mode,
+                baseUrl,
+                tokenEndpoint,
+                status: "http_error",
+                httpStatus: response.statusCode ?? null,
+                elapsedMs,
+                responseKeys,
+                hasAccessToken: Boolean(accessToken),
+                tlsSocketProtocol,
+                errorCode,
+                errorMessage: errorMessage ?? `KIS token request failed (${response.statusCode}).`
+              })
+            );
+            return;
+          }
+
+          if (!accessToken) {
+            finish(
+              buildTokenDiagnostic({
+                requestMethod: mode,
+                baseUrl,
+                tokenEndpoint,
+                status: errorMessage ? "kis_error_response" : "invalid_token_response",
+                httpStatus: response.statusCode ?? null,
+                elapsedMs,
+                responseKeys,
+                hasAccessToken: false,
+                tlsSocketProtocol,
+                errorCode,
+                errorMessage: errorMessage ?? "KIS token response did not include an access token."
+              })
+            );
+            return;
+          }
+
+          finish(
+            buildTokenDiagnostic({
+              requestMethod: mode,
+              baseUrl,
+              tokenEndpoint,
+              status: "success",
+              httpStatus: response.statusCode ?? null,
+              elapsedMs,
+              responseKeys,
+              hasAccessToken: true,
+              tlsSocketProtocol,
+              errorCode,
+              errorMessage: null
+            })
+          );
+        });
+      }
+    );
+
+    request.setTimeout(TOKEN_FETCH_TIMEOUT_MS, () => {
+      timedOut = true;
+      request.destroy(new Error(`KIS token request timed out after ${TOKEN_FETCH_TIMEOUT_MS}ms.`));
+    });
+
+    request.on("error", (error) => {
+      finish(
+        buildTokenDiagnostic({
+          requestMethod: mode,
+          baseUrl,
+          tokenEndpoint,
+          status: timedOut ? "timeout" : "network_fetch_failed",
+          httpStatus: null,
+          elapsedMs: Date.now() - startedAt,
+          responseKeys: [],
+          hasAccessToken: false,
+          errorName: error.name,
+          errorCode: null,
+          errorMessage: error.message,
+          errorCause: extractErrorCause(error)
+        })
+      );
+    });
+
+    request.write(requestBody);
+    request.end();
+  });
 }
 
 export async function diagnoseKisTokenEndpoint(
@@ -638,17 +912,17 @@ export async function diagnoseKisTokenEndpoint(
   const appSecret = process.env.KIS_APP_SECRET?.trim();
 
   if (!appKey || !appSecret) {
-    return {
+    return buildTokenDiagnostic({
+      requestMethod: "fetch",
       baseUrl,
       tokenEndpoint,
       status: "missing_env",
       httpStatus: null,
       elapsedMs: null,
       responseKeys: [],
-      errorCode: null,
-      errorMessage: "KIS credentials are not configured.",
-      environment
-    };
+      hasAccessToken: false,
+      errorMessage: "KIS credentials are not configured."
+    });
   }
 
   const result = await requestKisTokenEndpoint(baseUrl, appKey, appSecret);
@@ -1011,12 +1285,17 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     return {
       ...config,
       tokenStatus: "missing_env",
+      tokenRequestMethod: "fetch",
       tokenEndpoint: getTokenEndpoint(config.baseUrl),
       tokenHttpStatus: null,
       tokenElapsedMs: null,
       tokenResponseKeys: [],
+      tokenHasAccessToken: false,
+      tokenTlsSocketProtocol: null,
       tokenErrorCode: null,
+      tokenErrorName: null,
       tokenErrorMessage: "KIS credentials are not configured.",
+      tokenErrorCause: null,
       tokenLikelyCooldownIssue: false,
       tokenLikelyPermissionIssue: false,
       tokenLikelyEndpointIssue: false,
@@ -1051,38 +1330,55 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   }
 
   let tokenStatus: KisCurrentQuoteDiagnostic["tokenStatus"] = "success";
+  let tokenRequestMethod: KisCurrentQuoteDiagnostic["tokenRequestMethod"] = "fetch";
   let tokenErrorMessage: string | null = null;
   let tokenErrorCode: string | null = null;
+  let tokenErrorName: string | null = null;
+  let tokenErrorCause: string | null = null;
   let tokenSource: KisCurrentQuoteDiagnostic["tokenSource"] = "none";
   let tokenExpiresAt: string | null = tokenCache.expiresAtIso;
   let tokenEndpoint = getTokenEndpoint(config.baseUrl);
   let tokenHttpStatus: number | null = kisTokenCache.lastHttpStatus;
   let tokenElapsedMs: number | null = kisTokenCache.lastElapsedMs;
   let tokenResponseKeys: string[] = kisTokenCache.lastResponseKeys;
+  let tokenHasAccessToken = false;
+  let tokenTlsSocketProtocol: string | null = null;
 
   try {
     const tokenMeta = await getKisAccessTokenWithMeta();
     tokenSource = tokenMeta.source;
     tokenExpiresAt = tokenMeta.expiresAtIso;
     tokenStatus = tokenMeta.diagnostic.status;
+    tokenRequestMethod = tokenMeta.diagnostic.requestMethod;
     tokenEndpoint = tokenMeta.diagnostic.tokenEndpoint;
     tokenHttpStatus = tokenMeta.diagnostic.httpStatus;
     tokenElapsedMs = tokenMeta.diagnostic.elapsedMs;
     tokenResponseKeys = tokenMeta.diagnostic.responseKeys;
+    tokenHasAccessToken = tokenMeta.diagnostic.hasAccessToken;
+    tokenTlsSocketProtocol = tokenMeta.diagnostic.tlsSocketProtocol;
+    tokenErrorName = tokenMeta.diagnostic.errorName;
+    tokenErrorCause = tokenMeta.diagnostic.errorCause;
   } catch (error) {
     if (error instanceof KisTokenRequestError) {
       tokenStatus = error.diagnostic.status;
+      tokenRequestMethod = error.diagnostic.requestMethod;
       tokenErrorMessage = error.diagnostic.errorMessage;
       tokenErrorCode = error.diagnostic.errorCode;
+      tokenErrorName = error.diagnostic.errorName;
+      tokenErrorCause = error.diagnostic.errorCause;
       tokenEndpoint = error.diagnostic.tokenEndpoint;
       tokenHttpStatus = error.diagnostic.httpStatus;
       tokenElapsedMs = error.diagnostic.elapsedMs;
       tokenResponseKeys = error.diagnostic.responseKeys;
+      tokenHasAccessToken = error.diagnostic.hasAccessToken;
+      tokenTlsSocketProtocol = error.diagnostic.tlsSocketProtocol;
     } else {
       tokenStatus = "network_fetch_failed";
       tokenErrorMessage =
         error instanceof Error ? error.message : "Failed to issue KIS access token.";
       tokenErrorCode = extractKisErrorCode(tokenErrorMessage);
+      tokenErrorName = error instanceof Error ? error.name : null;
+      tokenErrorCause = extractErrorCause(error);
     }
   }
 
@@ -1092,12 +1388,17 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     return {
       ...config,
       tokenStatus,
+      tokenRequestMethod,
       tokenEndpoint,
       tokenHttpStatus,
       tokenElapsedMs,
       tokenResponseKeys,
+      tokenHasAccessToken,
+      tokenTlsSocketProtocol,
       tokenErrorCode,
+      tokenErrorName,
       tokenErrorMessage,
+      tokenErrorCause,
       tokenLikelyCooldownIssue: tokenFlags.likelyCooldownIssue,
       tokenLikelyPermissionIssue: tokenFlags.likelyPermissionIssue,
       tokenLikelyEndpointIssue: tokenFlags.likelyEndpointIssue,
@@ -1200,12 +1501,17 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   return {
     ...config,
     tokenStatus,
+    tokenRequestMethod,
     tokenEndpoint,
     tokenHttpStatus,
     tokenElapsedMs,
     tokenResponseKeys,
+    tokenHasAccessToken,
+    tokenTlsSocketProtocol,
     tokenErrorCode,
+    tokenErrorName,
     tokenErrorMessage,
+    tokenErrorCause,
     tokenLikelyCooldownIssue: tokenFlags.likelyCooldownIssue,
     tokenLikelyPermissionIssue: tokenFlags.likelyPermissionIssue,
     tokenLikelyEndpointIssue: tokenFlags.likelyEndpointIssue,
@@ -1249,14 +1555,19 @@ async function getKisAccessTokenWithMeta(): Promise<{
 }> {
   const config = getKisConfigSnapshot();
   const cachedDiagnostic: KisTokenEndpointDiagnostic = {
+    requestMethod: "fetch",
     baseUrl: config.baseUrl,
     tokenEndpoint: kisTokenCache.lastTokenEndpoint ?? getTokenEndpoint(config.baseUrl),
     status: kisTokenCache.lastStatus ?? "success",
     httpStatus: kisTokenCache.lastHttpStatus,
     elapsedMs: kisTokenCache.lastElapsedMs,
     responseKeys: kisTokenCache.lastResponseKeys,
+    hasAccessToken: Boolean(kisTokenCache.token),
+    tlsSocketProtocol: null,
     errorCode: kisTokenCache.lastErrorCode,
+    errorName: null,
     errorMessage: kisTokenCache.lastErrorMessage,
+    errorCause: null,
     environment: getKisEnvironmentDiagnostic()
   };
 
@@ -1342,14 +1653,19 @@ async function getKisAccessTokenWithMeta(): Promise<{
     expiresAtIso: toIso(kisTokenCache.expiresAtMs),
     issuedAtIso: toIso(kisTokenCache.lastIssuedAtMs),
     diagnostic: {
+      requestMethod: "fetch",
       baseUrl: config.baseUrl,
       tokenEndpoint: kisTokenCache.lastTokenEndpoint ?? getTokenEndpoint(config.baseUrl),
       status: kisTokenCache.lastStatus ?? "success",
       httpStatus: kisTokenCache.lastHttpStatus,
       elapsedMs: kisTokenCache.lastElapsedMs,
       responseKeys: kisTokenCache.lastResponseKeys,
+      hasAccessToken: Boolean(kisTokenCache.token),
+      tlsSocketProtocol: null,
       errorCode: kisTokenCache.lastErrorCode,
+      errorName: null,
       errorMessage: kisTokenCache.lastErrorMessage,
+      errorCause: null,
       environment: getKisEnvironmentDiagnostic()
     }
   };

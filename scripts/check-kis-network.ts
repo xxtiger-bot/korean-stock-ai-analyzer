@@ -1,38 +1,12 @@
-import fs from "node:fs";
-import path from "node:path";
+import { loadEnvConfig } from "@next/env";
 
 import {
   diagnoseKisTokenEndpoint,
+  diagnoseKisTokenEndpointViaHttps,
   getKisEnvironmentDiagnostic
 } from "../lib/providers/kis";
 
-function loadLocalEnvFile() {
-  const envPath = path.join(process.cwd(), ".env.local");
-  if (!fs.existsSync(envPath)) return;
-
-  const content = fs.readFileSync(envPath, "utf8");
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    const separatorIndex = trimmed.indexOf("=");
-    if (separatorIndex <= 0) continue;
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    let value = trimmed.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    if (!(key in process.env)) {
-      process.env[key] = value;
-    }
-  }
-}
+loadEnvConfig(process.cwd());
 
 function safeText(value: string | null | undefined) {
   if (typeof value !== "string") return "N/A";
@@ -40,38 +14,85 @@ function safeText(value: string | null | undefined) {
   return trimmed.length > 0 ? trimmed : "N/A";
 }
 
-async function run() {
-  loadLocalEnvFile();
+function maskValue(value: string | undefined) {
+  if (!value) return "N/A";
+  const trimmed = value.trim();
+  if (trimmed.length <= 8) {
+    return `${trimmed.slice(0, 2)}***${trimmed.slice(-2)}`;
+  }
+  return `${trimmed.slice(0, 4)}***${trimmed.slice(-4)}`;
+}
 
+function hasWhitespaceInside(value: string | undefined) {
+  if (!value) return false;
+  return /\s/.test(value);
+}
+
+function hasQuotes(value: string | undefined) {
+  if (!value) return false;
+  return /['"]/.test(value);
+}
+
+function hasNewline(value: string | undefined) {
+  if (!value) return false;
+  return /[\r\n]/.test(value);
+}
+
+async function run() {
   const env = getKisEnvironmentDiagnostic();
+  const appKey = process.env.KIS_APP_KEY;
+  const appSecret = process.env.KIS_APP_SECRET;
   console.log(
     [
+      `envLoaded=.env.local via @next/env`,
       `nodeEnv=${env.nodeEnv}`,
       `vercel=${env.vercel ? "yes" : "no"}`,
       `vercelEnv=${safeText(env.vercelEnv)}`,
       `kisBaseUrlConfigured=${env.baseUrlConfigured ? "yes" : "no"}`,
       `kisBaseUrl=${env.baseUrl}`,
-      `kisAppKey=${safeText(env.appKeyMasked)}`,
-      `kisAppSecret=${safeText(env.appSecretMasked)}`
+      `kisAppKeyExists=${appKey ? "yes" : "no"}`,
+      `kisAppKeyLength=${appKey?.length ?? 0}`,
+      `kisAppKeyMasked=${maskValue(appKey)}`,
+      `kisAppKeyHasSpaces=${hasWhitespaceInside(appKey) ? "yes" : "no"}`,
+      `kisAppKeyHasQuotes=${hasQuotes(appKey) ? "yes" : "no"}`,
+      `kisAppKeyHasNewline=${hasNewline(appKey) ? "yes" : "no"}`,
+      `kisAppSecretExists=${appSecret ? "yes" : "no"}`,
+      `kisAppSecretLength=${appSecret?.length ?? 0}`,
+      `kisAppSecretMasked=${maskValue(appSecret)}`,
+      `kisAppSecretHasSpaces=${hasWhitespaceInside(appSecret) ? "yes" : "no"}`,
+      `kisAppSecretHasQuotes=${hasQuotes(appSecret) ? "yes" : "no"}`,
+      `kisAppSecretHasNewline=${hasNewline(appSecret) ? "yes" : "no"}`
     ].join(" | ")
   );
 
   const endpoints = [env.baseUrl, "https://openapivts.koreainvestment.com:29443", "https://openapi.koreainvestment.com:9443"];
 
   for (const endpoint of endpoints) {
-    const result = await diagnoseKisTokenEndpoint(endpoint);
-    console.log(
-      [
-        `baseUrl=${result.baseUrl}`,
-        `tokenEndpoint=${result.tokenEndpoint}`,
-        `status=${result.status}`,
-        `httpStatus=${result.httpStatus ?? "N/A"}`,
-        `elapsedMs=${typeof result.elapsedMs === "number" ? result.elapsedMs : "N/A"}`,
-        `errorCode=${safeText(result.errorCode)}`,
-        `errorMessage=${safeText(result.errorMessage)}`,
-        `responseKeys=${result.responseKeys.length > 0 ? result.responseKeys.join(",") : "N/A"}`
-      ].join(" | ")
-    );
+    const [fetchResult, httpsResult, legacyResult] = await Promise.all([
+      diagnoseKisTokenEndpoint(endpoint),
+      diagnoseKisTokenEndpointViaHttps(endpoint, "normal_https_request"),
+      diagnoseKisTokenEndpointViaHttps(endpoint, "legacy_tls_https_request")
+    ]);
+
+    for (const result of [fetchResult, httpsResult, legacyResult]) {
+      console.log(
+        [
+          `baseUrl=${result.baseUrl}`,
+          `method=${result.requestMethod}`,
+          `tokenEndpoint=${result.tokenEndpoint}`,
+          `status=${result.status}`,
+          `httpStatus=${result.httpStatus ?? "N/A"}`,
+          `elapsedMs=${typeof result.elapsedMs === "number" ? result.elapsedMs : "N/A"}`,
+          `hasAccessToken=${result.hasAccessToken ? "yes" : "no"}`,
+          `tlsSocketProtocol=${safeText(result.tlsSocketProtocol)}`,
+          `errorCode=${safeText(result.errorCode)}`,
+          `errorName=${safeText(result.errorName)}`,
+          `errorMessage=${safeText(result.errorMessage)}`,
+          `errorCause=${safeText(result.errorCause)}`,
+          `responseKeys=${result.responseKeys.length > 0 ? result.responseKeys.join(",") : "N/A"}`
+        ].join(" | ")
+      );
+    }
   }
 }
 
