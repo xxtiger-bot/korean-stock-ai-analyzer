@@ -305,6 +305,10 @@ export default async function MarketDataDebugPage() {
                     <dd>{kis.tokenStatus}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>token method</dt>
+                    <dd>{kis.tokenRequestMethod}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>token endpoint</dt>
                     <dd className="text-right break-all">{kis.tokenEndpoint}</dd>
                   </div>
@@ -347,6 +351,10 @@ export default async function MarketDataDebugPage() {
                   <div className="flex justify-between gap-3">
                     <dt>TR ID</dt>
                     <dd>{safeText(kis.trId)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>quote httpStatus</dt>
+                    <dd>{typeof kis.quoteHttpStatus === "number" ? kis.quoteHttpStatus : "정보 없음"}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>raw price</dt>

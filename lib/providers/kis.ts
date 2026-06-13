@@ -81,6 +81,7 @@ type KisQuoteRequestResult = {
   hasMarketDivCodeParam: boolean;
   hasInputIscdParam: boolean;
   trId: string;
+  quoteHttpStatus: number | null;
   rawResponseKeys: string[];
   rawPriceCandidateFields: Record<string, KisQuoteDebugValue>;
   rawRtCd: string | null;
@@ -134,6 +135,7 @@ export type KisCurrentQuoteDiagnostic = {
   hasMarketDivCodeParam: boolean;
   hasInputIscdParam: boolean;
   trId: string;
+  quoteHttpStatus: number | null;
   rawResponseKeys: string[];
   rawPriceCandidateFields: Record<string, KisQuoteDebugValue>;
   rawRtCd: string | null;
@@ -222,6 +224,7 @@ class KisQuoteRequestError extends Error {
     hasMarketDivCodeParam: boolean;
     hasInputIscdParam: boolean;
     trId: string;
+    quoteHttpStatus: number | null;
     rawResponseKeys: string[];
     rawPriceCandidateFields: Record<string, KisQuoteDebugValue>;
     rawRtCd: string | null;
@@ -1116,6 +1119,7 @@ async function requestDomesticQuoteOutputOnce(
         hasMarketDivCodeParam: quoteRequest.hasMarketDivCodeParam,
         hasInputIscdParam: quoteRequest.hasInputIscdParam,
         trId: KIS_QUOTE_TR_ID,
+        quoteHttpStatus: response.status,
         rawResponseKeys,
         rawPriceCandidateFields,
         rawRtCd,
@@ -1139,6 +1143,7 @@ async function requestDomesticQuoteOutputOnce(
         hasMarketDivCodeParam: quoteRequest.hasMarketDivCodeParam,
         hasInputIscdParam: quoteRequest.hasInputIscdParam,
         trId: KIS_QUOTE_TR_ID,
+        quoteHttpStatus: response.status,
         rawResponseKeys,
         rawPriceCandidateFields,
         rawRtCd,
@@ -1162,6 +1167,7 @@ async function requestDomesticQuoteOutputOnce(
         hasMarketDivCodeParam: quoteRequest.hasMarketDivCodeParam,
         hasInputIscdParam: quoteRequest.hasInputIscdParam,
         trId: KIS_QUOTE_TR_ID,
+        quoteHttpStatus: response.status,
         rawResponseKeys,
         rawPriceCandidateFields,
         rawRtCd,
@@ -1187,6 +1193,7 @@ async function requestDomesticQuoteOutputOnce(
         hasMarketDivCodeParam: quoteRequest.hasMarketDivCodeParam,
         hasInputIscdParam: quoteRequest.hasInputIscdParam,
         trId: KIS_QUOTE_TR_ID,
+        quoteHttpStatus: response.status,
         rawResponseKeys,
         rawPriceCandidateFields,
         rawRtCd,
@@ -1207,6 +1214,7 @@ async function requestDomesticQuoteOutputOnce(
     hasMarketDivCodeParam: quoteRequest.hasMarketDivCodeParam,
     hasInputIscdParam: quoteRequest.hasInputIscdParam,
     trId: KIS_QUOTE_TR_ID,
+    quoteHttpStatus: response.status,
     rawResponseKeys,
     rawPriceCandidateFields,
     rawRtCd,
@@ -1308,6 +1316,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       hasMarketDivCodeParam: true,
       hasInputIscdParam: true,
       trId: KIS_QUOTE_TR_ID,
+      quoteHttpStatus: null,
       rawResponseKeys: [],
       rawPriceCandidateFields: getRawPriceCandidateFields(null),
       rawRtCd: null,
@@ -1411,6 +1420,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       hasMarketDivCodeParam: true,
       hasInputIscdParam: true,
       trId: KIS_QUOTE_TR_ID,
+      quoteHttpStatus: null,
       rawResponseKeys: [],
       rawPriceCandidateFields: getRawPriceCandidateFields(null),
       rawRtCd: null,
@@ -1443,6 +1453,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   let hasMarketDivCodeParam = true;
   let hasInputIscdParam = true;
   let trId = KIS_QUOTE_TR_ID;
+  let quoteHttpStatus: number | null = null;
   let rawResponseKeys: string[] = [];
   let rawPriceCandidateFields = getRawPriceCandidateFields(null);
   let rawRtCd: string | null = null;
@@ -1458,6 +1469,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     hasMarketDivCodeParam = result.hasMarketDivCodeParam;
     hasInputIscdParam = result.hasInputIscdParam;
     trId = result.trId;
+    quoteHttpStatus = result.quoteHttpStatus;
     rawResponseKeys = result.rawResponseKeys;
     rawPriceCandidateFields = result.rawPriceCandidateFields;
     rawRtCd = result.rawRtCd;
@@ -1487,6 +1499,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       hasMarketDivCodeParam = error.details.hasMarketDivCodeParam;
       hasInputIscdParam = error.details.hasInputIscdParam;
       trId = error.details.trId;
+      quoteHttpStatus = error.details.quoteHttpStatus;
       rawResponseKeys = error.details.rawResponseKeys;
       rawPriceCandidateFields = error.details.rawPriceCandidateFields;
       rawRtCd = error.details.rawRtCd;
@@ -1524,6 +1537,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     hasMarketDivCodeParam,
     hasInputIscdParam,
     trId,
+    quoteHttpStatus,
     rawResponseKeys,
     rawPriceCandidateFields,
     rawRtCd,
@@ -1710,6 +1724,7 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
           hasMarketDivCodeParam: result.hasMarketDivCodeParam,
           hasInputIscdParam: result.hasInputIscdParam,
           trId: result.trId,
+          quoteHttpStatus: result.quoteHttpStatus,
           rawResponseKeys: result.rawResponseKeys,
           rawPriceCandidateFields: result.rawPriceCandidateFields,
           rawRtCd: result.rawRtCd,
