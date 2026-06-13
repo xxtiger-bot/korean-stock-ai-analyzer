@@ -191,18 +191,32 @@ export function StockDetailClient({
     resolvedPrice.priceKind === "recent_close"
       ? `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
       : "최근 일봉 데이터 기준";
+  const addToPortfolioHref = `/portfolio?${new URLSearchParams({
+    add: stock.symbol,
+    name: stock.koreanName
+  }).toString()}`;
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/"
-          className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          홈
-        </Link>
-        <WatchlistButton symbol={stock.symbol} />
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/"
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            홈
+          </Link>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href={addToPortfolioHref}
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            내 보유종목에 추가
+          </Link>
+          <WatchlistButton symbol={stock.symbol} />
+        </div>
       </div>
 
       <section className="min-w-0 max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">

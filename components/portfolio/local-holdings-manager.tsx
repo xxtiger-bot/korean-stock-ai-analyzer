@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/ui-states";
 import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
@@ -40,10 +40,20 @@ function parsePositiveNumber(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function LocalHoldingsManager({ stocks }: { stocks: Stock[] }) {
+export function LocalHoldingsManager({
+  stocks,
+  initialSymbol = "",
+  initialStockName = ""
+}: {
+  stocks: Stock[];
+  initialSymbol?: string;
+  initialStockName?: string;
+}) {
   const [holdings, setHoldings] = useState<LocalHolding[]>([]);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [appliedPrefillKey, setAppliedPrefillKey] = useState("");
+  const quantityInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setHoldings(readLocalHoldings());
@@ -55,6 +65,47 @@ export function LocalHoldingsManager({ stocks }: { stocks: Stock[] }) {
 
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
   const matchedStock = useMemo(() => findStock(safeStocks, form.symbol), [safeStocks, form.symbol]);
+  const normalizedInitialSymbol = initialSymbol.trim().toUpperCase();
+  const normalizedInitialStockName = initialStockName.trim();
+  const prefillKey = normalizedInitialSymbol
+    ? `${normalizedInitialSymbol}:${normalizedInitialStockName}`
+    : "";
+  const existingHoldingForFormSymbol = useMemo(() => {
+    const normalized = form.symbol.trim().toUpperCase();
+    if (!normalized) return null;
+    return holdings.find((holding) => holding.symbol === normalized) ?? null;
+  }, [form.symbol, holdings]);
+
+  useEffect(() => {
+    if (!prefillKey || appliedPrefillKey === prefillKey) {
+      return;
+    }
+
+    const matchedPrefillStock = findStock(safeStocks, normalizedInitialSymbol);
+    setForm((current) => ({
+      ...current,
+      symbol: normalizedInitialSymbol,
+      stockName:
+        normalizedInitialStockName ||
+        matchedPrefillStock?.koreanName ||
+        matchedPrefillStock?.name ||
+        current.stockName
+    }));
+    setAppliedPrefillKey(prefillKey);
+
+    const focusHandle = window.setTimeout(() => {
+      quantityInputRef.current?.focus();
+      quantityInputRef.current?.select();
+    }, 0);
+
+    return () => window.clearTimeout(focusHandle);
+  }, [
+    appliedPrefillKey,
+    normalizedInitialStockName,
+    normalizedInitialSymbol,
+    prefillKey,
+    safeStocks
+  ]);
 
   const localSummary = useMemo(() => {
     return holdings.map((holding) => {
@@ -200,6 +251,11 @@ export function LocalHoldingsManager({ stocks }: { stocks: Stock[] }) {
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
           현재 로컬 브라우저에만 저장됩니다. 계정 동기화는 추후 제공됩니다.
         </p>
+        {existingHoldingForFormSymbol ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            이미 로컬 보유종목에 등록된 종목입니다.
+          </div>
+        ) : null}
 
         <div className="mt-5 grid gap-3 rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-bold text-ink dark:text-white">
@@ -230,6 +286,7 @@ export function LocalHoldingsManager({ stocks }: { stocks: Stock[] }) {
           <label className="grid gap-2 text-sm font-bold text-ink dark:text-white">
             보유 수량
             <input
+              ref={quantityInputRef}
               type="number"
               min="1"
               step="1"
