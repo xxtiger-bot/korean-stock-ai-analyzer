@@ -12,41 +12,45 @@ import {
 } from "@/lib/format";
 import type { Stock } from "@/lib/types";
 
-function getDataSource(stock: Stock) {
-  const tags = Array.isArray(stock.tags) ? stock.tags : [];
-  return tags.some((tag) => tag.toLowerCase() === "data.go.kr") ? "data.go.kr" : "mock";
-}
-
 function getQuoteMeta(stock: Stock) {
   if (stock.quoteSource === "KIS") {
     return {
-      label: "현재가",
-      sourceText: "현재가: KIS",
+      heading: "현재가",
+      statusText: "KIS 현재가",
+      sourceText: "KIS 기준",
+      helperText: stock.date ? `${stock.date} 기준` : "업데이트 확인 필요",
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
 
   if (stock.quoteSource === "data.go.kr") {
     return {
-      label: "현재가 확인 불가",
-      sourceText: "최근 종가: data.go.kr",
+      heading: "최근 종가 참고",
+      statusText: "현재가 확인 불가",
+      sourceText: "data.go.kr 기준",
+      helperText: "실시간 현재가는 아닙니다.",
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
 
   if (stock.quoteSource === "none") {
-    return {
-      label: "현재가 데이터 없음",
-      sourceText: "최근 종가 참고",
+      return {
+      heading: "현재가 확인 불가",
+      statusText: "데이터 확인 필요",
+      sourceText: "데이터 확인 필요",
+      helperText: "",
       hasPrice: false
     };
   }
 
-  const tagSource = getDataSource(stock);
+  const tags = Array.isArray(stock.tags) ? stock.tags : [];
+  const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
   return {
-    label: tagSource === "data.go.kr" ? "현재가 확인 불가" : "현재가 데이터 없음",
-    sourceText: tagSource === "data.go.kr" ? "최근 종가: data.go.kr" : "최근 종가 참고",
-    hasPrice: tagSource === "data.go.kr" && Number.isFinite(stock.price) && stock.price > 0
+    heading: isDataGo ? "최근 종가 참고" : "현재가 확인 불가",
+    statusText: isDataGo ? "현재가 확인 불가" : "데이터 확인 필요",
+    sourceText: isDataGo ? "data.go.kr 기준" : "데이터 확인 필요",
+    helperText: isDataGo ? "실시간 현재가는 아닙니다." : "",
+    hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
   };
 }
 
@@ -108,17 +112,16 @@ export function StockCardGrid({
         {safeStocks.map((stock) => {
           const positive = stock.change >= 0;
           const TrendIcon = positive ? TrendingUp : TrendingDown;
-          const dataSource = getDataSource(stock);
           const quoteMeta = getQuoteMeta(stock);
           const anomalyMeta = getPriceAnomalyMeta(stock);
-          const canShowChange = quoteMeta.hasPrice;
+          const canShowChange = quoteMeta.hasPrice && quoteMeta.heading === "현재가";
           const tags = Array.isArray(stock.tags) ? stock.tags : [];
           const visibleTags = tags.filter(
             (tag) => tag.toLowerCase() !== "data.go.kr" && tag !== stock.market
           );
           const sectorLabel = stock.sector === "미분류" ? stock.market : stock.sector;
           const secondaryName =
-            stock.name && stock.name !== stock.koreanName ? stock.name : `데이터: ${dataSource}`;
+            stock.name && stock.name !== stock.koreanName ? stock.name : stock.market;
 
           return (
             <article
@@ -155,14 +158,20 @@ export function StockCardGrid({
 
               <div className="mt-3 flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold text-slate-400">{quoteMeta.label}</p>
+                  <p className="text-xs font-bold text-slate-400">{quoteMeta.heading}</p>
                   <p className="text-lg font-bold text-ink dark:text-white">
                     {quoteMeta.hasPrice
-                      ? quoteMeta.label === "현재가"
-                        ? formatKRW(stock.price)
-                        : `최근 종가 ${formatKRW(stock.price)}`
-                      : "최근 종가 참고"}
+                      ? formatKRW(stock.price)
+                      : "데이터 확인 필요"}
                   </p>
+                  <p className="mt-1 text-[11px] font-bold text-slate-400">
+                    {quoteMeta.sourceText}
+                  </p>
+                  {quoteMeta.helperText ? (
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                      {quoteMeta.helperText}
+                    </p>
+                  ) : null}
                   {canShowChange ? (
                     <span
                       className={`mt-2 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold ${changeBgClass(
@@ -174,7 +183,7 @@ export function StockCardGrid({
                     </span>
                   ) : (
                     <span className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
-                      확인 필요
+                      {quoteMeta.hasPrice ? "참고 가격" : "데이터 확인 필요"}
                     </span>
                   )}
                 </div>
@@ -211,8 +220,7 @@ export function StockCardGrid({
                   {sectorLabel}
                 </span>
                 <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
-                  {quoteMeta.sourceText}
-                  {stock.date ? ` · ${stock.date} 기준` : ""}
+                  {quoteMeta.statusText}
                 </span>
                 {anomalyMeta ? (
                   <span

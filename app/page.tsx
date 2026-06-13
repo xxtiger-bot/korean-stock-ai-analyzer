@@ -25,6 +25,7 @@ import {
   getStocksWithPreferredQuote,
   searchStocks
 } from "@/lib/stock-provider";
+import type { Stock } from "@/lib/types";
 
 export const revalidate = 60;
 
@@ -76,23 +77,25 @@ export default async function Home() {
   const rawAllStocks = Array.isArray(fetchedAllStocks) ? fetchedAllStocks : [];
   const rawPopularStocks = Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : [];
 
-  // Home 성능 최적화: 첫 화면과 핵심 섹션에 노출되는 종목만 우선 시세 보정.
-  const stockBySymbol = new Map(rawAllStocks.map((stock) => [stock.symbol, stock]));
-  const quoteCandidateSymbols = new Set<string>();
+  // Home 성능 최적화: 첫 화면과 추천 카드에 노출되는 종목만 우선 시세 보정.
+  const quoteCandidateMap = new Map<string, Stock>();
 
-  rawPopularStocks.slice(0, 3).forEach((stock) => {
-    if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
+  [...rawPopularStocks.slice(0, 8), ...rawAllStocks.slice(0, 12)].forEach((stock) => {
+    if (stock?.symbol && !quoteCandidateMap.has(stock.symbol)) {
+      quoteCandidateMap.set(stock.symbol, stock);
+    }
   });
-  rawAllStocks.slice(0, 12).forEach((stock) => {
-    if (stock?.symbol) quoteCandidateSymbols.add(stock.symbol);
-  });
+
   ["005930", "000660", "035420"].forEach((symbol) => {
-    quoteCandidateSymbols.add(symbol);
+    const fromAllStocks = rawAllStocks.find((stock) => stock.symbol === symbol);
+    const fromPopularStocks = rawPopularStocks.find((stock) => stock.symbol === symbol);
+    const candidate = fromAllStocks ?? fromPopularStocks;
+    if (candidate && !quoteCandidateMap.has(symbol)) {
+      quoteCandidateMap.set(symbol, candidate);
+    }
   });
 
-  const quoteCandidates = Array.from(quoteCandidateSymbols)
-    .map((symbol) => stockBySymbol.get(symbol))
-    .filter((stock): stock is NonNullable<typeof stock> => Boolean(stock));
+  const quoteCandidates = Array.from(quoteCandidateMap.values());
 
   const quotedCandidates = await withSoftTimeout(
     getStocksWithPreferredQuote(quoteCandidates),
