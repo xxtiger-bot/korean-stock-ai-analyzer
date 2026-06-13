@@ -171,8 +171,13 @@ export default async function MarketDataDebugPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <p className="text-xs font-bold uppercase tracking-normal text-brand">Debug</p>
+      <section className="rounded-lg border border-amber-200 bg-white p-5 shadow-soft dark:border-amber-900/60 dark:bg-dark-panel">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-bold uppercase tracking-normal text-amber-700 dark:text-amber-300">DEBUG</p>
+          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            내부 진단 페이지
+          </span>
+        </div>
         <h1 className="mt-2 text-2xl font-bold text-ink dark:text-white">Current Price Source Diagnostic</h1>
         <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
           현재 사용자 페이지 가격 표시 규칙은 그대로 유지한 상태에서, KIS 현재가 / 외부 참고가 / data.go.kr 최근
