@@ -57,3 +57,14 @@ canvas {
 ::selection {
   background: rgba(23, 105, 255, 0.16);
 }
+
+.stock-price-shell,
+.stock-price-shell * {
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+}
+
+.stock-price-value {
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+}

@@ -214,7 +214,7 @@ export function StockDetailClient({
         </Link>
       </div>
 
-      <section className="min-w-0 max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+      <section className="stock-price-shell min-w-0 max-w-full rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="min-w-0">
             <div className="flex max-w-full flex-wrap items-center gap-2">
@@ -265,7 +265,7 @@ export function StockDetailClient({
           </div>
           <div className="min-w-0 max-w-full rounded-lg border border-line bg-slate-50/80 p-4 text-left dark:border-dark-line dark:bg-slate-900/50 lg:min-w-[260px] lg:text-right">
             <p className="mb-1 text-xs font-bold text-slate-400">{headlineLabel}</p>
-            <p className="break-words text-3xl font-bold text-ink dark:text-white sm:text-4xl">
+            <p className="stock-price-value break-words text-3xl font-bold text-ink dark:text-white sm:text-4xl">
               {displayPriceText}
             </p>
             <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -292,7 +292,7 @@ export function StockDetailClient({
             <p className="text-[11px] font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400">
               최근 종가
             </p>
-            <p className="mt-1 text-base font-bold text-ink dark:text-white">{referenceCloseValue}</p>
+            <p className="stock-price-value mt-1 text-base font-bold text-ink dark:text-white">{referenceCloseValue}</p>
             <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
               data.go.kr 기준
             </p>
