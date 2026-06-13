@@ -20,6 +20,11 @@ type FormState = {
   memo: string;
 };
 
+type HoldingQuoteState = {
+  stock: Stock | null;
+  error: string | null;
+};
+
 const INITIAL_FORM: FormState = {
   symbol: "",
   stockName: "",
@@ -40,6 +45,15 @@ function parsePositiveNumber(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function hasUsableReferencePrice(stock: Stock | null | undefined) {
+  if (!stock) return false;
+  if (stock.quoteSource !== "KIS" && stock.quoteSource !== "data.go.kr") {
+    return false;
+  }
+
+  return Number.isFinite(stock.price) && stock.price > 0;
+}
+
 export function LocalHoldingsManager({
   stocks,
   initialSymbol = "",
@@ -52,6 +66,7 @@ export function LocalHoldingsManager({
   const [holdings, setHoldings] = useState<LocalHolding[]>([]);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [quotedStocksBySymbol, setQuotedStocksBySymbol] = useState<Record<string, HoldingQuoteState>>({});
   const [appliedPrefillKey, setAppliedPrefillKey] = useState("");
   const quantityInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -61,6 +76,69 @@ export function LocalHoldingsManager({
 
   useEffect(() => {
     writeLocalHoldings(holdings);
+  }, [holdings]);
+
+  useEffect(() => {
+    const symbols = Array.from(
+      new Set(
+        holdings
+          .map((holding) => holding.symbol.trim().toUpperCase())
+          .filter((symbol) => symbol.length > 0)
+      )
+    );
+
+    if (symbols.length === 0) {
+      setQuotedStocksBySymbol({});
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadHoldingQuotes() {
+      const entries = await Promise.all(
+        symbols.map(async (symbol) => {
+          try {
+            const response = await fetch(`/api/stocks/search?keyword=${encodeURIComponent(symbol)}`, {
+              method: "GET",
+              cache: "no-store"
+            });
+
+            if (!response.ok) {
+              return [symbol, { stock: null, error: `HTTP ${response.status}` } satisfies HoldingQuoteState] as const;
+            }
+
+            const payload = (await response.json().catch(() => null)) as
+              | { results?: Stock[] }
+              | null;
+            const results = Array.isArray(payload?.results) ? payload.results : [];
+            const exactMatch =
+              results.find((item) => item.symbol.trim().toUpperCase() === symbol) ?? null;
+
+            return [symbol, { stock: exactMatch, error: null } satisfies HoldingQuoteState] as const;
+          } catch (error) {
+            return [
+              symbol,
+              {
+                stock: null,
+                error: error instanceof Error ? error.message : "Failed to load quote."
+              } satisfies HoldingQuoteState
+            ] as const;
+          }
+        })
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setQuotedStocksBySymbol(Object.fromEntries(entries));
+    }
+
+    void loadHoldingQuotes();
+
+    return () => {
+      cancelled = true;
+    };
   }, [holdings]);
 
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
@@ -109,16 +187,22 @@ export function LocalHoldingsManager({
 
   const localSummary = useMemo(() => {
     return holdings.map((holding) => {
-      const stock = findStock(safeStocks, holding.symbol);
-      const referencePrice =
-        stock && Number.isFinite(stock.price) && stock.price > 0 ? stock.price : null;
+      const baseStock = findStock(safeStocks, holding.symbol);
+      const quotedStock = quotedStocksBySymbol[holding.symbol]?.stock ?? null;
+      const stock = quotedStock ?? baseStock;
+      const priceAvailable = hasUsableReferencePrice(quotedStock);
+      const referencePrice = priceAvailable && quotedStock ? quotedStock.price : null;
       const referenceLabel = !referencePrice
-        ? "평가 데이터 확인 필요"
-        : stock?.quoteSource === "data.go.kr"
-          ? "최근 종가 기준 참고"
-          : stock?.quoteSource === "KIS"
-            ? "KIS 기준"
-            : stock?.quoteLabel ?? "현재 참고가";
+        ? "데이터 확인 필요"
+        : quotedStock?.quoteSource === "KIS"
+          ? "KIS 기준"
+          : "최근 종가 기준";
+      const referenceDescription =
+        !referencePrice
+          ? "평가 데이터 확인 필요"
+          : quotedStock?.quoteSource === "KIS"
+            ? "현재 참고가"
+            : "실시간 현재가는 아닙니다.";
       const valuationAmount = referencePrice !== null ? referencePrice * holding.quantity : null;
       const profitLoss =
         referencePrice !== null
@@ -134,12 +218,13 @@ export function LocalHoldingsManager({
         stock,
         referencePrice,
         referenceLabel,
+        referenceDescription,
         valuationAmount,
         profitLoss,
         returnRate
       };
     });
-  }, [holdings, safeStocks]);
+  }, [holdings, quotedStocksBySymbol, safeStocks]);
 
   const summaryStats = useMemo(() => {
     const holdingCount = localSummary.length;
@@ -436,9 +521,10 @@ export function LocalHoldingsManager({
               </div>
             </div>
 
-            {localSummary.map(({ holding, referencePrice, profitLoss, returnRate, stock }) => {
+            {localSummary.map(({ holding, referencePrice, profitLoss, returnRate, stock, referenceLabel, referenceDescription }) => {
               const priceAvailable = referencePrice !== null;
               const name = holding.stockName || stock?.koreanName || stock?.name || holding.symbol;
+              const profitLossLabel = stock?.quoteSource === "data.go.kr" ? "참고 손익" : "평가 손익";
               return (
                 <div
                   key={holding.id}
@@ -477,8 +563,10 @@ export function LocalHoldingsManager({
                         {priceAvailable ? formatKRW(referencePrice) : "데이터 확인 필요"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-slate-400">
-                        {priceAvailable ? stock?.quoteLabel ?? "최근 종가" : "평가 데이터 확인 필요"}{" "}
-                        {priceAvailable && stock?.quoteSource === "data.go.kr" ? "· 최근 종가 기준 참고" : ""}
+                        {priceAvailable ? referenceLabel : "데이터 확인 필요"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        {referenceDescription}
                       </p>
                     </div>
                     <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
@@ -490,7 +578,7 @@ export function LocalHoldingsManager({
                       </p>
                     </div>
                     <div className="rounded-lg border border-line bg-white p-3 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">평가 손익</p>
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{profitLossLabel}</p>
                       <p
                         className={`mt-2 text-base font-bold ${
                           profitLoss !== null ? changeColorClass(profitLoss) : "text-slate-500 dark:text-slate-400"
