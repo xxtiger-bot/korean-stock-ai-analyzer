@@ -193,16 +193,18 @@ export function LocalHoldingsManager({
       const priceAvailable = hasUsableReferencePrice(quotedStock);
       const referencePrice = priceAvailable && quotedStock ? quotedStock.price : null;
       const referenceLabel = !referencePrice
-        ? "데이터 확인 필요"
+        ? "가격 데이터 대기 중"
         : quotedStock?.quoteSource === "KIS"
           ? "KIS 기준"
           : "최근 종가 기준";
       const referenceDescription =
         !referencePrice
-          ? "평가 데이터 확인 필요"
+          ? "잠시 후 다시 확인됩니다."
           : quotedStock?.quoteSource === "KIS"
-            ? "현재 참고가"
-            : "실시간 현재가는 아닙니다.";
+            ? quotedStock.date
+              ? `업데이트 ${quotedStock.date}${quotedStock.date.includes("KST") ? "" : " KST"}`
+              : "현재 참고가"
+            : "실시간 현재가는 잠시 후 다시 확인됩니다.";
       const valuationAmount = referencePrice !== null ? referencePrice * holding.quantity : null;
       const profitLoss =
         referencePrice !== null
@@ -437,9 +439,29 @@ export function LocalHoldingsManager({
           <div className="mt-5 rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
             <EmptyState
               compact
-              title="로컬 보유종목 없음"
-              description="로컬 브라우저에 보유종목을 추가하면 평가 금액과 참고 손익을 바로 확인할 수 있습니다."
+              title="내 보유종목을 추가해 보세요."
+              description="종목 상세 페이지에서 '내 보유종목에 추가'를 누르거나, 아래에서 종목 코드와 매입가를 직접 입력할 수 있습니다."
             />
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <a
+                href="/portfolio?add=005930&name=삼성전자"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+              >
+                삼성전자 추가
+              </a>
+              <a
+                href="/portfolio?add=000660&name=SK하이닉스"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+              >
+                SK하이닉스 추가
+              </a>
+              <a
+                href="/portfolio?add=035420&name=NAVER"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+              >
+                NAVER 추가
+              </a>
+            </div>
           </div>
         ) : (
           <div className="mt-5 grid gap-3">

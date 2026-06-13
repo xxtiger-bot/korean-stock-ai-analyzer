@@ -8,6 +8,11 @@ import { EmptyState } from "@/components/ui-states";
 import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
 import type { Stock } from "@/lib/types";
 
+function formatUpdateLabel(value: string | null | undefined) {
+  if (!value) return "업데이트 확인 중";
+  return value.includes("KST") ? `업데이트 ${value}` : `업데이트 ${value} KST`;
+}
+
 function filterStocks(stocks: Stock[], query: string) {
   const safeStocks = Array.isArray(stocks) ? stocks : [];
   const normalized = query.trim().toLowerCase();
@@ -79,27 +84,27 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
         heading: "현재가",
         statusText: "KIS 현재가",
         sourceText: "KIS 기준",
-        helperText: stock.date ? `${stock.date} 기준` : "업데이트 확인 필요",
+        helperText: formatUpdateLabel(stock.date),
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
 
     if (stock.quoteSource === "data.go.kr") {
       return {
-        heading: "최근 종가 참고",
-        statusText: "현재가 확인 불가",
+        heading: "최근 종가 기준",
+        statusText: "최근 종가 기준",
         sourceText: "data.go.kr 기준",
-        helperText: "실시간 현재가는 아닙니다.",
+        helperText: "실시간 현재가는 잠시 후 다시 확인됩니다.",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
 
     if (stock.quoteSource === "none") {
       return {
-        heading: "현재가 확인 불가",
-        statusText: "데이터 확인 필요",
-        sourceText: "데이터 확인 필요",
-        helperText: "",
+        heading: "가격 데이터 대기 중",
+        statusText: "가격 데이터 대기 중",
+        sourceText: "",
+        helperText: "잠시 후 다시 확인됩니다.",
         hasPrice: false
       };
     }
@@ -107,10 +112,10 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      heading: isDataGo ? "최근 종가 참고" : "현재가 확인 불가",
-      statusText: isDataGo ? "현재가 확인 불가" : "데이터 확인 필요",
-      sourceText: isDataGo ? "data.go.kr 기준" : "데이터 확인 필요",
-      helperText: isDataGo ? "실시간 현재가는 아닙니다." : "",
+      heading: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
+      statusText: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
+      sourceText: isDataGo ? "data.go.kr 기준" : "",
+      helperText: isDataGo ? "실시간 현재가는 잠시 후 다시 확인됩니다." : "잠시 후 다시 확인됩니다.",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };
   }
@@ -182,9 +187,11 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                         <p className="mt-1 text-[11px] font-bold text-slate-400">
                           {quote.statusText}
                         </p>
-                        <p className="mt-1 text-[11px] font-bold text-slate-400">
-                          {quote.sourceText}
-                        </p>
+                        {quote.sourceText ? (
+                          <p className="mt-1 text-[11px] font-bold text-slate-400">
+                            {quote.sourceText}
+                          </p>
+                        ) : null}
                         {getPriceAnomalyText(stock) ? (
                           <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
                             {getPriceAnomalyText(stock)}
@@ -205,11 +212,13 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                             ? quote.heading === "현재가"
                               ? formatKRW(stock.price)
                               : formatKRW(stock.price)
-                            : "데이터 확인 필요"}
+                            : "가격 데이터 대기 중"}
                         </p>
-                        <p className="mt-1 text-[11px] font-bold text-slate-400">
-                          {quote.sourceText}
-                        </p>
+                        {quote.sourceText ? (
+                          <p className="mt-1 text-[11px] font-bold text-slate-400">
+                            {quote.sourceText}
+                          </p>
+                        ) : null}
                         {quote.helperText ? (
                           <p className="mt-1 text-[11px] font-semibold text-slate-400">
                             {quote.helperText}
@@ -221,7 +230,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                           </p>
                         ) : (
                           <p className="mt-1 text-xs font-bold text-slate-400">
-                            {quote.hasPrice ? "참고 가격" : "데이터 확인 필요"}
+                            {quote.hasPrice ? "참고 가격" : "재확인 중"}
                           </p>
                         )}
                       </>

@@ -261,6 +261,9 @@ export default async function Home() {
                   AI 분석 보러가기
                 </Link>
               </div>
+              <div className="rounded-lg border border-line bg-white/80 px-4 py-3 text-sm font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel/70 dark:text-slate-300">
+                로그인하면 관심종목 관리와 향후 클라우드 동기화가 쉬워집니다.
+              </div>
             </div>
 
             <div className="grid gap-3">
@@ -366,24 +369,24 @@ export default async function Home() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
               <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                데이터 상태
+                데이터 안내
               </p>
               <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
-                데이터 확인 필요
+                일부 시장 지표는 준비 중입니다.
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-                가격 기준은 각 종목 페이지에서 확인할 수 있습니다.
+                종목별 현재가는 상세 페이지에서 확인할 수 있습니다.
               </p>
             </div>
             <div className="rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel">
               <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                오늘 시장 온도
+                로그인 안내
               </p>
               <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">
-                시장 데이터 확인 필요
+                관심종목 관리가 더 쉬워집니다.
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
-                지수 데이터 연결 후 자동 업데이트됩니다.
+                클라우드 동기화와 리스크 기록은 순차적으로 제공됩니다.
               </p>
             </div>
           </div>

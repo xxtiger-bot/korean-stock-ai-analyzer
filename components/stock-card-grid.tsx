@@ -12,33 +12,38 @@ import {
 } from "@/lib/format";
 import type { Stock } from "@/lib/types";
 
+function formatUpdateLabel(value: string | null | undefined) {
+  if (!value) return "업데이트 확인 중";
+  return value.includes("KST") ? `업데이트 ${value}` : `업데이트 ${value} KST`;
+}
+
 function getQuoteMeta(stock: Stock) {
   if (stock.quoteSource === "KIS") {
     return {
       heading: "현재가",
       statusText: "KIS 현재가",
       sourceText: "KIS 기준",
-      helperText: stock.date ? `${stock.date} 기준` : "업데이트 확인 필요",
+      helperText: formatUpdateLabel(stock.date),
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
 
   if (stock.quoteSource === "data.go.kr") {
     return {
-      heading: "최근 종가 참고",
-      statusText: "현재가 확인 불가",
+      heading: "최근 종가 기준",
+      statusText: "최근 종가 기준",
       sourceText: "data.go.kr 기준",
-      helperText: "실시간 현재가는 아닙니다.",
+      helperText: "실시간 현재가는 잠시 후 다시 확인됩니다.",
       hasPrice: Number.isFinite(stock.price) && stock.price > 0
     };
   }
 
   if (stock.quoteSource === "none") {
       return {
-      heading: "현재가 확인 불가",
-      statusText: "데이터 확인 필요",
-      sourceText: "데이터 확인 필요",
-      helperText: "",
+      heading: "가격 데이터 대기 중",
+      statusText: "가격 데이터 대기 중",
+      sourceText: "",
+      helperText: "잠시 후 다시 확인됩니다.",
       hasPrice: false
     };
   }
@@ -46,10 +51,10 @@ function getQuoteMeta(stock: Stock) {
   const tags = Array.isArray(stock.tags) ? stock.tags : [];
   const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
   return {
-    heading: isDataGo ? "최근 종가 참고" : "현재가 확인 불가",
-    statusText: isDataGo ? "현재가 확인 불가" : "데이터 확인 필요",
-    sourceText: isDataGo ? "data.go.kr 기준" : "데이터 확인 필요",
-    helperText: isDataGo ? "실시간 현재가는 아닙니다." : "",
+    heading: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
+    statusText: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
+    sourceText: isDataGo ? "data.go.kr 기준" : "",
+    helperText: isDataGo ? "실시간 현재가는 잠시 후 다시 확인됩니다." : "잠시 후 다시 확인됩니다.",
     hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
   };
 }
@@ -162,11 +167,13 @@ export function StockCardGrid({
                   <p className="text-lg font-bold text-ink dark:text-white">
                     {quoteMeta.hasPrice
                       ? formatKRW(stock.price)
-                      : "데이터 확인 필요"}
+                      : "가격 데이터 대기 중"}
                   </p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-400">
-                    {quoteMeta.sourceText}
-                  </p>
+                  {quoteMeta.sourceText ? (
+                    <p className="mt-1 text-[11px] font-bold text-slate-400">
+                      {quoteMeta.sourceText}
+                    </p>
+                  ) : null}
                   {quoteMeta.helperText ? (
                     <p className="mt-1 text-[11px] font-semibold text-slate-400">
                       {quoteMeta.helperText}
@@ -183,7 +190,7 @@ export function StockCardGrid({
                     </span>
                   ) : (
                     <span className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
-                      {quoteMeta.hasPrice ? "참고 가격" : "데이터 확인 필요"}
+                      {quoteMeta.hasPrice ? "참고 가격" : "재확인 중"}
                     </span>
                   )}
                 </div>

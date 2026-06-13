@@ -179,14 +179,18 @@ export function StockDetailClient({
   const referenceCloseDateLabel = referenceCloseAvailable
     ? `기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
     : "실시간 시세가 아닙니다.";
+  const formatKstLabel = (value: string | null | undefined, prefix: string) => {
+    if (!value) return `${prefix} 확인 중`;
+    return value.includes("KST") ? `${prefix} ${value}` : `${prefix} ${value} KST`;
+  };
   const headlineSupportText =
     resolvedPrice.priceKind === "kis_current"
-      ? `업데이트 ${resolvedPrice.updatedAt ?? "확인 필요"}`
+      ? formatKstLabel(resolvedPrice.updatedAt, "업데이트")
       : resolvedPrice.priceKind === "external_reference"
-        ? "공식 KIS 실시간 시세가 아닙니다."
+        ? formatKstLabel(resolvedPrice.updatedAt, "업데이트")
         : resolvedPrice.priceKind === "recent_close"
-          ? "KIS 현재가를 불러오지 못했습니다."
-          : "가격 데이터를 확인할 수 없습니다.";
+          ? "실시간 현재가는 잠시 후 다시 확인됩니다."
+          : "가격 데이터가 준비되는 대로 업데이트됩니다.";
   const chartDataLabel =
     resolvedPrice.priceKind === "recent_close"
       ? `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
@@ -315,7 +319,7 @@ export function StockDetailClient({
                   차트와 기술지표도 같은 기준일 데이터를 사용합니다.
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  실시간 현재가는 아닙니다.
+                  실시간 현재가는 잠시 후 다시 확인됩니다.
                 </p>
               </>
             ) : null}
