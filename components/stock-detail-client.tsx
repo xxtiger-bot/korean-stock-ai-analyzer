@@ -218,6 +218,22 @@ export function StockDetailClient({
         : resolvedPrice.priceKind === "recent_close"
           ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200"
         : "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/70 dark:text-slate-300";
+  const basisToneClass =
+    resolvedPrice.priceKind === "kis_current"
+      ? "border-brand/20 bg-blue-50 text-brand dark:border-brand/30 dark:bg-blue-950/20 dark:text-blue-200"
+      : resolvedPrice.priceKind === "recent_close"
+        ? "border-slate-200 bg-slate-50 text-slate-600 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300"
+        : resolvedPrice.priceKind === "external_reference"
+          ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200"
+          : "border-slate-200 bg-slate-50 text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-400";
+  const basisDotClass =
+    resolvedPrice.priceKind === "kis_current"
+      ? "bg-brand dark:bg-blue-200"
+      : resolvedPrice.priceKind === "recent_close"
+        ? "bg-slate-400 dark:bg-slate-500"
+        : resolvedPrice.priceKind === "external_reference"
+          ? "bg-amber-500 dark:bg-amber-300"
+          : "bg-slate-300 dark:bg-slate-600";
   const showReferenceInfo =
     (resolvedPrice.priceKind === "kis_current" || resolvedPrice.priceKind === "external_reference") &&
     recentCloseInfoAvailable;
@@ -273,7 +289,8 @@ export function StockDetailClient({
                 {statusBadgeLabel}
               </span>
               {resolvedPrice.basisKo ? (
-                <span className="inline-flex items-center rounded-full border border-line bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${basisToneClass}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${basisDotClass}`} />
                   {resolvedPrice.basisKo}
                 </span>
               ) : null}

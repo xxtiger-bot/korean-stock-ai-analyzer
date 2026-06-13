@@ -40,8 +40,8 @@ function getQuoteMeta(stock: Stock) {
 
   if (stock.quoteSource === "none") {
       return {
-      heading: "가격 데이터 대기 중",
-      statusText: "가격 데이터 대기 중",
+      heading: "최신 데이터 확인 중",
+      statusText: "업데이트 대기",
       sourceText: "",
       helperText: "잠시 후 다시 확인됩니다.",
       hasPrice: false
@@ -51,8 +51,8 @@ function getQuoteMeta(stock: Stock) {
   const tags = Array.isArray(stock.tags) ? stock.tags : [];
   const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
   return {
-    heading: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
-    statusText: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
+    heading: isDataGo ? "최근 종가 기준" : "최신 데이터 확인 중",
+    statusText: isDataGo ? "최근 종가 기준" : "업데이트 대기",
     sourceText: isDataGo ? "data.go.kr 기준" : "",
     helperText: isDataGo ? "실시간 현재가는 잠시 후 다시 확인됩니다." : "잠시 후 다시 확인됩니다.",
     hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
@@ -69,16 +69,16 @@ function getPriceAnomalyMeta(stock: Stock) {
 
   if (anomaly === "critical") {
     return {
-      text: `데이터 검증 필요${gapRate !== null ? ` · ${gapRate}%` : ""}`,
+      text: `가격 차이 감지${gapRate !== null ? ` · ${gapRate}%` : ""}`,
       className:
-        "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100"
+        "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
     };
   }
 
   return {
-    text: `가격 확인 필요${gapRate !== null ? ` · ${gapRate}%` : ""}`,
+    text: `변동 재확인${gapRate !== null ? ` · ${gapRate}%` : ""}`,
     className:
-      "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+      "border-slate-200 bg-slate-100 text-slate-700 dark:border-dark-line dark:bg-slate-800/70 dark:text-slate-200"
   };
 }
 
@@ -90,6 +90,7 @@ export function StockCardGrid({
   stocks: Stock[];
 }) {
   const safeStocks = Array.isArray(stocks) ? stocks : [];
+  const unavailableCount = safeStocks.filter((stock) => !getQuoteMeta(stock).hasPrice).length;
 
   return (
     <section className="rounded-lg border border-line bg-white p-3 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-4">
@@ -104,6 +105,11 @@ export function StockCardGrid({
           거래량 기준
         </span>
       </div>
+      {unavailableCount > 0 ? (
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          일부 종목은 최신 가격 확인 중입니다.
+        </p>
+      ) : null}
       {safeStocks.length === 0 ? (
         <div className="mt-5">
           <EmptyState
@@ -167,7 +173,7 @@ export function StockCardGrid({
                   <p className="text-lg font-bold text-ink dark:text-white">
                     {quoteMeta.hasPrice
                       ? formatKRW(stock.price)
-                      : "가격 데이터 대기 중"}
+                      : "최신 데이터 확인 중"}
                   </p>
                   {quoteMeta.sourceText ? (
                     <p className="mt-1 text-[11px] font-bold text-slate-400">
@@ -190,7 +196,7 @@ export function StockCardGrid({
                     </span>
                   ) : (
                     <span className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
-                      {quoteMeta.hasPrice ? "참고 가격" : "재확인 중"}
+                      {quoteMeta.hasPrice ? "참고 가격" : "업데이트 대기"}
                     </span>
                   )}
                 </div>

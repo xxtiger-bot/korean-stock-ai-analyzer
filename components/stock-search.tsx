@@ -38,6 +38,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     [query, resultLimit, safeStocks]
   );
   const results = remoteResults ?? localResults;
+  const unavailableCount = results.filter((stock) => !getQuoteMeta(stock).hasPrice).length;
 
   useEffect(() => {
     if (!normalizedQuery) {
@@ -101,8 +102,8 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
 
     if (stock.quoteSource === "none") {
       return {
-        heading: "가격 데이터 대기 중",
-        statusText: "가격 데이터 대기 중",
+        heading: "최신 데이터 확인 중",
+        statusText: "업데이트 대기",
         sourceText: "",
         helperText: "잠시 후 다시 확인됩니다.",
         hasPrice: false
@@ -112,8 +113,8 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      heading: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
-      statusText: isDataGo ? "최근 종가 기준" : "가격 데이터 대기 중",
+      heading: isDataGo ? "최근 종가 기준" : "최신 데이터 확인 중",
+      statusText: isDataGo ? "최근 종가 기준" : "업데이트 대기",
       sourceText: isDataGo ? "data.go.kr 기준" : "",
       helperText: isDataGo ? "실시간 현재가는 잠시 후 다시 확인됩니다." : "잠시 후 다시 확인됩니다.",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
@@ -125,7 +126,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
     const gapRate = Number.isFinite(stock.priceAnomalyGapRate)
       ? Math.round((stock.priceAnomalyGapRate ?? 0) * 100)
       : null;
-    const title = stock.priceAnomaly === "critical" ? "데이터 검증 필요" : "가격 확인 필요";
+    const title = stock.priceAnomaly === "critical" ? "가격 차이 감지" : "변동 재확인";
     return `${title}${gapRate !== null ? ` · ${gapRate}%` : ""}`;
   }
 
@@ -155,6 +156,11 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
           <span className="hidden sm:inline">검색</span>
         </button>
       </form>
+      {unavailableCount > 0 ? (
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          일부 종목은 최신 가격 확인 중입니다.
+        </p>
+      ) : null}
       {results.length === 0 ? (
         <div className="mt-3">
           <EmptyState
@@ -212,7 +218,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                             ? quote.heading === "현재가"
                               ? formatKRW(stock.price)
                               : formatKRW(stock.price)
-                            : "가격 데이터 대기 중"}
+                            : "최신 데이터 확인 중"}
                         </p>
                         {quote.sourceText ? (
                           <p className="mt-1 text-[11px] font-bold text-slate-400">
@@ -230,7 +236,7 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                           </p>
                         ) : (
                           <p className="mt-1 text-xs font-bold text-slate-400">
-                            {quote.hasPrice ? "참고 가격" : "재확인 중"}
+                            {quote.hasPrice ? "참고 가격" : "업데이트 대기"}
                           </p>
                         )}
                       </>
