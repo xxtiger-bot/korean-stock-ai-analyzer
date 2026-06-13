@@ -324,6 +324,8 @@ async function run() {
         `tokenStatus=${kis.tokenStatus}`,
         `tokenRequestMethod=${kis.tokenRequestMethod}`,
         `tokenSource=${kis.tokenSource}`,
+        `hasPersistentToken=${kis.hasPersistentToken ? "yes" : "no"}`,
+        `persistentTokenExpiresAt=${safeText(kis.persistentTokenExpiresAt)}`,
         `tokenExpiresAt=${safeText(kis.tokenExpiresAt)}`,
         `tokenErrorType=${safeText(kis.tokenErrorType)}`,
         `lastTokenRequestAt=${safeText(kis.lastTokenRequestAt)}`,

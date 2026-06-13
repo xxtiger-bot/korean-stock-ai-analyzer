@@ -2,6 +2,7 @@ import { constants as cryptoConstants } from "node:crypto";
 import https from "node:https";
 import type { TLSSocket } from "node:tls";
 
+import { createClient } from "@supabase/supabase-js";
 import type { ForeignOwnershipData, RealtimeQuote } from "@/lib/types";
 
 type KisAccessTokenResponse = {
@@ -71,8 +72,36 @@ type KisQuoteRuntimeState = {
   lastErrorMessage: string | null;
 };
 
-type KisTokenSource = "fresh" | "cache";
+type KisTokenSource = "fresh" | "cache" | "persistent_cache";
 type KisTokenRequestMethod = "fetch" | "normal_https_request" | "legacy_tls_https_request";
+
+type PersistentKisTokenCacheRow = {
+  id: string;
+  access_token: string | null;
+  expires_at: string | null;
+  issued_at: string | null;
+  last_token_request_at: string | null;
+  last_token_request_status: string | null;
+  last_token_error_type: string | null;
+  last_token_error_message: string | null;
+  next_allowed_token_request_at: string | null;
+  updated_at: string | null;
+};
+
+type PersistentKisTokenCacheSnapshot = {
+  enabled: boolean;
+  available: boolean;
+  hasAccessToken: boolean;
+  expiresAtIso: string | null;
+  issuedAtIso: string | null;
+  lastTokenRequestAtIso: string | null;
+  lastTokenRequestStatus: string | null;
+  lastTokenErrorType: string | null;
+  lastTokenErrorMessage: string | null;
+  nextAllowedTokenRequestAtIso: string | null;
+  updatedAtIso: string | null;
+  fetchError: string | null;
+};
 
 type KisQuoteDebugValue = string | null;
 
@@ -137,6 +166,11 @@ export type KisCurrentQuoteDiagnostic = {
   tokenExpiresAt: string | null;
   lastTokenRequestAt: string | null;
   nextAllowedTokenRequestAt: string | null;
+  hasPersistentToken: boolean;
+  persistentTokenExpiresAt: string | null;
+  persistentTokenIssuedAt: string | null;
+  persistentCacheEnabled: boolean;
+  persistentCacheAvailable: boolean;
   quoteStatus: "success" | "skipped" | "no_data" | "error";
   requestSymbol: string;
   requestUrlPath: string;
@@ -190,6 +224,7 @@ export type KisTokenEndpointStatus =
 export type KisTokenErrorType =
   | "missing_env"
   | "local_token_cooldown"
+  | "local_persistent_cooldown"
   | "kis_token_rate_limit"
   | "network_fetch_failed"
   | "timeout"
@@ -228,6 +263,7 @@ const TURNOVER_SCALE = 1_000_000;
 const FOREIGN_OWNERSHIP_NOT_AVAILABLE_MESSAGE = "외국인 보유 정보는 현재 KIS 응답에서 제공되지 않습니다.";
 const KOREA_TIME_ZONE = "Asia/Seoul";
 const KIS_QUOTE_TR_ID = "FHKST01010100";
+const KIS_PERSISTENT_CACHE_ROW_ID = "kis";
 const QUOTE_PRICE_CANDIDATE_KEYS = [
   "stck_prpr",
   "stck_sdpr",
@@ -350,6 +386,75 @@ function getKisConfigSnapshot() {
     appKeyConfigured: Boolean(appKey),
     appSecretConfigured: Boolean(appSecret),
     baseUrl
+  };
+}
+
+function getPersistentSupabaseConfig() {
+  const url =
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    "";
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE?.trim() ||
+    "";
+
+  return {
+    enabled: Boolean(url && serviceRoleKey),
+    url,
+    serviceRoleKey
+  };
+}
+
+function getPersistentKisCacheClient() {
+  const config = getPersistentSupabaseConfig();
+  if (!config.enabled) {
+    return null;
+  }
+
+  if (!tokenState.__krxKisPersistentCacheClient) {
+    tokenState.__krxKisPersistentCacheClient = createClient(config.url, config.serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    });
+  }
+
+  return tokenState.__krxKisPersistentCacheClient;
+}
+
+function toIsoFromDateString(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function toTimestampMsFromIso(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function createEmptyPersistentKisTokenCacheSnapshot(fetchError: string | null = null): PersistentKisTokenCacheSnapshot {
+  const config = getPersistentSupabaseConfig();
+  return {
+    enabled: config.enabled,
+    available: false,
+    hasAccessToken: false,
+    expiresAtIso: null,
+    issuedAtIso: null,
+    lastTokenRequestAtIso: null,
+    lastTokenRequestStatus: null,
+    lastTokenErrorType: null,
+    lastTokenErrorMessage: null,
+    nextAllowedTokenRequestAtIso: null,
+    updatedAtIso: null,
+    fetchError
   };
 }
 
@@ -517,9 +622,97 @@ function getNextAllowedTokenRequestAtIso(lastRequestedAtMs: number) {
   return new Date(lastRequestedAtMs + TOKEN_LOCAL_RATE_LIMIT_GUARD_MS).toISOString();
 }
 
+async function getPersistentKisTokenCacheSnapshot(): Promise<PersistentKisTokenCacheSnapshot> {
+  const client = getPersistentKisCacheClient();
+  if (!client) {
+    return createEmptyPersistentKisTokenCacheSnapshot();
+  }
+
+  try {
+    const { data, error } = await client
+      .from("kis_token_cache")
+      .select(
+        "id, access_token, expires_at, issued_at, last_token_request_at, last_token_request_status, last_token_error_type, last_token_error_message, next_allowed_token_request_at, updated_at"
+      )
+      .eq("id", KIS_PERSISTENT_CACHE_ROW_ID)
+      .maybeSingle<PersistentKisTokenCacheRow>();
+
+    if (error) {
+      return createEmptyPersistentKisTokenCacheSnapshot(error.message);
+    }
+
+    if (!data) {
+      return {
+        ...createEmptyPersistentKisTokenCacheSnapshot(),
+        available: true
+      };
+    }
+
+    return {
+      enabled: true,
+      available: true,
+      hasAccessToken: Boolean(data.access_token),
+      expiresAtIso: toIsoFromDateString(data.expires_at),
+      issuedAtIso: toIsoFromDateString(data.issued_at),
+      lastTokenRequestAtIso: toIsoFromDateString(data.last_token_request_at),
+      lastTokenRequestStatus: data.last_token_request_status ?? null,
+      lastTokenErrorType: data.last_token_error_type ?? null,
+      lastTokenErrorMessage: data.last_token_error_message ?? null,
+      nextAllowedTokenRequestAtIso: toIsoFromDateString(data.next_allowed_token_request_at),
+      updatedAtIso: toIsoFromDateString(data.updated_at),
+      fetchError: null
+    };
+  } catch (error) {
+    return createEmptyPersistentKisTokenCacheSnapshot(
+      error instanceof Error ? error.message : "Failed to read persistent KIS token cache."
+    );
+  }
+}
+
+async function upsertPersistentKisTokenCache(
+  patch: Partial<PersistentKisTokenCacheRow> & Pick<PersistentKisTokenCacheRow, "id">
+) {
+  const client = getPersistentKisCacheClient();
+  if (!client) {
+    return;
+  }
+
+  const row = {
+    ...patch,
+    updated_at: new Date().toISOString()
+  };
+
+  const table = client.from("kis_token_cache") as unknown as {
+    upsert: (value: typeof row, options: { onConflict: string }) => Promise<unknown>;
+  };
+
+  await table.upsert(row, { onConflict: "id" });
+}
+
+function applyPersistentTokenToMemory(
+  snapshot: PersistentKisTokenCacheSnapshot,
+  token: string
+) {
+  const expiresAtMs = toTimestampMsFromIso(snapshot.expiresAtIso);
+  const issuedAtMs = toTimestampMsFromIso(snapshot.issuedAtIso);
+  const lastRequestedAtMs = toTimestampMsFromIso(snapshot.lastTokenRequestAtIso);
+
+  kisTokenCache.token = token;
+  kisTokenCache.expiresAtMs = expiresAtMs;
+  kisTokenCache.lastIssuedAtMs = issuedAtMs;
+  kisTokenCache.lastRequestedAtMs = lastRequestedAtMs;
+  kisTokenCache.lastRequestAtIso = snapshot.lastTokenRequestAtIso;
+  kisTokenCache.lastStatus = (snapshot.lastTokenRequestStatus as KisTokenEndpointStatus | null) ?? "success";
+  kisTokenCache.lastErrorType = (snapshot.lastTokenErrorType as KisTokenErrorType | null) ?? null;
+  kisTokenCache.lastErrorMessage = snapshot.lastTokenErrorMessage;
+  kisTokenCache.lastErrorAtIso = null;
+  kisTokenCache.lastTokenEndpoint = getTokenEndpoint(getKisConfigSnapshot().baseUrl);
+}
+
 function getLocalTokenRateLimitDiagnostic(
   baseUrl: string,
-  requestMethod: KisTokenRequestMethod
+  requestMethod: KisTokenRequestMethod,
+  errorType: KisTokenErrorType = "local_token_cooldown"
 ): KisTokenEndpointDiagnostic | null {
   if (!kisTokenCache.lastRequestedAtMs) {
     return null;
@@ -538,7 +731,7 @@ function getLocalTokenRateLimitDiagnostic(
     elapsedMs: 0,
     responseKeys: kisTokenCache.lastResponseKeys,
     hasAccessToken: false,
-    errorType: "local_token_cooldown",
+    errorType,
     errorMessage: "skip token request to avoid KIS 1-minute limit"
   });
 }
@@ -579,6 +772,7 @@ function getTokenEndpoint(baseUrl: string) {
 
 const tokenState = globalThis as typeof globalThis & {
   __krxKisTokenCache?: KisAccessTokenCacheState;
+  __krxKisPersistentCacheClient?: ReturnType<typeof createClient> | null;
 };
 
 if (!tokenState.__krxKisTokenCache) {
@@ -1394,6 +1588,7 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   const normalizedCode = code.trim();
   const config = getKisConfigSnapshot();
   const tokenCache = getKisTokenCacheSnapshot();
+  const persistentTokenCache = await getPersistentKisTokenCacheSnapshot();
   const initialQuoteCache = getKisQuoteCacheSnapshot(normalizedCode);
 
   if (!config.appKeyConfigured || !config.appSecretConfigured) {
@@ -1420,6 +1615,11 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenExpiresAt: null,
       lastTokenRequestAt: tokenCache.lastRequestAtIso,
       nextAllowedTokenRequestAt: tokenCache.nextAllowedRequestAtIso,
+      hasPersistentToken: persistentTokenCache.hasAccessToken,
+      persistentTokenExpiresAt: persistentTokenCache.expiresAtIso,
+      persistentTokenIssuedAt: persistentTokenCache.issuedAtIso,
+      persistentCacheEnabled: persistentTokenCache.enabled,
+      persistentCacheAvailable: persistentTokenCache.available,
       quoteStatus: "skipped",
       requestSymbol: normalizedCode,
       requestUrlPath: buildKisQuoteRequest(normalizedCode, config.baseUrl).requestUrlPath,
@@ -1457,6 +1657,11 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
   let tokenErrorCause: string | null = null;
   let tokenSource: KisCurrentQuoteDiagnostic["tokenSource"] = "none";
   let tokenExpiresAt: string | null = tokenCache.expiresAtIso;
+  let hasPersistentToken = persistentTokenCache.hasAccessToken;
+  let persistentTokenExpiresAt = persistentTokenCache.expiresAtIso;
+  let persistentTokenIssuedAt = persistentTokenCache.issuedAtIso;
+  const persistentCacheEnabled = persistentTokenCache.enabled;
+  const persistentCacheAvailable = persistentTokenCache.available;
   let tokenEndpoint = getTokenEndpoint(config.baseUrl);
   let tokenHttpStatus: number | null = kisTokenCache.lastHttpStatus;
   let tokenElapsedMs: number | null = kisTokenCache.lastElapsedMs;
@@ -1505,6 +1710,11 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     }
   }
 
+  const latestPersistentTokenCache = await getPersistentKisTokenCacheSnapshot();
+  hasPersistentToken = latestPersistentTokenCache.hasAccessToken;
+  persistentTokenExpiresAt = latestPersistentTokenCache.expiresAtIso;
+  persistentTokenIssuedAt = latestPersistentTokenCache.issuedAtIso;
+
   const tokenFlags = getFailureFlags(tokenErrorMessage, config.baseUrl);
 
   if (tokenStatus !== "success") {
@@ -1529,8 +1739,15 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
       tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
       tokenSource,
       tokenExpiresAt,
-      lastTokenRequestAt: getKisTokenCacheSnapshot().lastRequestAtIso,
-      nextAllowedTokenRequestAt: getKisTokenCacheSnapshot().nextAllowedRequestAtIso,
+      lastTokenRequestAt:
+        getKisTokenCacheSnapshot().lastRequestAtIso ?? latestPersistentTokenCache.lastTokenRequestAtIso,
+      nextAllowedTokenRequestAt:
+        latestPersistentTokenCache.nextAllowedTokenRequestAtIso ?? getKisTokenCacheSnapshot().nextAllowedRequestAtIso,
+      hasPersistentToken,
+      persistentTokenExpiresAt,
+      persistentTokenIssuedAt,
+      persistentCacheEnabled,
+      persistentCacheAvailable,
       quoteStatus: "skipped",
       requestSymbol: normalizedCode,
       requestUrlPath: buildKisQuoteRequest(normalizedCode, config.baseUrl).requestUrlPath,
@@ -1649,8 +1866,15 @@ export async function diagnoseKisCurrentQuote(code: string): Promise<KisCurrentQ
     tokenLikelyMockAccountIssue: tokenFlags.likelyMockAccountIssue,
     tokenSource,
     tokenExpiresAt,
-    lastTokenRequestAt: getKisTokenCacheSnapshot().lastRequestAtIso,
-    nextAllowedTokenRequestAt: getKisTokenCacheSnapshot().nextAllowedRequestAtIso,
+    lastTokenRequestAt:
+      getKisTokenCacheSnapshot().lastRequestAtIso ?? latestPersistentTokenCache.lastTokenRequestAtIso,
+    nextAllowedTokenRequestAt:
+      latestPersistentTokenCache.nextAllowedTokenRequestAtIso ?? getKisTokenCacheSnapshot().nextAllowedRequestAtIso,
+    hasPersistentToken,
+    persistentTokenExpiresAt,
+    persistentTokenIssuedAt,
+    persistentCacheEnabled,
+    persistentCacheAvailable,
     quoteStatus,
     requestSymbol,
     requestUrlPath,
@@ -1717,6 +1941,88 @@ async function getKisAccessTokenWithMeta(): Promise<{
     };
   }
 
+  const persistentSnapshot = await getPersistentKisTokenCacheSnapshot();
+  const persistentClient = getPersistentKisCacheClient();
+  if (persistentSnapshot.enabled && persistentSnapshot.available && persistentSnapshot.hasAccessToken && persistentClient) {
+    try {
+      const { data, error } = await persistentClient
+        .from("kis_token_cache")
+        .select("access_token")
+        .eq("id", KIS_PERSISTENT_CACHE_ROW_ID)
+        .maybeSingle<{ access_token: string | null }>();
+
+      if (!error && data?.access_token) {
+        const persistentExpiresAtMs = toTimestampMsFromIso(persistentSnapshot.expiresAtIso);
+        if (persistentExpiresAtMs > Date.now() + TOKEN_REUSE_BUFFER_MS) {
+          applyPersistentTokenToMemory(persistentSnapshot, data.access_token);
+          return {
+            token: data.access_token,
+            source: "persistent_cache",
+            expiresAtMs: persistentExpiresAtMs,
+            expiresAtIso: persistentSnapshot.expiresAtIso,
+            issuedAtIso: persistentSnapshot.issuedAtIso,
+            diagnostic: {
+              ...cachedDiagnostic,
+              status: "success",
+              hasAccessToken: true,
+              httpStatus: null,
+              errorCode: null,
+              errorType: null,
+              errorMessage: null,
+              responseKeys: [],
+              elapsedMs: 0
+            }
+          };
+        }
+      }
+    } catch {
+      // Keep using in-memory / fresh token flow if persistent read fails.
+    }
+  }
+
+  if (
+    persistentSnapshot.enabled &&
+    persistentSnapshot.available &&
+    persistentSnapshot.nextAllowedTokenRequestAtIso &&
+    Date.parse(persistentSnapshot.nextAllowedTokenRequestAtIso) > Date.now() &&
+    !kisTokenCache.refreshing
+  ) {
+    const persistentCooldownDiagnostic = getLocalTokenRateLimitDiagnostic(
+      config.baseUrl,
+      "fetch",
+      "local_persistent_cooldown"
+    ) ?? buildTokenDiagnostic({
+      requestMethod: "fetch",
+      baseUrl: config.baseUrl,
+      tokenEndpoint: getTokenEndpoint(config.baseUrl),
+      status: "rate_limited_locally",
+      httpStatus: null,
+      elapsedMs: 0,
+      responseKeys: [],
+      hasAccessToken: false,
+      errorType: "local_persistent_cooldown",
+      errorMessage: "skip token request to avoid KIS 1-minute limit"
+    });
+
+    kisTokenCache.lastRequestedAtMs = toTimestampMsFromIso(persistentSnapshot.lastTokenRequestAtIso);
+    kisTokenCache.lastRequestAtIso = persistentSnapshot.lastTokenRequestAtIso;
+    kisTokenCache.lastStatus = persistentCooldownDiagnostic.status;
+    kisTokenCache.lastHttpStatus = persistentCooldownDiagnostic.httpStatus;
+    kisTokenCache.lastElapsedMs = persistentCooldownDiagnostic.elapsedMs;
+    kisTokenCache.lastResponseKeys = persistentCooldownDiagnostic.responseKeys;
+    kisTokenCache.lastTokenEndpoint = persistentCooldownDiagnostic.tokenEndpoint;
+    kisTokenCache.lastRequestMethod = persistentCooldownDiagnostic.requestMethod;
+    kisTokenCache.lastErrorCode = persistentCooldownDiagnostic.errorCode;
+    kisTokenCache.lastErrorType = persistentCooldownDiagnostic.errorType;
+    kisTokenCache.lastErrorMessage = persistentCooldownDiagnostic.errorMessage;
+    kisTokenCache.lastErrorAtIso = new Date().toISOString();
+
+    throw new KisTokenRequestError(
+      persistentCooldownDiagnostic.errorMessage ?? "KIS token request skipped due to persistent cooldown.",
+      persistentCooldownDiagnostic
+    );
+  }
+
   const localCooldown = getLocalTokenRateLimitDiagnostic(config.baseUrl, "fetch");
   if (localCooldown && !kisTokenCache.refreshing) {
     kisTokenCache.lastStatus = localCooldown.status;
@@ -1757,6 +2063,20 @@ async function getKisAccessTokenWithMeta(): Promise<{
         kisTokenCache.lastErrorMessage = diagnostic.errorMessage;
 
         if (diagnostic.status !== "success") {
+          if (persistentClient) {
+            await upsertPersistentKisTokenCache({
+              id: KIS_PERSISTENT_CACHE_ROW_ID,
+              access_token: null,
+              last_token_request_at: kisTokenCache.lastRequestAtIso,
+              last_token_request_status: diagnostic.status,
+              last_token_error_type: diagnostic.errorType,
+              last_token_error_message: diagnostic.errorMessage,
+              next_allowed_token_request_at:
+                diagnostic.status === "rate_limited_by_kis"
+                  ? getNextAllowedTokenRequestAtIso(kisTokenCache.lastRequestedAtMs)
+                  : null
+            });
+          }
           throw new KisTokenRequestError(
             diagnostic.errorMessage ?? "Failed to issue KIS access token.",
             diagnostic
@@ -1781,6 +2101,19 @@ async function getKisAccessTokenWithMeta(): Promise<{
         kisTokenCache.lastErrorMessage = null;
         kisTokenCache.lastErrorCode = null;
         kisTokenCache.lastErrorType = null;
+        if (persistentClient) {
+          await upsertPersistentKisTokenCache({
+            id: KIS_PERSISTENT_CACHE_ROW_ID,
+            access_token: accessToken,
+            expires_at: toIso(expiresAtMs),
+            issued_at: toIso(kisTokenCache.lastIssuedAtMs),
+            last_token_request_at: kisTokenCache.lastRequestAtIso,
+            last_token_request_status: "success",
+            last_token_error_type: null,
+            last_token_error_message: null,
+            next_allowed_token_request_at: getNextAllowedTokenRequestAtIso(kisTokenCache.lastRequestedAtMs)
+          });
+        }
         return accessToken;
       } catch (error) {
         kisTokenCache.lastErrorAtIso = new Date().toISOString();
@@ -1795,6 +2128,20 @@ async function getKisAccessTokenWithMeta(): Promise<{
           kisTokenCache.lastRequestMethod = error.diagnostic.requestMethod;
           kisTokenCache.lastErrorCode = error.diagnostic.errorCode;
           kisTokenCache.lastErrorType = error.diagnostic.errorType;
+        }
+        if (persistentClient && error instanceof KisTokenRequestError) {
+          await upsertPersistentKisTokenCache({
+            id: KIS_PERSISTENT_CACHE_ROW_ID,
+            access_token: null,
+            last_token_request_at: kisTokenCache.lastRequestAtIso,
+            last_token_request_status: error.diagnostic.status,
+            last_token_error_type: error.diagnostic.errorType,
+            last_token_error_message: error.diagnostic.errorMessage,
+            next_allowed_token_request_at:
+              error.diagnostic.status === "rate_limited_by_kis"
+                ? getNextAllowedTokenRequestAtIso(kisTokenCache.lastRequestedAtMs)
+                : null
+          });
         }
         throw error;
       } finally {

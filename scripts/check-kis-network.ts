@@ -42,6 +42,8 @@ async function run() {
   const env = getKisEnvironmentDiagnostic();
   const appKey = process.env.KIS_APP_KEY;
   const appSecret = process.env.KIS_APP_SECRET;
+  const supabaseServiceRole =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE?.trim() || "";
   console.log(
     [
       `envLoaded=.env.local via @next/env`,
@@ -61,7 +63,8 @@ async function run() {
       `kisAppSecretMasked=${maskValue(appSecret)}`,
       `kisAppSecretHasSpaces=${hasWhitespaceInside(appSecret) ? "yes" : "no"}`,
       `kisAppSecretHasQuotes=${hasQuotes(appSecret) ? "yes" : "no"}`,
-      `kisAppSecretHasNewline=${hasNewline(appSecret) ? "yes" : "no"}`
+      `kisAppSecretHasNewline=${hasNewline(appSecret) ? "yes" : "no"}`,
+      `supabaseServiceRoleExists=${supabaseServiceRole ? "yes" : "no"}`
     ].join(" | ")
   );
 

@@ -246,6 +246,14 @@ export default async function MarketDataDebugPage() {
                 <dd>{safeText(kisNetwork?.tokenSource)}</dd>
               </div>
               <div className="flex justify-between gap-3">
+                <dt>hasPersistentToken</dt>
+                <dd>{booleanLabel(Boolean(kisNetwork?.hasPersistentToken))}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt>persistentTokenExpiresAt</dt>
+                <dd>{formatDateTime(kisNetwork?.persistentTokenExpiresAt)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
                 <dt>tokenRequestMethod</dt>
                 <dd>{safeText(kisNetwork?.tokenRequestMethod)}</dd>
               </div>
@@ -343,6 +351,14 @@ export default async function MarketDataDebugPage() {
                   <div className="flex justify-between gap-3">
                     <dt>token source</dt>
                     <dd>{kis.tokenSource}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>hasPersistentToken</dt>
+                    <dd>{booleanLabel(kis.hasPersistentToken)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>persistentTokenExpiresAt</dt>
+                    <dd>{formatDateTime(kis.persistentTokenExpiresAt)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>token error type</dt>
