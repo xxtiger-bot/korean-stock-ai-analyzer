@@ -21,31 +21,42 @@ type StockTableProps = {
 
 export function StockTable({ title, stocks }: StockTableProps) {
   const safeStocks = Array.isArray(stocks) ? stocks : [];
+  const unavailableCount = safeStocks.filter((stock) => !getQuoteMeta(stock).hasPrice).length;
 
   function getQuoteMeta(stock: Stock) {
     if (stock.quoteSource === "KIS") {
       return {
-        label: "현재가: KIS",
+        label: "KIS 기준",
         primaryLabel: "현재가",
+        helperText: stock.date
+          ? `업데이트 ${stock.date}${stock.date.includes("KST") ? "" : " KST"}`
+          : "업데이트 확인 중",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
     if (stock.quoteSource === "data.go.kr") {
       return {
-        label: "최근 종가: data.go.kr",
-        primaryLabel: "현재가 확인 불가",
+        label: "data.go.kr 기준",
+        primaryLabel: "최근 종가 기준",
+        helperText: "실시간 현재가는 잠시 후 다시 확인됩니다.",
         hasPrice: Number.isFinite(stock.price) && stock.price > 0
       };
     }
     if (stock.quoteSource === "none") {
-      return { label: "최근 종가 참고", primaryLabel: "현재가 데이터 없음", hasPrice: false };
+      return {
+        label: "",
+        primaryLabel: "최신 데이터 확인 중",
+        helperText: "잠시 후 다시 확인됩니다.",
+        hasPrice: false
+      };
     }
 
     const tags = Array.isArray(stock.tags) ? stock.tags : [];
     const isDataGo = tags.some((tag) => tag.toLowerCase() === "data.go.kr");
     return {
-      label: isDataGo ? "최근 종가: data.go.kr" : "최근 종가 참고",
-      primaryLabel: isDataGo ? "현재가 확인 불가" : "현재가 데이터 없음",
+      label: isDataGo ? "data.go.kr 기준" : "",
+      primaryLabel: isDataGo ? "최근 종가 기준" : "최신 데이터 확인 중",
+      helperText: isDataGo ? "실시간 현재가는 잠시 후 다시 확인됩니다." : "잠시 후 다시 확인됩니다.",
       hasPrice: isDataGo && Number.isFinite(stock.price) && stock.price > 0
     };
   }
@@ -55,7 +66,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
     const gapRate = Number.isFinite(stock.priceAnomalyGapRate)
       ? Math.round((stock.priceAnomalyGapRate ?? 0) * 100)
       : null;
-    const title = stock.priceAnomaly === "critical" ? "데이터 검증 필요" : "가격 확인 필요";
+    const title = stock.priceAnomaly === "critical" ? "가격 차이 감지" : "변동 재확인";
     return `${title}${gapRate !== null ? ` · ${gapRate}%` : ""}`;
   }
 
@@ -67,6 +78,11 @@ export function StockTable({ title, stocks }: StockTableProps) {
           <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">{title}</h2>
         </div>
       </div>
+      {unavailableCount > 0 ? (
+        <p className="px-5 pt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          일부 종목은 최신 가격 확인 중입니다.
+        </p>
+      ) : null}
       {safeStocks.length === 0 ? (
         <div className="p-5">
           <EmptyState
@@ -93,8 +109,17 @@ export function StockTable({ title, stocks }: StockTableProps) {
                 </p>
                 <p className="mt-1 text-[11px] font-bold text-slate-400">
                   {getQuoteMeta(stock).primaryLabel}
-                  {stock.date ? ` · ${stock.date} 기준` : ""}
                 </p>
+                {getQuoteMeta(stock).label ? (
+                  <p className="mt-1 text-[11px] font-bold text-slate-400">
+                    {getQuoteMeta(stock).label}
+                  </p>
+                ) : null}
+                {getQuoteMeta(stock).helperText ? (
+                  <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                    {getQuoteMeta(stock).helperText}
+                  </p>
+                ) : null}
                 {getPriceAnomalyText(stock) ? (
                   <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
                     {getPriceAnomalyText(stock)}
@@ -116,7 +141,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
                     ? getQuoteMeta(stock).primaryLabel === "현재가"
                       ? formatKRW(stock.price)
                       : `최근 종가 ${formatKRW(stock.price)}`
-                    : "최근 종가 참고"}
+                    : "최신 데이터 확인 중"}
                 </span>
               </p>
               <p className="text-slate-600 dark:text-slate-300">
@@ -126,7 +151,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
                     {formatPercent(stock.changeRate)}
                   </span>
                 ) : (
-                  <span className="font-bold text-slate-400">확인 필요</span>
+                  <span className="font-bold text-slate-400">업데이트 대기</span>
                 )}
               </p>
               <p className="text-slate-600 dark:text-slate-300">
@@ -185,14 +210,20 @@ export function StockTable({ title, stocks }: StockTableProps) {
                       </Link>
                       <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                         {stock.symbol} · {stock.sector}
-                        {stock.date ? ` · ${stock.date} 기준` : ""}
                       </p>
                       <p className="mt-1 text-[11px] font-bold text-slate-400">
                         {getQuoteMeta(stock).primaryLabel}
                       </p>
-                      <p className="mt-1 text-[11px] font-bold text-slate-400">
-                        {getQuoteMeta(stock).label}
-                      </p>
+                      {getQuoteMeta(stock).label ? (
+                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          {getQuoteMeta(stock).label}
+                        </p>
+                      ) : null}
+                      {getQuoteMeta(stock).helperText ? (
+                        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                          {getQuoteMeta(stock).helperText}
+                        </p>
+                      ) : null}
                       {getPriceAnomalyText(stock) ? (
                         <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
                           {getPriceAnomalyText(stock)}
@@ -206,7 +237,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
                     ? getQuoteMeta(stock).primaryLabel === "현재가"
                       ? formatKRW(stock.price)
                       : `최근 종가 ${formatKRW(stock.price)}`
-                    : "최근 종가 참고"}
+                    : "최신 데이터 확인 중"}
                 </td>
                 <td className="px-4 py-4 text-right">
                   {getQuoteMeta(stock).hasPrice ? (
@@ -219,7 +250,7 @@ export function StockTable({ title, stocks }: StockTableProps) {
                     </span>
                   ) : (
                     <span className="inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
-                      확인 필요
+                      업데이트 대기
                     </span>
                   )}
                 </td>
