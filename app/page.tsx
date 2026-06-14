@@ -23,6 +23,7 @@ import {
   getOpportunityRadar,
   getPotentialRadar,
   getPopularStocks,
+  getStockWithPreferredQuote,
   getStocksWithPreferredQuote,
   searchStocks
 } from "@/lib/stock-provider";
@@ -45,6 +46,8 @@ const cardSubtleClass =
 const HOME_CRITICAL_TIMEOUT_MS = 3500;
 const HOME_SECTION_TIMEOUT_MS = 1000;
 const HOME_QUOTE_TIMEOUT_MS = 1200;
+const HOME_PRIORITY_QUOTE_TIMEOUT_MS = 4500;
+const HOME_PRIORITY_SYMBOLS = ["005930", "000660", "035420"] as const;
 
 function withSoftTimeout<T>(promiseLike: Promise<T> | T, fallback: T, timeoutMs: number): Promise<T> {
   return Promise.race([
@@ -78,6 +81,21 @@ export default async function Home() {
   const rawAllStocks = Array.isArray(fetchedAllStocks) ? fetchedAllStocks : [];
   const rawPopularStocks = Array.isArray(fetchedPopularStocks) ? fetchedPopularStocks : [];
 
+  const priorityQuoteCandidates = HOME_PRIORITY_SYMBOLS.map((symbol) => {
+    const fromAllStocks = rawAllStocks.find((stock) => stock.symbol === symbol);
+    const fromPopularStocks = rawPopularStocks.find((stock) => stock.symbol === symbol);
+    return fromAllStocks ?? fromPopularStocks ?? null;
+  }).filter((stock): stock is Stock => Boolean(stock?.symbol));
+
+  const quotedPriorityCandidates = await withSoftTimeout(
+    Promise.all(priorityQuoteCandidates.map((stock) => getStockWithPreferredQuote(stock))),
+    priorityQuoteCandidates,
+    HOME_PRIORITY_QUOTE_TIMEOUT_MS
+  );
+  const quotedPriorityBySymbol = new Map(
+    quotedPriorityCandidates.map((stock) => [stock.symbol, stock])
+  );
+
   // Home 성능 최적화: 첫 화면과 추천 카드에 노출되는 종목만 우선 시세 보정.
   const quoteCandidateMap = new Map<string, Stock>();
 
@@ -87,7 +105,7 @@ export default async function Home() {
     }
   });
 
-  ["005930", "000660", "035420"].forEach((symbol) => {
+  HOME_PRIORITY_SYMBOLS.forEach((symbol) => {
     const fromAllStocks = rawAllStocks.find((stock) => stock.symbol === symbol);
     const fromPopularStocks = rawPopularStocks.find((stock) => stock.symbol === symbol);
     const candidate = fromAllStocks ?? fromPopularStocks;
@@ -104,10 +122,14 @@ export default async function Home() {
     HOME_QUOTE_TIMEOUT_MS
   );
   const quotedBySymbol = new Map(quotedCandidates.map((stock) => [stock.symbol, stock]));
+  const mergedQuotedBySymbol = new Map([
+    ...Array.from(quotedBySymbol.entries()),
+    ...Array.from(quotedPriorityBySymbol.entries())
+  ]);
 
-  const safeAllStocks = rawAllStocks.map((stock) => quotedBySymbol.get(stock.symbol) ?? stock);
+  const safeAllStocks = rawAllStocks.map((stock) => mergedQuotedBySymbol.get(stock.symbol) ?? stock);
   const safePopularStocks = rawPopularStocks.map(
-    (stock) => quotedBySymbol.get(stock.symbol) ?? stock
+    (stock) => mergedQuotedBySymbol.get(stock.symbol) ?? stock
   );
   const safeOpportunityRadar = Array.isArray(opportunityRadar) ? opportunityRadar : [];
   const safePotentialRadar = Array.isArray(potentialRadar) ? potentialRadar : [];

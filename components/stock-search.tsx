@@ -33,9 +33,20 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
   const normalizedQuery = query.trim();
   const resultLimit = normalizedQuery ? 6 : 3;
+  const featuredSymbols = ["005930", "000660", "035420"];
+  const featuredResults = useMemo(
+    () =>
+      featuredSymbols
+        .map((symbol) => safeStocks.find((stock) => stock.symbol === symbol) ?? null)
+        .filter((stock): stock is Stock => Boolean(stock?.symbol)),
+    [safeStocks]
+  );
   const localResults = useMemo(
-    () => filterStocks(safeStocks, query).slice(0, resultLimit),
-    [query, resultLimit, safeStocks]
+    () =>
+      normalizedQuery
+        ? filterStocks(safeStocks, query).slice(0, resultLimit)
+        : (featuredResults.length > 0 ? featuredResults : safeStocks).slice(0, resultLimit),
+    [featuredResults, normalizedQuery, query, resultLimit, safeStocks]
   );
   const results = remoteResults ?? localResults;
   const unavailableCount = results.filter((stock) => !getQuoteMeta(stock).hasPrice).length;
