@@ -93,33 +93,28 @@ export function StockTable({ title, stocks }: StockTableProps) {
         </div>
       ) : (
       <>
-      <div className="grid gap-2 p-3 md:hidden">
+      <div className="grid gap-2 overflow-x-hidden p-3 md:hidden">
         {safeStocks.map((stock) => (
           <article
             key={`mobile-${stock.symbol}`}
-            className="rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
+            className="min-w-0 overflow-hidden rounded-md border border-line bg-slate-50 p-3 dark:border-dark-line dark:bg-slate-900/50"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-ink dark:text-white">
+              <div className="min-w-0 flex-1">
+                <p className="whitespace-normal break-keep text-sm font-bold leading-5 text-ink [word-break:keep-all] dark:text-white">
                   {stock.koreanName}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {stock.symbol} · {stock.sector}
-                </p>
-                <p className="mt-1 text-[11px] font-bold text-slate-400">
-                  {getQuoteMeta(stock).primaryLabel}
-                </p>
-                {getQuoteMeta(stock).label ? (
-                  <p className="mt-1 text-[11px] font-bold text-slate-400">
-                    {getQuoteMeta(stock).label}
-                  </p>
-                ) : null}
-                {getQuoteMeta(stock).helperText ? (
-                  <p className="mt-1 text-[11px] font-semibold text-slate-400">
-                    {getQuoteMeta(stock).helperText}
-                  </p>
-                ) : null}
+                <div className="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <span className="rounded-full bg-white px-2 py-0.5 dark:bg-dark-panel">
+                    {stock.symbol}
+                  </span>
+                  <span className="rounded-full bg-white px-2 py-0.5 dark:bg-dark-panel">
+                    {stock.market}
+                  </span>
+                  <span className="rounded-full bg-white px-2 py-0.5 dark:bg-dark-panel">
+                    {stock.sector}
+                  </span>
+                </div>
                 {getPriceAnomalyText(stock) ? (
                   <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-200">
                     {getPriceAnomalyText(stock)}
@@ -133,10 +128,12 @@ export function StockTable({ title, stocks }: StockTableProps) {
                 compact
               />
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-semibold">
-              <p className="text-slate-600 dark:text-slate-300">
-                {getQuoteMeta(stock).primaryLabel}{" "}
-                <span className="font-bold text-ink dark:text-white">
+            <div className="mt-3 rounded-lg border border-line bg-white/90 p-3 dark:border-dark-line dark:bg-dark-panel/90">
+              <p className="text-[11px] font-bold text-slate-400">
+                {getQuoteMeta(stock).primaryLabel}
+              </p>
+              <p className="mt-1 whitespace-normal break-keep text-base font-bold leading-6 text-ink [word-break:keep-all] dark:text-white">
+                <span className="inline-flex min-w-0 items-baseline gap-1">
                   {getQuoteMeta(stock).hasPrice
                     ? getQuoteMeta(stock).primaryLabel === "현재가"
                       ? formatKRW(stock.price)
@@ -144,26 +141,40 @@ export function StockTable({ title, stocks }: StockTableProps) {
                     : "최신 데이터 확인 중"}
                 </span>
               </p>
-              <p className="text-slate-600 dark:text-slate-300">
-                등락{" "}
+              {getQuoteMeta(stock).label ? (
+                <p className="mt-1 whitespace-normal break-keep text-[11px] font-bold text-slate-400 [word-break:keep-all]">
+                  {getQuoteMeta(stock).label}
+                </p>
+              ) : null}
+              {getQuoteMeta(stock).helperText ? (
+                <p className="mt-1 whitespace-normal break-keep text-[11px] font-semibold leading-4 text-slate-400 [word-break:keep-all]">
+                  {getQuoteMeta(stock).helperText}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-2 text-xs font-semibold sm:grid-cols-2">
+              <div className="rounded-md bg-white px-3 py-2 text-slate-600 dark:bg-dark-panel dark:text-slate-300">
+                <p className="text-[11px] font-bold text-slate-400">등락</p>
                 {getQuoteMeta(stock).hasPrice ? (
-                  <span className={`font-bold ${changeColorClass(stock.change)}`}>
+                  <p className={`mt-1 font-bold ${changeColorClass(stock.change)}`}>
                     {formatPercent(stock.changeRate)}
-                  </span>
+                  </p>
                 ) : (
-                  <span className="font-bold text-slate-400">업데이트 대기</span>
+                  <p className="mt-1 font-bold text-slate-400">업데이트 대기</p>
                 )}
-              </p>
-              <p className="text-slate-600 dark:text-slate-300">
-                거래량{" "}
-                <span className="font-bold text-ink dark:text-white">{formatNumber(stock.volume)}</span>
-              </p>
-              <p className="text-slate-600 dark:text-slate-300">
-                시가총액{" "}
-                <span className="font-bold text-ink dark:text-white">
+              </div>
+              <div className="rounded-md bg-white px-3 py-2 text-slate-600 dark:bg-dark-panel dark:text-slate-300">
+                <p className="text-[11px] font-bold text-slate-400">거래량</p>
+                <p className="mt-1 min-w-0 whitespace-normal break-keep font-bold text-ink [word-break:keep-all] dark:text-white">
+                  {formatNumber(stock.volume)}
+                </p>
+              </div>
+              <div className="rounded-md bg-white px-3 py-2 text-slate-600 dark:bg-dark-panel dark:text-slate-300 sm:col-span-2">
+                <p className="text-[11px] font-bold text-slate-400">시가총액</p>
+                <p className="mt-1 min-w-0 whitespace-normal break-keep font-bold text-ink [word-break:keep-all] dark:text-white">
                   {formatCompactKRW(stock.marketCap)}
-                </span>
-              </p>
+                </p>
+              </div>
             </div>
             <div className="mt-2 flex justify-end">
               <Link
@@ -201,10 +212,10 @@ export function StockTable({ title, stocks }: StockTableProps) {
                     <span className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                       {(stock.koreanName || stock.symbol || "--").slice(0, 2)}
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <Link
                         href={`/stocks/${stock.symbol}`}
-                        className="font-bold text-ink hover:text-brand dark:text-white"
+                        className="block whitespace-normal break-keep font-bold text-ink [word-break:keep-all] hover:text-brand dark:text-white"
                       >
                         {stock.koreanName}
                       </Link>

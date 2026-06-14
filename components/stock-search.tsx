@@ -171,31 +171,41 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
           />
         </div>
       ) : (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid gap-2 overflow-x-hidden">
           {results.map((stock) => (
             <Link
               key={stock.symbol}
               href={`/stocks/${stock.symbol}`}
-              className="rounded-md border border-line bg-slate-50 p-2.5 transition hover:border-brand hover:bg-white dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
+              className="min-w-0 overflow-hidden rounded-md border border-line bg-slate-50 p-2.5 transition hover:border-brand hover:bg-white dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
                   {(() => {
                     const quote = getQuoteMeta(stock);
                     return (
                       <>
-                        <p className="truncate text-sm font-bold text-ink dark:text-white">
+                        <p className="whitespace-normal break-keep text-sm font-bold leading-5 text-ink [word-break:keep-all] dark:text-white">
                           {stock.koreanName}
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          {stock.symbol} · {stock.market}
-                        </p>
-                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                        <div className="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          <span className="rounded-full bg-white px-2 py-0.5 dark:bg-dark-panel">
+                            {stock.symbol}
+                          </span>
+                          <span className="rounded-full bg-white px-2 py-0.5 dark:bg-dark-panel">
+                            {stock.market}
+                          </span>
+                        </div>
+                        <p className="mt-2 whitespace-normal break-keep text-[11px] font-bold text-slate-400 [word-break:keep-all]">
                           {quote.statusText}
                         </p>
                         {quote.sourceText ? (
-                          <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          <p className="mt-1 whitespace-normal break-keep text-[11px] font-bold text-slate-400 [word-break:keep-all]">
                             {quote.sourceText}
+                          </p>
+                        ) : null}
+                        {quote.helperText ? (
+                          <p className="mt-1 whitespace-normal break-keep text-[11px] font-semibold leading-4 text-slate-400 [word-break:keep-all]">
+                            {quote.helperText}
                           </p>
                         ) : null}
                         {getPriceAnomalyText(stock) ? (
@@ -207,13 +217,13 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                     );
                   })()}
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="min-w-0 text-left sm:shrink-0 sm:text-right">
                   {(() => {
                     const quote = getQuoteMeta(stock);
                     return (
                       <>
                         <p className="mb-1 text-[11px] font-bold text-slate-400">{quote.heading}</p>
-                        <p className="text-sm font-bold text-ink dark:text-white">
+                        <p className="whitespace-normal break-keep text-sm font-bold leading-5 text-ink [word-break:keep-all] dark:text-white">
                           {quote.hasPrice
                             ? quote.heading === "현재가"
                               ? formatKRW(stock.price)
@@ -221,12 +231,12 @@ export function StockSearch({ stocks }: { stocks: Stock[] }) {
                             : "최신 데이터 확인 중"}
                         </p>
                         {quote.sourceText ? (
-                          <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          <p className="mt-1 whitespace-normal break-keep text-[11px] font-bold text-slate-400 [word-break:keep-all]">
                             {quote.sourceText}
                           </p>
                         ) : null}
                         {quote.helperText ? (
-                          <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                          <p className="mt-1 whitespace-normal break-keep text-[11px] font-semibold leading-4 text-slate-400 [word-break:keep-all]">
                             {quote.helperText}
                           </p>
                         ) : null}

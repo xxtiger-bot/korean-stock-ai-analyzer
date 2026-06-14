@@ -39,7 +39,7 @@ function getQuoteMeta(stock: Stock) {
   }
 
   if (stock.quoteSource === "none") {
-      return {
+    return {
       heading: "최신 데이터 확인 중",
       statusText: "업데이트 대기",
       sourceText: "",
@@ -137,10 +137,10 @@ export function StockCardGrid({
           return (
             <article
               key={stock.symbol}
-              className="rounded-md border border-line bg-slate-50 p-3 transition hover:-translate-y-0.5 hover:border-brand hover:bg-white hover:shadow-soft dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
+              className="min-w-0 overflow-hidden rounded-md border border-line bg-slate-50 p-3 transition hover:-translate-y-0.5 hover:border-brand hover:bg-white hover:shadow-soft dark:border-dark-line dark:bg-slate-900/50 dark:hover:bg-slate-900"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-md bg-ink px-2 py-1 text-xs font-bold text-white dark:bg-white dark:text-ink">
                       {stock.market}
@@ -151,11 +151,11 @@ export function StockCardGrid({
                   </div>
                   <Link
                     href={`/stocks/${stock.symbol}`}
-                    className="mt-2 block truncate text-base font-bold text-ink hover:text-brand dark:text-white"
+                    className="mt-2 block whitespace-normal break-keep text-base font-bold leading-5 text-ink [word-break:keep-all] hover:text-brand dark:text-white"
                   >
                     {stock.koreanName}
                   </Link>
-                  <p className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 whitespace-normal break-keep text-xs font-semibold leading-5 text-slate-500 [word-break:keep-all] dark:text-slate-400">
                     {secondaryName}
                   </p>
                 </div>
@@ -167,21 +167,21 @@ export function StockCardGrid({
                 />
               </div>
 
-              <div className="mt-3 flex items-end justify-between gap-3">
-                <div>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-slate-400">{quoteMeta.heading}</p>
-                  <p className="text-lg font-bold text-ink dark:text-white">
+                  <p className="mt-1 whitespace-normal break-keep text-lg font-bold leading-6 text-ink [word-break:keep-all] dark:text-white">
                     {quoteMeta.hasPrice
                       ? formatKRW(stock.price)
                       : "최신 데이터 확인 중"}
                   </p>
                   {quoteMeta.sourceText ? (
-                    <p className="mt-1 text-[11px] font-bold text-slate-400">
+                    <p className="mt-1 whitespace-normal break-keep text-[11px] font-bold text-slate-400 [word-break:keep-all]">
                       {quoteMeta.sourceText}
                     </p>
                   ) : null}
                   {quoteMeta.helperText ? (
-                    <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                    <p className="mt-1 whitespace-normal break-keep text-[11px] font-semibold leading-4 text-slate-400 [word-break:keep-all]">
                       {quoteMeta.helperText}
                     </p>
                   ) : null}
@@ -195,14 +195,14 @@ export function StockCardGrid({
                       {formatPercent(stock.changeRate)}
                     </span>
                   ) : (
-                    <span className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
+                    <span className="mt-2 inline-flex w-fit rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-800/60 dark:text-slate-400">
                       {quoteMeta.hasPrice ? "참고 가격" : "업데이트 대기"}
                     </span>
                   )}
                 </div>
                 <Link
                   href={`/stocks/${stock.symbol}`}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line bg-white dark:border-dark-line dark:bg-dark-panel ${changeColorClass(
+                  className={`flex h-9 w-9 shrink-0 self-end items-center justify-center rounded-md border border-line bg-white sm:self-auto dark:border-dark-line dark:bg-dark-panel ${changeColorClass(
                     stock.change
                   )}`}
                   aria-label={`${stock.koreanName} 상세`}
@@ -212,22 +212,22 @@ export function StockCardGrid({
                 </Link>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold">
+              <div className="mt-3 grid grid-cols-1 gap-2 text-xs font-bold sm:grid-cols-2">
                 <div className="rounded-md bg-white px-2.5 py-2 dark:bg-dark-panel">
                   <p className="text-slate-400">거래량</p>
-                  <p className="mt-1 text-slate-700 dark:text-slate-200">
+                  <p className="mt-1 whitespace-normal break-keep text-slate-700 [word-break:keep-all] dark:text-slate-200">
                     {formatNumber(stock.volume)}
                   </p>
                 </div>
                 <div className="rounded-md bg-white px-2.5 py-2 dark:bg-dark-panel">
                   <p className="text-slate-400">시가총액</p>
-                  <p className="mt-1 text-slate-700 dark:text-slate-200">
+                  <p className="mt-1 whitespace-normal break-keep text-slate-700 [word-break:keep-all] dark:text-slate-200">
                     {formatCompactKRW(stock.marketCap)}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-1.5 overflow-hidden">
                 <span className="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300">
                   <Layers className="h-3 w-3" />
                   {sectorLabel}
