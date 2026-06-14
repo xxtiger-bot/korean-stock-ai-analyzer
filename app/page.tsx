@@ -5,6 +5,7 @@ import { FeedbackTrigger } from "@/components/feedback-trigger";
 import { HomeInteractionTracker } from "@/components/home-interaction-tracker";
 import { MarketBriefing } from "@/components/market-briefing";
 import { HomeBetaOnboarding } from "@/components/home-beta-onboarding";
+import { MarketImpactNews } from "@/components/news/market-impact-news";
 import { OpportunityRadar } from "@/components/opportunity-radar";
 import { PotentialRadar } from "@/components/potential-radar";
 import { ShareCard } from "@/components/share/share-card";
@@ -152,7 +153,7 @@ export default async function Home() {
   ] as const;
   const quickModules = [
     { title: "오늘 시장 브리핑", desc: "시장 방향 요약", href: "#home-morning-brief", tone: "brand" },
-    { title: "종목 검색", desc: "관심 종목 찾기", href: "#search", tone: "violet" },
+    { title: "종목 검색", desc: "관심 종목 찾기", href: "#stock-search", tone: "violet" },
     { title: "보유종목 진단", desc: "수익률·리스크 점검", href: "/portfolio", tone: "emerald" },
     { title: "AI 분석 예시", desc: "삼성전자 분석 보기", href: "/stocks/005930", tone: "amber" },
     { title: "기회 레이더", desc: "오늘의 기회 신호", href: "#home-radar", tone: "brand" },
@@ -249,7 +250,7 @@ export default async function Home() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
-                  href="#watchlist-desk"
+                  href="#stock-search"
                   className="inline-flex min-h-12 items-center justify-center rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
                 >
                   관심종목 추가하기
@@ -364,6 +365,10 @@ export default async function Home() {
         </div>
       </section>
 
+      <section className="mt-5 [content-visibility:auto] [contain-intrinsic-size:1px_920px]">
+        <MarketImpactNews />
+      </section>
+
       <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
         <div className="grid min-w-0 gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -427,7 +432,10 @@ export default async function Home() {
           </div>
           <MarketBriefing signals={signals} />
         </div>
-        <div id="search" className="min-w-0 scroll-mt-32">
+        <div id="stock-search" className="min-w-0 scroll-mt-32">
+          <span id="search" className="sr-only">
+            종목 검색
+          </span>
           <StockSearch stocks={safeAllStocks} />
         </div>
       </section>
