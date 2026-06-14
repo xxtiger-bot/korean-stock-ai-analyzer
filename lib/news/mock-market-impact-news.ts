@@ -3,6 +3,8 @@ export type MarketImpactNewsItem = {
   title: string;
   source: string;
   publishedAt: string;
+  newsUrl?: string;
+  searchQuery?: string;
   category: "반도체" | "인터넷" | "자동차" | "바이오" | "시장";
   sentiment: "positive" | "neutral" | "negative";
   summary: string;
@@ -21,6 +23,7 @@ const MOCK_MARKET_IMPACT_NEWS: MarketImpactNewsItem[] = [
     title: "AI 서버 투자 확대 기대가 반도체 업종 심리에 우호적으로 작용",
     source: "KRX Insight Sample",
     publishedAt: "2026-06-14 08:20 KST",
+    searchQuery: "반도체 AI 서버 투자 확대 삼성전자 SK하이닉스",
     category: "반도체",
     sentiment: "positive",
     summary:
@@ -46,6 +49,7 @@ const MOCK_MARKET_IMPACT_NEWS: MarketImpactNewsItem[] = [
     title: "국내 플랫폼·AI 서비스 경쟁 심화, 인터넷 업종은 선택적 반응 예상",
     source: "KRX Insight Sample",
     publishedAt: "2026-06-14 07:55 KST",
+    searchQuery: "인터넷 AI 서비스 경쟁 NAVER 카카오",
     category: "인터넷",
     sentiment: "neutral",
     summary:
@@ -71,6 +75,7 @@ const MOCK_MARKET_IMPACT_NEWS: MarketImpactNewsItem[] = [
     title: "환율 변동성 확대 가능성, 자동차 업종은 수출 기대와 비용 부담이 혼재",
     source: "KRX Insight Sample",
     publishedAt: "2026-06-14 07:30 KST",
+    searchQuery: "환율 변동성 자동차 업종 현대차 기아",
     category: "자동차",
     sentiment: "neutral",
     summary:
@@ -96,6 +101,7 @@ const MOCK_MARKET_IMPACT_NEWS: MarketImpactNewsItem[] = [
     title: "바이오 규제·임상 일정 이슈가 개별 종목 변동성에 영향 가능",
     source: "KRX Insight Sample",
     publishedAt: "2026-06-13 18:10 KST",
+    searchQuery: "바이오 규제 임상 일정 셀트리온헬스케어",
     category: "바이오",
     sentiment: "negative",
     summary:
@@ -115,6 +121,7 @@ const MOCK_MARKET_IMPACT_NEWS: MarketImpactNewsItem[] = [
     title: "금리·환율 변수 재부각, KOSPI 대형주 전반은 방어적 해석 우세",
     source: "KRX Insight Sample",
     publishedAt: "2026-06-14 06:50 KST",
+    searchQuery: "금리 환율 KOSPI 대형주 삼성전자 KB금융",
     category: "시장",
     sentiment: "neutral",
     summary:

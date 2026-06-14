@@ -16,6 +16,18 @@ const sentimentLabel = {
   negative: "부정"
 } as const;
 
+function getRelatedNewsHref(newsUrl?: string, searchQuery?: string) {
+  if (typeof newsUrl === "string" && newsUrl.trim().length > 0) {
+    return newsUrl.trim();
+  }
+
+  if (typeof searchQuery === "string" && searchQuery.trim().length > 0) {
+    return `https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(searchQuery.trim())}`;
+  }
+
+  return null;
+}
+
 export function MarketImpactNews() {
   const items = getMockMarketImpactNews();
 
@@ -41,11 +53,15 @@ export function MarketImpactNews() {
       </div>
 
       <div className="mt-4 grid gap-3">
-        {items.map((item) => (
-          <article
-            key={item.id}
-            className="min-w-0 rounded-lg border border-line bg-slate-50/90 p-4 dark:border-dark-line dark:bg-slate-900/55"
-          >
+        {items.map((item) => {
+          const relatedNewsHref = getRelatedNewsHref(item.newsUrl, item.searchQuery);
+          const isSearchLink = !item.newsUrl && Boolean(item.searchQuery);
+
+          return (
+            <article
+              key={item.id}
+              className="min-w-0 rounded-lg border border-line bg-slate-50/90 p-4 dark:border-dark-line dark:bg-slate-900/55"
+            >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -123,8 +139,27 @@ export function MarketImpactNews() {
                 </span>
               ))}
             </div>
-          </article>
-        ))}
+
+            {relatedNewsHref ? (
+              <div className="mt-4">
+                <a
+                  href={relatedNewsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold text-ink transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-white dark:hover:bg-slate-900/80 sm:w-auto"
+                >
+                  관련 뉴스 보기
+                </a>
+                {isSearchLink ? (
+                  <p className="mt-2 text-xs font-semibold text-slate-400">
+                    실제 기사 링크가 아닌 뉴스 검색 결과로 이동합니다.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            </article>
+          );
+        })}
       </div>
 
       <p className="mt-4 text-xs font-semibold text-slate-400">
