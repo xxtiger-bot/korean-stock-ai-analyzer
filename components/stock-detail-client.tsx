@@ -153,8 +153,13 @@ export function StockDetailClient({
   const dataDate = stock.date ?? latest?.date;
   const dataDateLabel = dataDate ? `${dataDate} 기준` : "일별 종가 기준";
   const hasPrice = Number.isFinite(headlinePrice ?? NaN) && (headlinePrice ?? 0) > 0;
+  const hasHeadlineChangeData =
+    typeof headlineChange === "number" &&
+    Number.isFinite(headlineChange) &&
+    typeof headlineChangeRate === "number" &&
+    Number.isFinite(headlineChangeRate);
   const headlineChangeLabel =
-    headlineChange === null || headlineChangeRate === null
+    !hasHeadlineChangeData
       ? null
       : `${headlineChange > 0 ? "+" : ""}${formatKRW(headlineChange)} · ${formatPercent(
           headlineChangeRate
@@ -171,12 +176,16 @@ export function StockDetailClient({
         : "가격 데이터 대기 중";
   const hasPe = Number.isFinite(stock.pe) && stock.pe > 0;
   const hasEps = Number.isFinite(stock.eps) && stock.eps > 0;
-  const valuationValue = hasPe ? `${stock.pe.toFixed(1)}x` : "데이터 없음";
+  const valuationValue = hasPe
+    ? `${stock.pe.toFixed(1)}x`
+    : hasEps
+      ? "PER 준비 중"
+      : "PER / EPS 준비 중";
   const valuationSubValue = hasEps
     ? formatKRW(stock.eps)
     : hasPe
-      ? "EPS 데이터 없음"
-      : "재무 지표는 아직 제공되지 않습니다.";
+      ? "EPS 준비 중"
+      : "재무 지표는 추후 업데이트됩니다.";
   const recentCloseInfoAvailable = hasDataGoKr && Number.isFinite(stock.price) && stock.price > 0;
   const referenceCloseAvailable =
     resolvedPrice.priceKind === "recent_close" &&
@@ -326,7 +335,9 @@ export function StockDetailClient({
               </div>
             ) : (
               <div className="mt-3 inline-flex max-w-full flex-wrap rounded-md border border-dashed border-line bg-slate-50 px-3 py-2 text-sm font-bold text-slate-400 dark:border-dark-line dark:bg-slate-900/60">
-                {resolvedPrice.priceKind === "recent_close" ? "실시간 변동 정보 대기 중" : "가격 변동 데이터 확인 필요"}
+                {resolvedPrice.priceKind === "recent_close"
+                  ? "실시간 변동 정보 대기 중"
+                  : "등락 데이터 확인 중"}
               </div>
             )}
           </div>

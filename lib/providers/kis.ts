@@ -38,6 +38,7 @@ type KisAccessTokenCacheState = {
 
 type KisQuotePayload = {
   price: number;
+  changeAmount: number | null;
   changePercent: number | null;
   open: number | null;
   high: number | null;
@@ -2189,8 +2190,8 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
     return {
       symbol: normalizedCode,
       price: cached.price,
-      change: 0,
-      changeRate: 0,
+      change: cached.changeAmount,
+      changeRate: cached.changePercent,
       volume: cached.volume ?? 0,
       source: "kis",
       asOf: cached.asOf,
@@ -2230,6 +2231,7 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
       );
     }
 
+    const changeAmount = toNullableNumber(toNumber(findOutputValue(output, ["prdy_vrss"])));
     const changePercent = toNullableNumber(toNumber(findOutputValue(output, ["prdy_ctrt"])));
     const open = toNullableNumber(toNumber(findOutputValue(output, ["stck_oprc"])));
     const high = toNullableNumber(toNumber(findOutputValue(output, ["stck_hgpr"])));
@@ -2248,6 +2250,7 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
 
     const payload: KisQuotePayload = {
       price,
+      changeAmount,
       changePercent,
       open,
       high,
@@ -2277,8 +2280,8 @@ export async function getRealtimeQuote(code: string): Promise<RealtimeQuote> {
     return {
       symbol: normalizedCode,
       price: payload.price,
-      change: 0,
-      changeRate: 0,
+      change: payload.changeAmount,
+      changeRate: payload.changePercent,
       volume: payload.volume ?? 0,
       source: "kis",
       asOf: payload.asOf,

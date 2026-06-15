@@ -78,8 +78,8 @@ export type Candle = {
 export type RealtimeQuote = {
   symbol: string;
   price: number;
-  change: number;
-  changeRate: number;
+  change: number | null;
+  changeRate: number | null;
   volume: number;
   source: "kis";
   asOf: string;

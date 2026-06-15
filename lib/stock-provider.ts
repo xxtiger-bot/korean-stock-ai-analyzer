@@ -987,6 +987,12 @@ export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
 
   if (quote && Number.isFinite(quote.price) && quote.price > 0) {
     const guard = validateQuoteAgainstClose(quote.price, safeReferenceClosePrice);
+    const safeQuoteChange =
+      typeof quote.change === "number" && Number.isFinite(quote.change) ? quote.change : 0;
+    const safeQuoteChangeRate =
+      typeof quote.changeRate === "number" && Number.isFinite(quote.changeRate)
+        ? quote.changeRate
+        : 0;
     if (guard.status === "critical" && safeReferenceClosePrice !== null) {
       return {
         ...stock,
@@ -1007,8 +1013,8 @@ export async function getStockWithPreferredQuote(stock: Stock): Promise<Stock> {
     return {
       ...stock,
       price: quote.price,
-      change: Number.isFinite(quote.change) ? quote.change : 0,
-      changeRate: Number.isFinite(quote.changeRate) ? quote.changeRate : 0,
+      change: safeQuoteChange,
+      changeRate: safeQuoteChangeRate,
       volume: Number.isFinite(quote.volume) && quote.volume > 0 ? quote.volume : stock.volume,
       quoteSource: "KIS",
       quoteLabel: "현재가",

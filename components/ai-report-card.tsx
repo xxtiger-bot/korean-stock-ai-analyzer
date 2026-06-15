@@ -222,6 +222,9 @@ export function AiReportCard({
             : "데이터 기준 확인 필요"
         : "데이터 기준 확인 필요";
   const generatedAtLabel = data ? formatGeneratedAt(data.generatedAt) : null;
+  const hasPe = Number.isFinite(stock.pe) && stock.pe > 0;
+  const hasEps = Number.isFinite(stock.eps) && stock.eps > 0;
+  const hasFinancialMetrics = hasPe || hasEps;
   const aiConfidenceLabel =
     effectiveAiConfidence === "high"
       ? "높음"
@@ -309,6 +312,11 @@ export function AiReportCard({
             <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
               AI 신뢰도: {aiConfidenceLabel}
             </p>
+            {!hasFinancialMetrics ? (
+              <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                재무 지표는 아직 제공되지 않아 기술 지표와 가격 기준으로만 참고 분석합니다.
+              </p>
+            ) : null}
           </div>
           {priceKind === "unavailable" ? (
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">{analysisNotice}</p>
