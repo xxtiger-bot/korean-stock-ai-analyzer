@@ -511,6 +511,25 @@ export function StockDetailClient({
           )}
         </div>
       </div>
+
+      <section className="mt-5 rounded-lg border border-line bg-white p-4 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-ink dark:text-white">
+              이 분석이 도움이 되었나요? 피드백 보내기
+            </p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              가격 표시, AI 분석, 데이터 기준 안내에서 불편했던 점을 남겨주세요.
+            </p>
+          </div>
+          <Link
+            href="/feedback"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            피드백 보내기
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

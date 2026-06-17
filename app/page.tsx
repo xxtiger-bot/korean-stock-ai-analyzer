@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { DangerWarningList } from "@/components/danger-warning-list";
-import { FeedbackTrigger } from "@/components/feedback-trigger";
 import { HomeInteractionTracker } from "@/components/home-interaction-tracker";
 import { MarketBriefing } from "@/components/market-briefing";
 import { HomeBetaOnboarding } from "@/components/home-beta-onboarding";
@@ -242,13 +241,16 @@ export default async function Home() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 max-w-3xl">
               <p className="text-xs font-bold uppercase tracking-normal text-brand">
-                KRX Insight
+                KRX Insight 베타 오픈
               </p>
               <h1 className="mt-2 text-2xl font-bold tracking-normal text-ink dark:text-white sm:text-3xl">
                 오늘의 AI 주식 브리핑
               </h1>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-                매일 아침, AI가 내 한국 주식 리스크를 체크합니다.
+                한국 주식의 현재가, AI 분석, 관련 뉴스 영향, 보유종목 관리를 한 곳에서 확인해보세요.
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
+                AI 분석은 투자 조언이 아니며, 가격 및 데이터는 지연되거나 일시적으로 확인되지 않을 수 있습니다.
               </p>
             </div>
             <div className="rounded-full border border-line bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-500 dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-300">
@@ -389,6 +391,14 @@ export default async function Home() {
 
       <section className="mt-5 [content-visibility:auto] [contain-intrinsic-size:1px_920px]">
         <MarketImpactNews />
+        <div className="mt-3 flex justify-end">
+          <Link
+            href="/feedback"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+          >
+            피드백 보내기
+          </Link>
+        </div>
       </section>
 
       <section className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.58fr)]">
@@ -602,11 +612,12 @@ export default async function Home() {
           >
             지금 바로 무료 테스트 시작하기
           </a>
-          <FeedbackTrigger
-            label="피드백 보내기"
-            source="home-bottom-cta"
+          <Link
+            href="/feedback"
             className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-dark-line dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
-          />
+          >
+            피드백 보내기
+          </Link>
         </div>
       </section>
     </main>

@@ -17,13 +17,18 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Current Price Source Diagnostic",
+  title: "INTERNAL DEBUG PAGE | KRX Insight",
   description: "KRX Insight current price source diagnostics for KIS, external references, and data.go.kr.",
   robots: {
     index: false,
     follow: false
   }
 };
+
+const DEBUG_PAGE_ENABLED =
+  process.env.NODE_ENV === "development" ||
+  process.env.ENABLE_DEBUG_PAGE === "true" ||
+  process.env.NEXT_PUBLIC_ENABLE_DEBUG_PAGE === "true";
 
 const DIAGNOSTIC_STOCKS = [
   { symbol: "005930", stockName: "삼성전자", market: "KOSPI" },
@@ -110,6 +115,24 @@ async function getRecentCloseDiagnostic(symbol: string) {
 }
 
 export default async function MarketDataDebugPage() {
+  if (!DEBUG_PAGE_ENABLED) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="rounded-lg border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
+          <p className="text-xs font-bold uppercase tracking-normal text-amber-700 dark:text-amber-300">
+            INTERNAL DEBUG PAGE
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-ink dark:text-white">
+            진단 페이지가 비활성화되었습니다.
+          </h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+            운영자 진단용 페이지입니다. 현재 공개 환경에서는 비활성화되어 있습니다.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const providerMode = getStockDataProviderMode();
   const apiSource = getKoreaStockApiSource();
   const kisEnvironment = getKisEnvironmentDiagnostic();
@@ -173,9 +196,9 @@ export default async function MarketDataDebugPage() {
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       <section className="rounded-lg border border-amber-200 bg-white p-5 shadow-soft dark:border-amber-900/60 dark:bg-dark-panel">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-bold uppercase tracking-normal text-amber-700 dark:text-amber-300">DEBUG</p>
+          <p className="text-xs font-bold uppercase tracking-normal text-amber-700 dark:text-amber-300">INTERNAL DEBUG PAGE</p>
           <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-            내부 진단 페이지
+            운영자 진단용 페이지입니다.
           </span>
         </div>
         <h1 className="mt-2 text-2xl font-bold text-ink dark:text-white">Current Price Source Diagnostic</h1>

@@ -50,9 +50,7 @@ export default function DisclaimerPage() {
 
         <SectionCard title="3. 데이터 지연 및 오류 가능성">
           가격, 지수, 종가, 리스크 상태 등 일부 데이터는 지연되거나 일시적으로 제공되지 않을
-          수 있습니다. 데이터 상태는 각 종목 페이지와
-          <span className="mx-1 font-bold text-ink dark:text-white">debug/market-data</span>
-          기준 표시를 통해 확인할 수 있습니다.
+          수 있습니다. 데이터 상태는 각 종목 페이지의 데이터 기준 표시를 통해 확인할 수 있습니다.
         </SectionCard>
 
         <SectionCard title="4. 현재가 / 최근 종가 구분">
@@ -80,7 +78,11 @@ export default function DisclaimerPage() {
             <Link href="/pricing" className="font-bold text-brand hover:underline">
               Pricing
             </Link>
-            에서 확인할 수 있습니다.
+            에서 확인할 수 있으며, 베타 의견은{" "}
+            <Link href="/feedback" className="font-bold text-brand hover:underline">
+              Feedback
+            </Link>
+            에 남길 수 있습니다.
           </p>
         </section>
       </div>

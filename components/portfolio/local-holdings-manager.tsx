@@ -640,6 +640,25 @@ export function LocalHoldingsManager({
             })}
           </div>
         )}
+
+        <div className="mt-5 rounded-lg border border-line bg-slate-50/80 p-4 dark:border-dark-line dark:bg-slate-900/50">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink dark:text-white">
+                보유종목 관리가 불편했나요? 피드백 보내기
+              </p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                입력 흐름, 가격 참고 방식, 보유 요약에서 헷갈렸던 점을 남겨주세요.
+              </p>
+            </div>
+            <a
+              href="/feedback"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+            >
+              피드백 보내기
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   );

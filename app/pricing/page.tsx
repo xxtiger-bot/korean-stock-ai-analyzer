@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Pricing | KRX Insight",
   description:
-    "KRX Insight의 Free, Pro, Premium 플랜을 비교하고 베타 Pro 기능을 확인해보세요.",
+    "KRX Insight의 Free, Beta Pro, Premium 준비 상태를 비교하고 현재 제공 범위를 확인해보세요.",
 };
 
 type TierName = "Free" | "Pro" | "Premium";
@@ -262,10 +262,13 @@ export default function PricingPage() {
             </span>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                매일 아침, AI가 내 한국 주식 리스크를 체크합니다.
+                Beta Pro 체험과 출시 준비 상태를 먼저 확인해보세요.
               </h1>
               <p className="text-base leading-7 text-white/80 sm:text-lg">
                 보유종목 리스크 변화 · AI 매매 근거 · 오늘의 시장 브리핑
+              </p>
+              <p className="text-sm font-semibold leading-6 text-white/70">
+                현재는 Beta Pro 체험 / 출시 준비 단계이며, 실제 결제는 아직 연결되지 않았습니다.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -287,10 +290,10 @@ export default function PricingPage() {
           <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl shadow-slate-950/20 backdrop-blur">
             <p className="text-sm font-semibold text-white/80">Beta 안내</p>
             <ul className="mt-4 space-y-3 text-sm leading-6 text-white/80">
-              <li>현재는 Beta 테스트 단계입니다.</li>
-              <li>실제 결제 기능은 아직 제공되지 않습니다.</li>
+              <li>현재는 Beta Pro 체험 / 출시 준비 단계입니다.</li>
+              <li>실제 결제는 아직 연결되지 않았습니다.</li>
+              <li>Pro 기능은 순차적으로 제공됩니다.</li>
               <li>Pro 알림 신청은 정식 출시 안내를 위한 베타 흐름입니다.</li>
-              <li>친구 초대 Pro 3일 체험은 베타 리워드 성격으로 제공됩니다.</li>
             </ul>
           </div>
         </div>
@@ -377,6 +380,12 @@ export default function PricingPage() {
             className="inline-flex min-h-11 items-center rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-slate-50 dark:border-dark-line dark:bg-dark-panel dark:text-white dark:hover:bg-slate-900"
           >
             자세한 투자 유의사항 보기
+          </Link>
+          <Link
+            href="/feedback"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 dark:hover:bg-slate-900"
+          >
+            베타 피드백 보내기
           </Link>
         </div>
       </section>
