@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Activity, ArrowLeft, BarChart3, Gauge, Wallet } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { AiReportCard } from "@/components/ai-report-card";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { DangerWarningCard } from "@/components/danger-warning-card";
@@ -43,7 +42,6 @@ export function StockDetailClient({
   realtimeQuote?: RealtimeQuote | null;
   resolvedPrice?: ResolvedStockDisplayPrice;
 }) {
-  const router = useRouter();
   const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
   const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
   const latest = technicalSeries[technicalSeries.length - 1];
@@ -217,13 +215,9 @@ export function StockDetailClient({
     resolvedPrice.priceKind === "recent_close"
       ? `data.go.kr 기준 · 기준일 ${resolvedPrice.baseDate ?? "확인 필요"}`
       : "최근 일봉 데이터 기준";
-  const addToPortfolioHref = `/portfolio?${new URLSearchParams({
-    add: stock.symbol,
-    name: stock.koreanName
-  }).toString()}`;
-  const handleQuickAddToPortfolio = useCallback(() => {
-    router.push(addToPortfolioHref);
-  }, [addToPortfolioHref, router]);
+  const addToPortfolioHref = `/portfolio?add=${encodeURIComponent(stock.symbol)}&name=${encodeURIComponent(
+    stock.koreanName
+  )}`;
   const statusToneClass =
     resolvedPrice.priceKind === "kis_current"
       ? "border-brand/20 bg-blue-50 text-brand dark:border-brand/30 dark:bg-blue-950/20 dark:text-blue-200"
@@ -310,16 +304,15 @@ export function StockDetailClient({
               ) : null}
             </div>
             <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
-              <button
-                type="button"
+              <a
+                href={addToPortfolioHref}
                 data-testid="quick-add-holding"
                 aria-label="내 보유종목에 추가"
-                onClick={handleQuickAddToPortfolio}
                 className="relative z-10 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
                 style={{ pointerEvents: "auto" }}
               >
                 내 보유종목에 추가
-              </button>
+              </a>
               <WatchlistButton symbol={stock.symbol} />
             </div>
           </div>
