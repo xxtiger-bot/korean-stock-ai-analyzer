@@ -1054,11 +1054,13 @@ export async function getStocksWithPreferredQuote(inputStocks: Stock[]): Promise
     }
   }
 
-  const quotedMap = new Map<string, Stock>();
-  for (const [symbol, stock] of Array.from(stocksBySymbol.entries())) {
-    const quoted = await getStockWithPreferredQuote(stock);
-    quotedMap.set(symbol, quoted);
-  }
+  const quotedEntries = await Promise.all(
+    Array.from(stocksBySymbol.entries()).map(async ([symbol, stock]) => {
+      const quoted = await getStockWithPreferredQuote(stock);
+      return [symbol, quoted] as const;
+    })
+  );
+  const quotedMap = new Map<string, Stock>(quotedEntries);
 
   return safeStocks.map((stock) => quotedMap.get(stock.symbol) ?? withFallbackQuoteSource(stock));
 }

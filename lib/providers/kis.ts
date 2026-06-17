@@ -2067,7 +2067,6 @@ async function getKisAccessTokenWithMeta(): Promise<{
           if (persistentClient) {
             await upsertPersistentKisTokenCache({
               id: KIS_PERSISTENT_CACHE_ROW_ID,
-              access_token: null,
               last_token_request_at: kisTokenCache.lastRequestAtIso,
               last_token_request_status: diagnostic.status,
               last_token_error_type: diagnostic.errorType,
@@ -2133,7 +2132,6 @@ async function getKisAccessTokenWithMeta(): Promise<{
         if (persistentClient && error instanceof KisTokenRequestError) {
           await upsertPersistentKisTokenCache({
             id: KIS_PERSISTENT_CACHE_ROW_ID,
-            access_token: null,
             last_token_request_at: kisTokenCache.lastRequestAtIso,
             last_token_request_status: error.diagnostic.status,
             last_token_error_type: error.diagnostic.errorType,

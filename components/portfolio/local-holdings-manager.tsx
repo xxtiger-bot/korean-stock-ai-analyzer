@@ -68,7 +68,9 @@ export function LocalHoldingsManager({
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [quotedStocksBySymbol, setQuotedStocksBySymbol] = useState<Record<string, HoldingQuoteState>>({});
   const [appliedPrefillKey, setAppliedPrefillKey] = useState("");
+  const [pendingPrefillFocusKey, setPendingPrefillFocusKey] = useState("");
   const quantityInputRef = useRef<HTMLInputElement | null>(null);
+  const averageBuyPriceInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setHoldings(readLocalHoldings());
@@ -170,13 +172,7 @@ export function LocalHoldingsManager({
         current.stockName
     }));
     setAppliedPrefillKey(prefillKey);
-
-    const focusHandle = window.setTimeout(() => {
-      quantityInputRef.current?.focus();
-      quantityInputRef.current?.select();
-    }, 0);
-
-    return () => window.clearTimeout(focusHandle);
+    setPendingPrefillFocusKey(prefillKey);
   }, [
     appliedPrefillKey,
     normalizedInitialStockName,
@@ -184,6 +180,66 @@ export function LocalHoldingsManager({
     prefillKey,
     safeStocks
   ]);
+
+  useEffect(() => {
+    if (!pendingPrefillFocusKey || pendingPrefillFocusKey !== appliedPrefillKey) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutHandle: number | null = null;
+    let fallbackHandle: number | null = null;
+    let rafHandleOne: number | null = null;
+    let rafHandleTwo: number | null = null;
+
+    const tryFocus = () => {
+      if (cancelled) {
+        return false;
+      }
+
+      const target = quantityInputRef.current ?? averageBuyPriceInputRef.current;
+      if (!target) {
+        return false;
+      }
+
+      target.focus();
+      target.select?.();
+      setPendingPrefillFocusKey("");
+      return true;
+    };
+
+    timeoutHandle = window.setTimeout(() => {
+      if (tryFocus()) {
+        return;
+      }
+
+      rafHandleOne = window.requestAnimationFrame(() => {
+        rafHandleTwo = window.requestAnimationFrame(() => {
+          if (!tryFocus()) {
+            fallbackHandle = window.setTimeout(() => {
+              tryFocus();
+            }, 0);
+          }
+        });
+      });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      if (timeoutHandle !== null) {
+        window.clearTimeout(timeoutHandle);
+      }
+      if (fallbackHandle !== null) {
+        window.clearTimeout(fallbackHandle);
+      }
+      if (rafHandleOne !== null) {
+        window.cancelAnimationFrame(rafHandleOne);
+      }
+      if (rafHandleTwo !== null) {
+        window.cancelAnimationFrame(rafHandleTwo);
+      }
+    };
+  }, [appliedPrefillKey, pendingPrefillFocusKey]);
 
   const localSummary = useMemo(() => {
     return holdings.map((holding) => {
@@ -373,6 +429,7 @@ export function LocalHoldingsManager({
           <label className="grid gap-2 text-sm font-bold text-ink dark:text-white">
             보유 수량
             <input
+              name="quantity"
               ref={quantityInputRef}
               type="number"
               min="1"
@@ -388,6 +445,8 @@ export function LocalHoldingsManager({
           <label className="grid gap-2 text-sm font-bold text-ink dark:text-white">
             매입 평균가
             <input
+              ref={averageBuyPriceInputRef}
+              name="averageBuyPrice"
               type="number"
               min="1"
               step="1"

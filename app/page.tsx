@@ -44,8 +44,8 @@ const cardSubtleClass =
 
 const HOME_CRITICAL_TIMEOUT_MS = 3500;
 const HOME_SECTION_TIMEOUT_MS = 1000;
-const HOME_QUOTE_TIMEOUT_MS = 1200;
-const HOME_PRIORITY_QUOTE_TIMEOUT_MS = 4500;
+const HOME_QUOTE_TIMEOUT_MS = 2500;
+const HOME_PRIORITY_SINGLE_QUOTE_TIMEOUT_MS = 5000;
 const HOME_PRIORITY_SYMBOLS = ["005930", "000660", "035420"] as const;
 
 function withSoftTimeout<T>(promiseLike: Promise<T> | T, fallback: T, timeoutMs: number): Promise<T> {
@@ -86,10 +86,10 @@ export default async function Home() {
     return fromAllStocks ?? fromPopularStocks ?? null;
   }).filter((stock): stock is Stock => Boolean(stock?.symbol));
 
-  const quotedPriorityCandidates = await withSoftTimeout(
-    Promise.all(priorityQuoteCandidates.map((stock) => getStockWithPreferredQuote(stock))),
-    priorityQuoteCandidates,
-    HOME_PRIORITY_QUOTE_TIMEOUT_MS
+  const quotedPriorityCandidates = await Promise.all(
+    priorityQuoteCandidates.map((stock) =>
+      withSoftTimeout(getStockWithPreferredQuote(stock), stock, HOME_PRIORITY_SINGLE_QUOTE_TIMEOUT_MS)
+    )
   );
   const quotedPriorityBySymbol = new Map(
     quotedPriorityCandidates.map((stock) => [stock.symbol, stock])
