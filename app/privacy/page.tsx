@@ -2,83 +2,95 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "개인정보 처리방침 | KRX Insight",
-  description: "KRX Insight 개인정보 처리방침",
+  description: "KRX Insight 개인정보 처리방침"
 };
+
+function SectionCard({
+  title,
+  children
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+      <h2 className="text-lg font-bold text-ink dark:text-white sm:text-xl">{title}</h2>
+      <div className="mt-3 text-sm font-semibold leading-7 text-slate-600 dark:text-slate-300 sm:text-base">
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink dark:text-white">
-          개인정보 처리방침
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          KRX Insight는 사용자의 개인정보를 소중하게 생각하며, 서비스 제공에 필요한 범위에서만
-          정보를 수집하고 이용합니다.
-        </p>
-      </section>
+    <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="space-y-5 sm:space-y-6">
+        <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-normal text-brand">Privacy Policy</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-normal text-ink dark:text-white sm:text-4xl">
+            개인정보 처리방침
+          </h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
+            KRX Insight는 베타 서비스 운영에 필요한 범위에서만 데이터를 다루며, 사용자가
+            어떤 기능을 쓰는지에 따라 저장 방식이 달라질 수 있습니다.
+          </p>
+        </section>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h2 className="text-xl font-semibold text-ink dark:text-white">수집하는 정보</h2>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-700 dark:text-slate-200">
-          <li>이메일 주소 및 로그인 정보</li>
-          <li>관심종목 데이터</li>
-          <li>보유종목 데이터</li>
-          <li>AI 리포트 저장 정보</li>
-          <li>피드백 제출 내용</li>
-          <li>추천/초대 코드 관련 정보</li>
-        </ul>
-      </section>
+        <SectionCard title="1. 어떤 데이터를 다루나요?">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>로그인 시 이메일 주소, 계정 식별 정보</li>
+            <li>관심종목, 보유종목, 저장된 리포트 등 사용자가 직접 만든 데이터</li>
+            <li>베타 피드백에 입력한 의견과 선택한 이메일 주소</li>
+            <li>기기 내 localStorage에 저장되는 로컬 보유종목 데이터</li>
+          </ul>
+        </SectionCard>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h2 className="text-xl font-semibold text-ink dark:text-white">정보 사용 목적</h2>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-700 dark:text-slate-200">
-          <li>계정 로그인 및 사용자 식별</li>
-          <li>관심종목 / 보유종목 동기화</li>
-          <li>AI 리포트 저장 및 조회</li>
-          <li>서비스 품질 개선</li>
-          <li>피드백 응답 및 문의 처리</li>
-        </ul>
-      </section>
+        <SectionCard title="2. 피드백 이메일은 어떻게 사용하나요?">
+          <p>
+            사용자가 이메일을 남기는 경우, 베타 피드백 확인이나 후속 답변이 필요할 때만 참고합니다.
+            마케팅 메일 발송이나 제3자 판매 목적으로 사용하지 않습니다.
+          </p>
+        </SectionCard>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h2 className="text-xl font-semibold text-ink dark:text-white">데이터 저장 및 제3자 제공</h2>
-        <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
-          사용자 데이터는 서비스 운영을 위해 Supabase 기반 인프라에 저장될 수 있습니다. KRX Insight는
-          개인정보를 판매하지 않으며, 인증·데이터 저장 등 서비스 제공에 필요한 범위에서만 인프라
-          제공자를 사용할 수 있습니다.
-        </p>
-      </section>
+        <SectionCard title="3. 로컬 보유종목 데이터는 어떻게 저장되나요?">
+          <p>
+            로그인하지 않은 상태에서 입력한 보유종목은 기본적으로 현재 브라우저의
+            localStorage에만 저장됩니다. 이 데이터는 사용자가 브라우저 데이터를 삭제하거나 다른
+            기기에서 접속하면 자동으로 동기화되지 않을 수 있습니다.
+          </p>
+        </SectionCard>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h2 className="text-xl font-semibold text-ink dark:text-white">사용자 권리</h2>
-        <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
-          사용자는 언제든지 데이터 삭제 요청 및 계정 삭제 요청을 할 수 있습니다. 요청이 접수되면 관련
-          법령과 내부 정책에 따라 처리됩니다.
-        </p>
-      </section>
+        <SectionCard title="4. 어떤 제3자 서비스를 사용하나요?">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Supabase: 로그인, 사용자 데이터 저장, 향후 동기화 기능</li>
+            <li>Vercel: 웹 서비스 호스팅과 배포</li>
+            <li>KIS: 현재가 및 시세 확인</li>
+            <li>data.go.kr: 최근 종가 및 일부 시장 데이터 참고</li>
+            <li>Naver News 검색 외부 링크: 샘플 뉴스에서 관련 기사 검색 결과 이동</li>
+          </ul>
+        </SectionCard>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h2 className="text-xl font-semibold text-ink dark:text-white">투자 정보 관련 고지</h2>
-        <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
-          KRX Insight의 분석과 브리핑은 투자 판단을 돕기 위한 참고 정보이며, 특정 종목의 매수·매도·보유를
-          지시하거나 수익을 보장하지 않습니다. 최종 투자 판단은 사용자 본인의 책임입니다.
-        </p>
-      </section>
+        <SectionCard title="5. 사용자 데이터를 판매하나요?">
+          <p>
+            KRX Insight는 사용자 개인정보와 사용 데이터를 판매하지 않습니다. 서비스 제공과 안정성
+            유지에 필요한 범위 안에서만 처리합니다.
+          </p>
+        </SectionCard>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-dark-line dark:bg-dark-panel">
-        <h2 className="text-xl font-semibold text-ink dark:text-white">문의처</h2>
-        <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
-          개인정보 및 서비스 관련 문의:
-          <br />
-          <a
-            href="mailto:fengyuanxin67@gmail.com"
-            className="font-medium text-brand hover:underline"
-          >
-            fengyuanxin67@gmail.com
-          </a>
-        </p>
-      </section>
+        <SectionCard title="6. 문의 및 삭제 요청">
+          <p>
+            개인정보 관련 문의, 데이터 삭제 요청, 베타 서비스 문의는 아래 연락처로 남겨주세요.
+          </p>
+          <p className="mt-2 font-bold text-ink dark:text-white">
+            연락처: support@krxinsight.app (placeholder)
+          </p>
+        </SectionCard>
+
+        <SectionCard title="7. 마지막 업데이트">
+          <p>2026-06-18</p>
+        </SectionCard>
+      </div>
     </main>
   );
 }

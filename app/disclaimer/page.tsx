@@ -39,8 +39,8 @@ export default function DisclaimerPage() {
         </section>
 
         <SectionCard title="1. AI 분석의 성격">
-          KRX Insight의 AI 분석은 투자 판단을 돕기 위한 참고 정보이며, 특정 종목의
-          매수·매도·보유를 지시하거나 보장하지 않습니다.
+          KRX Insight의 AI 분석은 투자 판단을 돕기 위한 참고 정보이며, 투자 조언이 아닙니다.
+          특정 종목의 매수·매도·보유를 지시하거나 보장하지 않습니다.
         </SectionCard>
 
         <SectionCard title="2. 수익 보장 없음">
@@ -50,7 +50,8 @@ export default function DisclaimerPage() {
 
         <SectionCard title="3. 데이터 지연 및 오류 가능성">
           가격, 지수, 종가, 리스크 상태 등 일부 데이터는 지연되거나 일시적으로 제공되지 않을
-          수 있습니다. 데이터 상태는 각 종목 페이지의 데이터 기준 표시를 통해 확인할 수 있습니다.
+          수 있습니다. 가격 및 데이터는 지연되거나 일시적으로 확인되지 않을 수 있으며, 데이터
+          상태는 각 종목 페이지의 데이터 기준 표시를 통해 확인할 수 있습니다.
         </SectionCard>
 
         <SectionCard title="4. 현재가 / 최근 종가 구분">
@@ -63,12 +64,17 @@ export default function DisclaimerPage() {
           있습니다.
         </SectionCard>
 
-        <SectionCard title="6. 베타 서비스 고지">
+        <SectionCard title="6. 뉴스 영향 요약의 성격">
+          뉴스 영향 요약과 관련 종목 정리는 참고용이며, 특정 뉴스가 반드시 주가 상승이나 하락으로
+          이어진다는 의미가 아닙니다.
+        </SectionCard>
+
+        <SectionCard title="7. 베타 서비스 고지">
           현재 KRX Insight는 베타 테스트 단계이며, 기능과 데이터 표시 방식은 변경될 수
           있습니다.
         </SectionCard>
 
-        <SectionCard title="7. 최종 문구">
+        <SectionCard title="8. 최종 문구">
           최종 투자 판단은 반드시 사용자 본인이 독립적으로 결정해야 합니다.
         </SectionCard>
 
