@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/components/auth-provider";
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { ProUpgradePrompt } from "@/components/subscription/pro-upgrade-prompt";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui-states";
@@ -175,6 +176,7 @@ export function AiReportCard({
   stock: Stock;
   resolvedPrice?: ResolvedStockDisplayPrice | null;
 }) {
+  const { isAdmin } = useAuth();
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -321,14 +323,20 @@ export function AiReportCard({
           {priceKind === "unavailable" ? (
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">{analysisNotice}</p>
           ) : null}
-          <div className="mt-3">
-            <ProUpgradePrompt
-              compact
-              featureName="Pro"
-              title="전체 매매 근거"
-              description="AI의 전체 매매 근거는 Pro에서 확인할 수 있습니다."
-            />
-          </div>
+          {isAdmin ? (
+            <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+              관리자 계정으로 Pro 기능 테스트 중입니다.
+            </div>
+          ) : (
+            <div className="mt-3">
+              <ProUpgradePrompt
+                compact
+                featureName="Pro"
+                title="전체 매매 근거"
+                description="AI의 전체 매매 근거는 Pro에서 확인할 수 있습니다."
+              />
+            </div>
+          )}
         </div>
         <button
           type="button"

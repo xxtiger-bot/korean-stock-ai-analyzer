@@ -662,7 +662,7 @@ export function TodayInvestmentChecklist({
   variant?: ChecklistVariant;
   sectionId?: string;
 }) {
-  const { user, isSupabaseReady } = useAuth();
+  const { user, isSupabaseReady, isAdmin } = useAuth();
   const { entries } = usePortfolio();
   const { symbols: watchlistSymbols } = useWatchlist();
   const [diagnoses, setDiagnoses] = useState<PortfolioDiagnosis[]>([]);
@@ -684,6 +684,11 @@ export function TodayInvestmentChecklist({
   );
 
   useEffect(() => {
+    if (isAdmin) {
+      setPlan("business");
+      return;
+    }
+
     if (!user?.id || !isSupabaseReady || !supabase) {
       setPlan("free");
       return;
@@ -715,7 +720,7 @@ export function TodayInvestmentChecklist({
     return () => {
       cancelled = true;
     };
-  }, [isSupabaseReady, user?.id]);
+  }, [isAdmin, isSupabaseReady, user?.id]);
 
   useEffect(() => {
     setDiagnoses(parseStoredDiagnoses());

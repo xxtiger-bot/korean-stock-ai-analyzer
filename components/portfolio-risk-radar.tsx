@@ -7,6 +7,7 @@ import { ShareCard } from "@/components/share/share-card";
 import { ProUpgradePrompt } from "@/components/subscription/pro-upgrade-prompt";
 import { EmptyState, LoadingState } from "@/components/ui-states";
 import { useWatchlist } from "@/components/watchlist-provider";
+import { isPaidPlan } from "@/lib/plan";
 import {
   getWatchlistPriority as getLocalWatchlistPriority,
   type RiskLevel
@@ -42,7 +43,7 @@ function getRadarStatus(riskLevel?: string | null) {
 }
 
 export function PortfolioRiskRadar({ stocks }: { stocks: Stock[] }) {
-  const { symbols } = useWatchlist();
+  const { symbols, plan } = useWatchlist();
   const [isLoading, setIsLoading] = useState(false);
   const [remotePriorities, setRemotePriorities] = useState<WatchlistPriorityItem[]>([]);
   const safeStocks = useMemo(() => (Array.isArray(stocks) ? stocks : []), [stocks]);
@@ -77,6 +78,7 @@ export function PortfolioRiskRadar({ stocks }: { stocks: Stock[] }) {
       }).format(new Date()),
     []
   );
+  const showProPrompt = !isPaidPlan(plan);
 
   useEffect(() => {
     if (symbols.length === 0) {
@@ -236,13 +238,15 @@ export function PortfolioRiskRadar({ stocks }: { stocks: Stock[] }) {
               </div>
             </div>
 
-            <ProUpgradePrompt
-              featureName="Risk History"
-              title="리스크 기록"
-              description={
-                "최근 3일 리스크 변화는 Free에서 확인할 수 있습니다.\n90일 리스크 추적은 Pro에서 제공됩니다."
-              }
-            />
+            {showProPrompt ? (
+              <ProUpgradePrompt
+                featureName="Risk History"
+                title="리스크 기록"
+                description={
+                  "최근 3일 리스크 변화는 Free에서 확인할 수 있습니다.\n90일 리스크 추적은 Pro에서 제공됩니다."
+                }
+              />
+            ) : null}
 
             <ShareCard
               title="관심/보유 종목 리스크 레이더"

@@ -110,6 +110,7 @@ function getUserDisplayLabel(
 export function SiteHeader() {
   const {
     user,
+    isAdmin,
     isSupabaseReady,
     isLoading,
     supabaseUrl,
@@ -550,6 +551,11 @@ export function SiteHeader() {
               </Link>
               <div className="hidden max-w-[260px] items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-dark-line dark:bg-dark-panel dark:text-slate-300 md:inline-flex">
                 <span className="truncate">{userDisplayLabel}</span>
+                {isAdmin ? (
+                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                    Owner
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleSignOut}

@@ -333,7 +333,7 @@ function buildRecentRiskChanges(rows: RiskSnapshotRow[]) {
 
 export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   const router = useRouter();
-  const { user, isLoading, signOut } = useAuth();
+  const { user, isLoading, signOut, isAdmin } = useAuth();
   const { cloudSyncStatus, isCloudSyncing, cloudSyncNotice } = usePortfolio();
 
   const [plan, setPlan] = useState<UserPlan>("free");
@@ -507,10 +507,12 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
           rows.length > 0
             ? (rows[0] as { plan?: unknown; pro_expires_at?: unknown; referral_code?: unknown })
             : null;
-        const resolvedPlan = resolvePlanFromProfile(firstRow);
+        const resolvedPlan = isAdmin
+          ? resolvePlanFromProfile({ plan: "business", pro_expires_at: null })
+          : resolvePlanFromProfile(firstRow);
         return {
           ...resolvedPlan,
-          statusLabel: toPlanStatusLabel(resolvedPlan),
+          statusLabel: isAdmin ? "Owner" : toPlanStatusLabel(resolvedPlan),
           referralCode: safeText(firstRow?.referral_code)
         };
       })();
@@ -696,7 +698,7 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
   const safeRecentRiskChanges = Array.isArray(recentRiskChanges) ? recentRiskChanges : [];
   const safeSignals = Array.isArray(signals) ? signals : [];
   const safeCloudNotice = safeText(cloudSyncNotice);
-  const isFreePlan = !isPaidPlan(plan);
+  const isFreePlan = !isAdmin && !isPaidPlan(plan);
   const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;
   const holdingsLimit = isFreePlan ? FREE_LIMITS.holdings : null;
   const reportLimit = isFreePlan ? FREE_LIMITS.dailyReportSave : null;
@@ -809,6 +811,7 @@ export function MyPagePageClient({ signals }: { signals: MarketSignal[] }) {
               <dt className="text-[11px] font-bold text-slate-500 dark:text-slate-400">현재 플랜</dt>
               <dd className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 {planStatusLabel}
+                {isAdmin ? " · Admin" : ""}
               </dd>
             </div>
             <div className="rounded-md border border-line bg-slate-50 px-3 py-2 dark:border-dark-line dark:bg-slate-900/60">

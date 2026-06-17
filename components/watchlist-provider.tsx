@@ -98,7 +98,7 @@ function parseStoredWatchlist() {
 }
 
 export function WatchlistProvider({ children }: { children: React.ReactNode }) {
-  const { user, isSupabaseReady } = useAuth();
+  const { user, isSupabaseReady, isAdmin } = useAuth();
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [plan, setPlan] = useState<UserPlan>("free");
   const [planStatusLabel, setPlanStatusLabel] = useState("Free");
@@ -140,6 +140,12 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   }, [isReady, items, user?.id]);
 
   useEffect(() => {
+    if (isAdmin) {
+      setPlan("business");
+      setPlanStatusLabel("Owner");
+      return;
+    }
+
     if (!user?.id || !isSupabaseReady || !isSupabaseConfigured || !supabase) {
       setPlan("free");
       setPlanStatusLabel("Free");
@@ -178,7 +184,7 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isSupabaseReady, user?.id]);
+  }, [isAdmin, isSupabaseReady, user?.id]);
 
   const isFreePlan = !isPaidPlan(plan);
   const watchlistLimit = isFreePlan ? FREE_LIMITS.watchlist : null;

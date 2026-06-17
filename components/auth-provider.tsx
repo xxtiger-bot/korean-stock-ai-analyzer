@@ -19,6 +19,7 @@ import {
   supabaseUrlValidationStatus,
   supabaseUrlError
 } from "@/lib/supabase";
+import { isAdminEmail } from "@/lib/admin";
 import { REFERRAL_CODE_STORAGE_KEY } from "@/lib/storage-keys";
 
 type AuthActionResult = {
@@ -31,6 +32,7 @@ type OAuthProvider = "google" | "kakao";
 
 type AuthContextValue = {
   user: User | null;
+  isAdmin: boolean;
   session: Session | null;
   isLoading: boolean;
   isSupabaseReady: boolean;
@@ -165,6 +167,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  const isAdmin = Boolean(user?.email && isAdminEmail(user.email));
 
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) {
@@ -647,6 +651,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      isAdmin,
       session,
       isLoading,
       isSupabaseReady: isSupabaseConfigured,
@@ -660,6 +665,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut
     }),
     [
+      isAdmin,
       isLoading,
       refreshSession,
       sendEmailOtpCode,

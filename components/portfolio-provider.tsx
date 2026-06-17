@@ -195,7 +195,7 @@ function dedupeEntries(entries: PortfolioPositionInput[]) {
 }
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [entries, setEntries] = useState<PortfolioPositionInput[]>([]);
   const [plan, setPlan] = useState<UserPlan>("free");
   const [planStatusLabel, setPlanStatusLabel] = useState("Free");
@@ -212,6 +212,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const holdingLimit = isFreePlan ? FREE_LIMITS.holdings : null;
 
   useEffect(() => {
+    if (isAdmin) {
+      setPlan("business");
+      setPlanStatusLabel("Owner");
+      return;
+    }
+
     if (!user?.id || !isSupabaseConfigured || !supabase) {
       setPlan("free");
       setPlanStatusLabel("Free");
@@ -250,7 +256,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [isAdmin, user?.id]);
 
   const activeEntries = useMemo(
     () => (isCloudSyncEnabled ? entries : localEntries),

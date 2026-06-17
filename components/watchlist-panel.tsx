@@ -10,6 +10,7 @@ import { WatchlistDangerWarnings } from "@/components/watchlist-danger-warnings"
 import { WatchlistPriority } from "@/components/watchlist-priority";
 import { useWatchlist } from "@/components/watchlist-provider";
 import { changeColorClass, formatKRW, formatPercent } from "@/lib/format";
+import { isPaidPlan } from "@/lib/plan";
 import {
   resolveStockDisplayPrice
 } from "@/lib/market/price-resolver";
@@ -36,6 +37,7 @@ export function WatchlistPanel({
 }) {
   const {
     symbols,
+    plan,
     planStatusLabel,
     watchlistLimit,
     isWatchlistLimitReached,
@@ -127,6 +129,7 @@ export function WatchlistPanel({
   const rootId = sectionIds?.root;
   const portfolioId = sectionIds?.portfolio;
   const alertsId = sectionIds?.alerts;
+  const showProPrompt = !isPaidPlan(plan);
 
   return (
     <aside
@@ -184,7 +187,7 @@ export function WatchlistPanel({
         <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{syncNotice}</p>
       ) : null}
       <div className="mt-4 space-y-2">
-        {symbols.length >= 5 ? (
+        {showProPrompt && symbols.length >= 5 ? (
           <ProUpgradePrompt
             compact
             featureName="Watchlist"
@@ -267,7 +270,7 @@ export function WatchlistPanel({
         <PortfolioRiskSummary />
       </div>
       <WatchlistPriority stocks={safeStocks} />
-      {selected.length > 0 ? (
+      {showProPrompt && selected.length > 0 ? (
         <div className="mt-3">
           <ProUpgradePrompt
             compact
