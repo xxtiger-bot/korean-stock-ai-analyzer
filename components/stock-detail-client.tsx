@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Activity, ArrowLeft, BarChart3, Gauge, Wallet } from "lucide-react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { AiReportCard } from "@/components/ai-report-card";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { DangerWarningCard } from "@/components/danger-warning-card";
@@ -42,6 +43,7 @@ export function StockDetailClient({
   realtimeQuote?: RealtimeQuote | null;
   resolvedPrice?: ResolvedStockDisplayPrice;
 }) {
+  const router = useRouter();
   const safeCandles = useMemo(() => (Array.isArray(candles) ? candles : []), [candles]);
   const technicalSeries = useMemo(() => buildTechnicalSeries(safeCandles), [safeCandles]);
   const latest = technicalSeries[technicalSeries.length - 1];
@@ -219,6 +221,9 @@ export function StockDetailClient({
     add: stock.symbol,
     name: stock.koreanName
   }).toString()}`;
+  const handleQuickAddToPortfolio = useCallback(() => {
+    router.push(addToPortfolioHref);
+  }, [addToPortfolioHref, router]);
   const statusToneClass =
     resolvedPrice.priceKind === "kis_current"
       ? "border-brand/20 bg-blue-50 text-brand dark:border-brand/30 dark:bg-blue-950/20 dark:text-blue-200"
@@ -305,12 +310,16 @@ export function StockDetailClient({
               ) : null}
             </div>
             <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
-              <Link
-                href={addToPortfolioHref}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+              <button
+                type="button"
+                data-testid="quick-add-holding"
+                aria-label="내 보유종목에 추가"
+                onClick={handleQuickAddToPortfolio}
+                className="relative z-10 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-bold text-slate-600 hover:border-brand hover:text-brand dark:border-dark-line dark:bg-dark-panel dark:text-slate-300"
+                style={{ pointerEvents: "auto" }}
               >
                 내 보유종목에 추가
-              </Link>
+              </button>
               <WatchlistButton symbol={stock.symbol} />
             </div>
           </div>
