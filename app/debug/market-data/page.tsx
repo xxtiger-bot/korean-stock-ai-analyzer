@@ -80,6 +80,41 @@ function stringifyRaw(value: unknown) {
   }
 }
 
+function getUsedFallbackReason(params: {
+  kis: Awaited<ReturnType<typeof diagnoseKisCurrentQuote>>;
+  resolvedPrice: ReturnType<typeof resolveStockDisplayPrice>;
+  recentClose: Awaited<ReturnType<typeof getRecentCloseDiagnostic>>;
+}) {
+  const { kis, resolvedPrice, recentClose } = params;
+
+  if (resolvedPrice.priceKind === "kis_current") {
+    return "KIS 현재가가 정상적으로 사용되었습니다.";
+  }
+
+  if (resolvedPrice.priceKind === "external_reference") {
+    return "KIS 현재가를 사용할 수 없어 외부 참고 현재가를 사용했습니다.";
+  }
+
+  if (resolvedPrice.priceKind === "recent_close") {
+    if (kis.tokenStatus !== "success") {
+      return `KIS token 단계가 ${kis.tokenStatus} 상태여서 data.go.kr 최근 종가로 fallback 되었습니다.`;
+    }
+
+    if (kis.quoteStatus !== "success") {
+      const quoteReason = kis.errorMessage || kis.noDataReason || "quote unavailable";
+      return `KIS quote 단계가 ${kis.quoteStatus} 상태여서 data.go.kr 최근 종가로 fallback 되었습니다. (${quoteReason})`;
+    }
+
+    return "KIS 현재가가 확인되지 않아 data.go.kr 최근 종가가 사용되었습니다.";
+  }
+
+  if (recentClose.status !== "success") {
+    return "KIS 현재가와 data.go.kr 최근 종가를 모두 확인하지 못해 가격 데이터를 표시하지 않았습니다.";
+  }
+
+  return "가격 판단 사유를 확인 중입니다.";
+}
+
 async function getRecentCloseDiagnostic(symbol: string) {
   try {
     const detail = await getStockDetailFromDataGoKr(symbol);
@@ -179,7 +214,8 @@ export default async function MarketDataDebugPage() {
         kis,
         external,
         recentClose,
-        resolvedPrice
+        resolvedPrice,
+        usedFallbackReason: getUsedFallbackReason({ kis, resolvedPrice, recentClose })
       };
     })
   );
@@ -329,7 +365,7 @@ export default async function MarketDataDebugPage() {
       </section>
 
       <section className="mt-4 grid gap-4">
-        {stocks.map(({ symbol, stockName, kis, external, recentClose, resolvedPrice }) => (
+        {stocks.map(({ symbol, stockName, kis, external, recentClose, resolvedPrice, usedFallbackReason }) => (
           <article
             key={symbol}
             className="rounded-lg border border-line bg-white p-5 shadow-soft dark:border-dark-line dark:bg-dark-panel"
@@ -485,6 +521,10 @@ export default async function MarketDataDebugPage() {
                     <dd className="text-right break-words">{safeText(kis.tokenErrorMessage ?? kis.errorMessage)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
+                    <dt>quote error</dt>
+                    <dd className="text-right break-words">{safeText(kis.errorMessage)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
                     <dt>cooldown issue</dt>
                     <dd>{booleanLabel(kis.quoteLikelyCooldownIssue || kis.tokenLikelyCooldownIssue)}</dd>
                   </div>
@@ -628,6 +668,10 @@ export default async function MarketDataDebugPage() {
                   <div className="flex justify-between gap-3">
                     <dt>reason</dt>
                     <dd className="text-right break-words">{resolvedPrice.reason}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>usedFallbackReason</dt>
+                    <dd className="text-right break-words">{usedFallbackReason}</dd>
                   </div>
                 </dl>
               </section>

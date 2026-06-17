@@ -1,6 +1,6 @@
 import { LocalHoldingsManager } from "@/components/portfolio/local-holdings-manager";
 import { PortfolioRiskRadar } from "@/components/portfolio-risk-radar";
-import { searchStocks } from "@/lib/stock-provider";
+import { getStocksWithPreferredQuote, searchStocks } from "@/lib/stock-provider";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,7 +18,9 @@ function firstParam(value: string | string[] | undefined) {
 
 export default async function PortfolioPage({ searchParams }: PortfolioPageProps) {
   const allStocks = await searchStocks("");
-  const safeStocks = Array.isArray(allStocks) ? allStocks : [];
+  const rawStocks = Array.isArray(allStocks) ? allStocks : [];
+  const safeStocks =
+    rawStocks.length > 0 ? await getStocksWithPreferredQuote(rawStocks) : [];
   const initialSymbol = firstParam(searchParams?.add)?.trim().toUpperCase() ?? "";
   const initialStockName = firstParam(searchParams?.name)?.trim() ?? "";
 

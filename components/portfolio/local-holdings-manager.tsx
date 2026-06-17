@@ -54,6 +54,45 @@ function hasUsableReferencePrice(stock: Stock | null | undefined) {
   return Number.isFinite(stock.price) && stock.price > 0;
 }
 
+function getHoldingReferenceMeta(stock: Stock | null | undefined) {
+  if (!stock || !hasUsableReferencePrice(stock)) {
+    return {
+      kind: "unavailable" as const,
+      cardTitle: "현재 참고가",
+      referenceLabel: "가격 데이터 대기 중",
+      referenceDescription: "잠시 후 다시 확인됩니다.",
+      profitLossLabel: "평가 손익",
+      returnRateLabel: "수익률"
+    };
+  }
+
+  if (stock.quoteSource === "KIS") {
+    return {
+      kind: "kis_current" as const,
+      cardTitle: "현재 참고가",
+      referenceLabel: "KIS 기준",
+      referenceDescription: stock.date
+        ? stock.date.includes("KST")
+          ? `업데이트 ${stock.date}`
+          : `업데이트 ${stock.date} KST`
+        : "현재 참고가",
+      profitLossLabel: "평가 손익",
+      returnRateLabel: "수익률"
+    };
+  }
+
+  return {
+    kind: "recent_close" as const,
+    cardTitle: "최근 종가 기준",
+    referenceLabel: "data.go.kr 기준",
+    referenceDescription: stock.date
+      ? `기준일 ${stock.date} · 실시간 현재가는 잠시 후 다시 확인됩니다.`
+      : "실시간 현재가는 잠시 후 다시 확인됩니다.",
+    profitLossLabel: "참고 손익",
+    returnRateLabel: "참고 수익률"
+  };
+}
+
 export function LocalHoldingsManager({
   stocks,
   initialSymbol = "",
@@ -245,22 +284,11 @@ export function LocalHoldingsManager({
     return holdings.map((holding) => {
       const baseStock = findStock(safeStocks, holding.symbol);
       const quotedStock = quotedStocksBySymbol[holding.symbol]?.stock ?? null;
-      const stock = quotedStock ?? baseStock;
-      const priceAvailable = hasUsableReferencePrice(quotedStock);
-      const referencePrice = priceAvailable && quotedStock ? quotedStock.price : null;
-      const referenceLabel = !referencePrice
-        ? "가격 데이터 대기 중"
-        : quotedStock?.quoteSource === "KIS"
-          ? "KIS 기준"
-          : "최근 종가 기준";
-      const referenceDescription =
-        !referencePrice
-          ? "잠시 후 다시 확인됩니다."
-          : quotedStock?.quoteSource === "KIS"
-            ? quotedStock.date
-              ? `업데이트 ${quotedStock.date}${quotedStock.date.includes("KST") ? "" : " KST"}`
-              : "현재 참고가"
-            : "실시간 현재가는 잠시 후 다시 확인됩니다.";
+      const preferredStock = quotedStock ?? baseStock;
+      const stock = preferredStock;
+      const priceAvailable = hasUsableReferencePrice(preferredStock);
+      const referencePrice = priceAvailable && preferredStock ? preferredStock.price : null;
+      const referenceMeta = getHoldingReferenceMeta(preferredStock);
       const valuationAmount = referencePrice !== null ? referencePrice * holding.quantity : null;
       const profitLoss =
         referencePrice !== null
@@ -275,8 +303,7 @@ export function LocalHoldingsManager({
         holding,
         stock,
         referencePrice,
-        referenceLabel,
-        referenceDescription,
+        referenceMeta,
         valuationAmount,
         profitLoss,
         returnRate
@@ -606,10 +633,9 @@ export function LocalHoldingsManager({
               </div>
             </div>
 
-            {localSummary.map(({ holding, referencePrice, profitLoss, returnRate, stock, referenceLabel, referenceDescription }) => {
+            {localSummary.map(({ holding, referencePrice, profitLoss, returnRate, stock, referenceMeta }) => {
               const priceAvailable = referencePrice !== null;
               const name = holding.stockName || stock?.koreanName || stock?.name || holding.symbol;
-              const profitLossLabel = stock?.quoteSource === "data.go.kr" ? "참고 손익" : "평가 손익";
               return (
                 <div
                   key={holding.id}
@@ -631,19 +657,19 @@ export function LocalHoldingsManager({
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">현재 참고가</p>
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{referenceMeta.cardTitle}</p>
                       <p className="mt-2 text-xl font-bold tracking-tight text-ink dark:text-white">
                         {priceAvailable ? formatKRW(referencePrice) : "데이터 확인 필요"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-slate-400">
-                        {priceAvailable ? referenceLabel : "데이터 확인 필요"}
+                        {priceAvailable ? referenceMeta.referenceLabel : "가격 데이터 대기 중"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-slate-400">
-                        {referenceDescription}
+                        {referenceMeta.referenceDescription}
                       </p>
                     </div>
                     <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{profitLossLabel}</p>
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{referenceMeta.profitLossLabel}</p>
                       <p
                         className={`mt-2 text-xl font-bold tracking-tight ${
                           profitLoss !== null ? changeColorClass(profitLoss) : "text-slate-500 dark:text-slate-400"
@@ -653,7 +679,7 @@ export function LocalHoldingsManager({
                       </p>
                     </div>
                     <div className="rounded-lg border border-line bg-white p-4 dark:border-dark-line dark:bg-dark-panel">
-                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">수익률</p>
+                      <p className="text-xs font-bold uppercase tracking-normal text-slate-400">{referenceMeta.returnRateLabel}</p>
                       <p
                         className={`mt-2 text-xl font-bold tracking-tight ${
                           returnRate !== null ? changeColorClass(returnRate) : "text-slate-500 dark:text-slate-400"
